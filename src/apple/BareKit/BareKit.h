@@ -1,3 +1,8 @@
+#ifndef BARE_KIT_H
+#define BARE_KIT_H
+
+#if defined(__OBJC__)
+
 #import <Foundation/Foundation.h>
 
 @interface BareWorklet : NSObject
@@ -10,3 +15,7 @@
 - (void)resume;
 
 @end
+
+#endif
+
+#endif // BARE_KIT_H
