@@ -128,12 +128,12 @@ bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_
 }
 
 int
-bare_worklet_suspend (bare_worklet_t *worklet) {
+bare_worklet_suspend (bare_worklet_t *worklet, int linger) {
   int err;
 
   uv_mutex_lock(&worklet->lock);
 
-  if (worklet->bare) err = bare_suspend(worklet->bare);
+  if (worklet->bare) err = bare_suspend(worklet->bare, linger);
   else err = -1;
 
   uv_mutex_unlock(&worklet->lock);

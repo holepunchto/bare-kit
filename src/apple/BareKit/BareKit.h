@@ -12,6 +12,7 @@
 
 - (void)start:(NSString *)filename source:(NSData *)source;
 - (void)suspend;
+- (void)suspendWithLinger:(int)linger;
 - (void)resume;
 
 @end

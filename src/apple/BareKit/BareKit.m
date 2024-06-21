@@ -61,7 +61,13 @@
 
 - (void)suspend {
   int err;
-  err = bare_worklet_suspend(&_worklet);
+  err = bare_worklet_suspend(&_worklet, 0);
+  assert(err == 0);
+}
+
+- (void)suspendWithLinger:(int)linger {
+  int err;
+  err = bare_worklet_suspend(&_worklet, linger);
   assert(err == 0);
 }
 

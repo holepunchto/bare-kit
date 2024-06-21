@@ -34,7 +34,7 @@ int
 bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source);
 
 int
-bare_worklet_suspend (bare_worklet_t *worklet);
+bare_worklet_suspend (bare_worklet_t *worklet, int linger);
 
 int
 bare_worklet_resume (bare_worklet_t *worklet);
