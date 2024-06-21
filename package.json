@@ -1,0 +1,24 @@
+{
+  "private": true,
+  "name": "bare-kit",
+  "description": "Bare for native application development",
+  "scripts": {
+    "test": "standard"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/bare-kit.git"
+  },
+  "author": "Holepunch",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/bare-kit/issues"
+  },
+  "homepage": "https://github.com/holepunchto/bare-kit#readme",
+  "dependencies": {
+    "bare-ipc": "file:../bare-ipc"
+  },
+  "devDependencies": {
+    "standard": "^17.0.0"
+  }
+}
