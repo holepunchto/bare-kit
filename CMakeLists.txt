@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.25)
 
 project(bare_kit C)
 
+include(bare)
+
+install_node_modules(LOCKFILE)
+
 if(APPLE)
   enable_language(OBJC)
 endif()
