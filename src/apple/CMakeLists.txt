@@ -47,5 +47,3 @@ target_link_libraries(
   PUBLIC
     bare_kit
 )
-
-link_bare_modules(bare_kit_framework WORKING_DIRECTORY ../..)

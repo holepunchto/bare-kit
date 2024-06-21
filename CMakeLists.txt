@@ -44,6 +44,8 @@ target_include_directories(
     $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
+link_bare_modules(bare_kit)
+
 if(APPLE)
   add_subdirectory(src/apple apple)
 endif()
