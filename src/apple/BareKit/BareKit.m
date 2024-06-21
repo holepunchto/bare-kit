@@ -77,4 +77,10 @@
   assert(err == 0);
 }
 
+- (void)terminate {
+  int err;
+  err = bare_worklet_terminate(&_worklet);
+  assert(err == 0);
+}
+
 @end

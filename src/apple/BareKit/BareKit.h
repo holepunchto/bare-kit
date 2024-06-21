@@ -14,6 +14,7 @@
 - (void)suspend;
 - (void)suspendWithLinger:(int)linger;
 - (void)resume;
+- (void)terminate;
 
 @end
 

@@ -24,6 +24,11 @@ bare_worklet_init (bare_worklet_t *worklet) {
 
 void
 bare_worklet_destroy (bare_worklet_t *worklet) {
+  int err;
+
+  err = uv_thread_join(&worklet->thread);
+  assert(err == 0);
+
   uv_sem_destroy(&worklet->ready);
 
   uv_mutex_destroy(&worklet->lock);
@@ -148,6 +153,19 @@ bare_worklet_resume (bare_worklet_t *worklet) {
   uv_mutex_lock(&worklet->lock);
 
   if (worklet->bare) err = bare_resume(worklet->bare);
+  else err = -1;
+
+  uv_mutex_unlock(&worklet->lock);
+
+  return err;
+}
+int
+bare_worklet_terminate (bare_worklet_t *worklet) {
+  int err;
+
+  uv_mutex_lock(&worklet->lock);
+
+  if (worklet->bare) err = bare_terminate(worklet->bare);
   else err = -1;
 
   uv_mutex_unlock(&worklet->lock);

@@ -39,6 +39,9 @@ bare_worklet_suspend (bare_worklet_t *worklet, int linger);
 int
 bare_worklet_resume (bare_worklet_t *worklet);
 
+int
+bare_worklet_terminate (bare_worklet_t *worklet);
+
 #ifdef __cplusplus
 }
 #endif
