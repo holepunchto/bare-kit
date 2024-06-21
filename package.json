@@ -16,7 +16,7 @@
   },
   "homepage": "https://github.com/holepunchto/bare-kit#readme",
   "dependencies": {
-    "bare-ipc": "file:../bare-ipc"
+    "bare-ipc": "^1.0.0"
   },
   "devDependencies": {
     "standard": "^17.0.0"
