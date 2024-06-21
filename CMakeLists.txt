@@ -21,17 +21,17 @@ add_bare_bundle(
   TARGET c
 )
 
-add_library(bare_kit OBJECT)
+add_library(bare_worklet OBJECT)
 
 set_target_properties(
-  bare_kit
+  bare_worklet
   PROPERTIES
   C_STANDARD 99
   POSITION_INDEPENDENT_CODE ON
 )
 
 target_sources(
-  bare_kit
+  bare_worklet
   PRIVATE
     src/worklet.c
     src/worklet.bundle.h
@@ -39,12 +39,12 @@ target_sources(
 )
 
 target_include_directories(
-  bare_kit
+  bare_worklet
   PUBLIC
     $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
-link_bare_modules(bare_kit)
+link_bare_modules(bare_worklet)
 
 if(APPLE)
   add_subdirectory(src/apple apple)
