@@ -116,6 +116,9 @@ int
 bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source) {
   int err;
 
+  worklet->filename = filename;
+  worklet->source = *source;
+
   err = uv_thread_create(&worklet->thread, bare_worklet__on_thread, (void *) worklet);
   if (err < 0) return err;
 
