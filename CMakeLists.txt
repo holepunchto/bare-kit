@@ -38,10 +38,10 @@ target_sources(
     src/worklet.h
 )
 
-target_include_directories(
+target_link_libraries(
   bare_worklet
   PUBLIC
-    $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
 )
 
 link_bare_modules(bare_worklet)

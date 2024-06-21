@@ -21,12 +21,16 @@ target_sources(
     BareKit/BareKit.m
 )
 
+target_include_directories(
+  bare_kit
+  PUBLIC
+    .
+)
+
 target_link_libraries(
   bare_kit
   INTERFACE
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
-  PUBLIC
     "-framework Foundation"
-  PRIVATE
+  PUBLIC
     bare_worklet
 )
