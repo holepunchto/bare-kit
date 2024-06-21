@@ -7,18 +7,18 @@
 #import "../../worklet.h"
 
 @implementation BareWorklet {
-  NSFileHandle *_incoming;
-  NSFileHandle *_outgoing;
-
-  bare_worklet_t _worklet;
+  bare_worklet_t worklet;
 }
+
+@synthesize incoming;
+@synthesize outgoing;
 
 - (id)init {
   self = [super init];
 
   if (self) {
     int err;
-    err = bare_worklet_init(&_worklet);
+    err = bare_worklet_init(&worklet);
     assert(err == 0);
   }
 
@@ -26,7 +26,7 @@
 }
 
 - (void)dealloc {
-  bare_worklet_destroy(&_worklet);
+  bare_worklet_destroy(&worklet);
 
 #if !__has_feature(objc_arc)
   [super dealloc];
@@ -34,52 +34,44 @@
 }
 
 - (void)start:(NSString *)filename source:(NSData *)source {
-  const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
-
-  uv_buf_t _source = uv_buf_init((char *) source.bytes, source.length);
-
   int err;
-  err = bare_worklet_start(&_worklet, _filename, &_source);
+  err = bare_worklet_start(
+    &worklet,
+    [filename cStringUsingEncoding : NSUTF8StringEncoding],
+    &(uv_buf_t) { (char *) source.bytes, source.length }
+  );
   assert(err == 0);
 
-  _incoming = [[NSFileHandle alloc]
-    initWithFileDescriptor:_worklet.incoming
+  incoming = [[NSFileHandle alloc]
+    initWithFileDescriptor:worklet.incoming
             closeOnDealloc:YES];
 
-  _outgoing = [[NSFileHandle alloc]
-    initWithFileDescriptor:_worklet.outgoing
+  outgoing = [[NSFileHandle alloc]
+    initWithFileDescriptor:worklet.outgoing
             closeOnDealloc:YES];
-}
-
-- (NSFileHandle *)incoming {
-  return _incoming;
-}
-
-- (NSFileHandle *)outgoing {
-  return _outgoing;
 }
 
 - (void)suspend {
   int err;
-  err = bare_worklet_suspend(&_worklet, 0);
+  err = bare_worklet_suspend(&worklet, 0);
   assert(err == 0);
 }
 
 - (void)suspendWithLinger:(int)linger {
   int err;
-  err = bare_worklet_suspend(&_worklet, linger);
+  err = bare_worklet_suspend(&worklet, linger);
   assert(err == 0);
 }
 
 - (void)resume {
   int err;
-  err = bare_worklet_resume(&_worklet);
+  err = bare_worklet_resume(&worklet);
   assert(err == 0);
 }
 
 - (void)terminate {
   int err;
-  err = bare_worklet_terminate(&_worklet);
+  err = bare_worklet_terminate(&worklet);
   assert(err == 0);
 }
 
