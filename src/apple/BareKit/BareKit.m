@@ -33,7 +33,7 @@
 #endif
 }
 
-- (void)start:(NSString *)filename source:(NSData *)source {
+- (void)start:(nonnull NSString *)filename source:(nonnull NSData *)source {
   int err;
   err = bare_worklet_start(
     &worklet,

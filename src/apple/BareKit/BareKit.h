@@ -7,10 +7,10 @@
 
 @interface BareWorklet : NSObject
 
-@property(atomic, strong, readonly) NSFileHandle *incoming;
-@property(atomic, strong, readonly) NSFileHandle *outgoing;
+@property(atomic, strong, readonly, nullable) NSFileHandle *incoming;
+@property(atomic, strong, readonly, nullable) NSFileHandle *outgoing;
 
-- (void)start:(NSString *)filename source:(NSData *)source;
+- (void)start:(nonnull NSString *)filename source:(nonnull NSData *)source;
 - (void)suspend;
 - (void)suspendWithLinger:(int)linger;
 - (void)resume;
