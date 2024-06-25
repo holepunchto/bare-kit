@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <jni.h>
+#include <stdlib.h>
 
 #include "../../../../shared/worklet.h"
 
@@ -7,7 +8,7 @@ JNIEXPORT jobject JNICALL
 Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
   int err;
 
-  bare_worklet_t *worklet;
+  bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 
   jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
 
@@ -52,4 +53,13 @@ Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject
 
   err = bare_worklet_terminate(worklet);
   assert(err == 0);
+}
+
+JNIEXPORT void JNICALL
+Java_to_holepunch_bare_kit_Worklet_close (JNIEnv *env, jobject self, jobject handle) {
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  bare_worklet_destroy(worklet);
+
+  free(worklet);
 }
