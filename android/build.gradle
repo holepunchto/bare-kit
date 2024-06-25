@@ -10,7 +10,7 @@ android {
   ndkVersion '27.0.11718014'
 
   defaultConfig {
-    minSdk 24
+    minSdk 33
     targetSdk 34
 
     externalNativeBuild {

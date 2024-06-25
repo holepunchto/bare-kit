@@ -53,11 +53,6 @@ Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject
 
   err = bare_worklet_terminate(worklet);
   assert(err == 0);
-}
-
-JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_close (JNIEnv *env, jobject self, jobject handle) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   bare_worklet_destroy(worklet);
 

@@ -21,7 +21,6 @@ public class Worklet implements Closeable {
   private native void suspend (ByteBuffer handle, int linger);
   private native void resume (ByteBuffer handle);
   private native void terminate (ByteBuffer handle);
-  private native void close (ByteBuffer handle);
 
   public void start (String filename, ByteBuffer source) {
     start(handle, filename, source);
@@ -45,11 +44,11 @@ public class Worklet implements Closeable {
 
   public void terminate () {
     terminate(handle);
+
+    handle = null;
   }
 
   public void close () {
-    close(handle);
-
-    handle = null;
+    this.terminate();
   }
 }
