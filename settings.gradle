@@ -1,0 +1,16 @@
+pluginManagement {
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+
+dependencyResolutionManagement {
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+
+include ':bare-kit'
+project(':bare-kit').projectDir = file('android')

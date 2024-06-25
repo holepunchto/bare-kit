@@ -1,3 +1,7 @@
+.gradle/
+.cxx/
+.idea/
 build/
+local.properties
 *.bundle.h
 *.d

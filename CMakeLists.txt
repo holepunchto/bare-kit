@@ -14,38 +14,8 @@ if(NOT TARGET bare)
   add_subdirectory(vendor/bare EXCLUDE_FROM_ALL)
 endif()
 
-add_bare_bundle(
-  ENTRY src/worklet.js
-  OUT src/worklet.bundle.h
-  NAME worklet_bundle
-  TARGET c
-)
-
-add_library(bare_worklet OBJECT)
-
-set_target_properties(
-  bare_worklet
-  PROPERTIES
-  C_STANDARD 99
-  POSITION_INDEPENDENT_CODE ON
-)
-
-target_sources(
-  bare_worklet
-  PRIVATE
-    src/worklet.c
-    src/worklet.bundle.h
-    src/worklet.h
-)
-
-target_link_libraries(
-  bare_worklet
-  PUBLIC
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
-)
-
-link_bare_modules(bare_worklet)
+add_subdirectory(shared)
 
 if(APPLE)
-  add_subdirectory(src/apple apple)
+  add_subdirectory(apple)
 endif()

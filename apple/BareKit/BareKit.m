@@ -4,7 +4,7 @@
 
 #import "BareKit.h"
 
-#import "../../worklet.h"
+#import "../../shared/worklet.h"
 
 @implementation BareWorklet {
   bare_worklet_t worklet;
