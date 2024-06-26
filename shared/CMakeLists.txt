@@ -1,8 +1,9 @@
 add_bare_bundle(
-  ENTRY worklet.js
-  OUT worklet.bundle.h
+  ENTRY shared/worklet.js
+  OUT shared/worklet.bundle.h
   NAME worklet_bundle
   TARGET c
+  WORKING_DIRECTORY ..
 )
 
 add_library(bare_worklet OBJECT)
