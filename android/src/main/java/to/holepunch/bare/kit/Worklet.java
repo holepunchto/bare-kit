@@ -1,16 +1,15 @@
 package to.holepunch.bare.kit;
 
 import java.io.Closeable;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 public class Worklet implements Closeable {
-  static {
-    System.loadLibrary("bare_kit");
-  }
-
   private ByteBuffer handle;
+  private FileDescriptor incoming;
+  private FileDescriptor outgoing;
 
   public Worklet() {
     handle = init();
@@ -21,9 +20,14 @@ public class Worklet implements Closeable {
   private native void suspend (ByteBuffer handle, int linger);
   private native void resume (ByteBuffer handle);
   private native void terminate (ByteBuffer handle);
+  private native FileDescriptor incoming (ByteBuffer handle);
+  private native FileDescriptor outgoing (ByteBuffer handle);
 
   public void start (String filename, ByteBuffer source) {
     start(handle, filename, source);
+
+    incoming = incoming(handle);
+    outgoing = outgoing(handle);
   }
 
   public void start (String filename, InputStream source) throws IOException {
@@ -46,6 +50,14 @@ public class Worklet implements Closeable {
     terminate(handle);
 
     handle = null;
+  }
+
+  public FileDescriptor incoming() {
+    return incoming;
+  }
+
+  public FileDescriptor outgoing() {
+    return outgoing;
   }
 
   public void close () {

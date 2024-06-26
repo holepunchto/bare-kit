@@ -2,6 +2,8 @@
 #include <jni.h>
 #include <stdlib.h>
 
+#include <android/file_descriptor_jni.h>
+
 #include "../../../../shared/worklet.h"
 
 JNIEXPORT jobject JNICALL
@@ -19,19 +21,30 @@ Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring filename, jobject source) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  // TODO
-}
-
-JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_suspend (JNIEnv *env, jobject self, jobject handle, jint linger) {
+Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  err = bare_worklet_suspend(worklet, (int) linger);
+  const char *filename = (*env)->GetStringUTFChars(env, jfilename, NULL);
+
+  uv_buf_t source = uv_buf_init((char *) (*env)->GetDirectBufferAddress(env, jsource), (*env)->GetDirectBufferCapacity(env, jsource));
+
+  err = bare_worklet_start(worklet, filename, &source);
+  assert(err == 0);
+
+  (*env)->ReleaseStringUTFChars(env, jfilename, filename);
+}
+
+JNIEXPORT void JNICALL
+Java_to_holepunch_bare_kit_Worklet_suspend (JNIEnv *env, jobject self, jobject handle, jint jlinger) {
+  int err;
+
+  int linger = (int) jlinger;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  err = bare_worklet_suspend(worklet, linger);
   assert(err == 0);
 }
 
@@ -57,4 +70,34 @@ Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject
   bare_worklet_destroy(worklet);
 
   free(worklet);
+}
+
+JNIEXPORT jobject JNICALL
+Java_to_holepunch_bare_kit_Worklet_incoming (JNIEnv *env, jobject self, jobject handle) {
+  int err;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  jobject fd = AFileDescriptor_create(env);
+
+  if ((*env)->ExceptionCheck(env)) return NULL;
+
+  AFileDescriptor_setFd(env, fd, worklet->incoming);
+
+  return fd;
+}
+
+JNIEXPORT jobject JNICALL
+Java_to_holepunch_bare_kit_Worklet_outgoing (JNIEnv *env, jobject self, jobject handle) {
+  int err;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  jobject fd = AFileDescriptor_create(env);
+
+  if ((*env)->ExceptionCheck(env)) return NULL;
+
+  AFileDescriptor_setFd(env, fd, worklet->outgoing);
+
+  return fd;
 }
