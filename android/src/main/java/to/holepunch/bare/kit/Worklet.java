@@ -17,31 +17,46 @@ public class Worklet implements Closeable {
     handle = init();
   }
 
-  private native ByteBuffer init ();
-  private native void start (ByteBuffer handle, String filename, ByteBuffer source, int len);
-  private native void suspend (ByteBuffer handle, int linger);
-  private native void resume (ByteBuffer handle);
-  private native void terminate (ByteBuffer handle);
-  private native FileDescriptor incoming (ByteBuffer handle);
-  private native FileDescriptor outgoing (ByteBuffer handle);
+  private native ByteBuffer
+  init ();
 
-  private void start(String filename, ByteBuffer source, int len) {
+  private native void
+  start (ByteBuffer handle, String filename, ByteBuffer source, int len);
+
+  private native void
+  suspend (ByteBuffer handle, int linger);
+
+  private native void
+  resume (ByteBuffer handle);
+
+  private native void
+  terminate (ByteBuffer handle);
+
+  private native FileDescriptor
+  incoming (ByteBuffer handle);
+
+  private native FileDescriptor
+  outgoing (ByteBuffer handle);
+
+  private void
+  start (String filename, ByteBuffer source, int len) {
     start(handle, filename, source, len);
 
     incoming = incoming(handle);
     outgoing = outgoing(handle);
   }
 
-  public void start (String filename, ByteBuffer source) {
+  public void
+  start (String filename, ByteBuffer source) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(source.limit());
-
     buffer.put(source);
     buffer.flip();
 
     start(filename, buffer, buffer.limit());
   }
 
-  public void start (String filename, InputStream source) throws IOException {
+  public void
+  start (String filename, InputStream source) throws IOException {
     source.reset();
 
     ByteBuffer buffer = ByteBuffer.allocateDirect(Math.max(4096, source.available()));
@@ -51,9 +66,11 @@ public class Worklet implements Closeable {
     while (channel.read(buffer) != -1) {
       if (buffer.hasRemaining()) continue;
 
-      ByteBuffer resized = ByteBuffer.allocateDirect(buffer.capacity() * 2);
       buffer.flip();
+
+      ByteBuffer resized = ByteBuffer.allocateDirect(buffer.capacity() * 2);
       resized.put(buffer);
+
       buffer = resized;
     }
 
@@ -63,33 +80,40 @@ public class Worklet implements Closeable {
     start(filename, buffer, buffer.limit());
   }
 
-  public void suspend () {
+  public void
+  suspend () {
     suspend(handle, 0);
   }
 
-  public void suspend (int linger) {
+  public void
+  suspend (int linger) {
     suspend(handle, linger);
   }
 
-  public void resume () {
+  public void
+  resume () {
     resume(handle);
   }
 
-  public void terminate () {
+  public void
+  terminate () {
     terminate(handle);
 
     handle = null;
   }
 
-  public FileDescriptor incoming () {
+  public FileDescriptor
+  incoming () {
     return incoming;
   }
 
-  public FileDescriptor outgoing () {
+  public FileDescriptor
+  outgoing () {
     return outgoing;
   }
 
-  public void close () {
+  public void
+  close () {
     terminate();
   }
 }
