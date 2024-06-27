@@ -25,16 +25,20 @@ public class Worklet implements Closeable {
   private native FileDescriptor incoming (ByteBuffer handle);
   private native FileDescriptor outgoing (ByteBuffer handle);
 
+  private void start(String filename, ByteBuffer source, int len) {
+    start(handle, filename, source, len);
+
+    incoming = incoming(handle);
+    outgoing = outgoing(handle);
+  }
+
   public void start (String filename, ByteBuffer source) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(source.limit());
 
     buffer.put(source);
     buffer.flip();
 
-    start(handle, filename, buffer, buffer.limit());
-
-    incoming = incoming(handle);
-    outgoing = outgoing(handle);
+    start(filename, buffer, buffer.limit());
   }
 
   public void start (String filename, InputStream source) throws IOException {
@@ -56,7 +60,7 @@ public class Worklet implements Closeable {
     buffer.flip();
     channel.close();
 
-    start(handle, filename, buffer, buffer.limit());
+    start(filename, buffer, buffer.limit());
   }
 
   public void suspend () {
@@ -86,6 +90,6 @@ public class Worklet implements Closeable {
   }
 
   public void close () {
-    this.terminate();
+    terminate();
   }
 }
