@@ -21,14 +21,18 @@ Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource) {
+Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   const char *filename = (*env)->GetStringUTFChars(env, jfilename, NULL);
 
-  uv_buf_t source = uv_buf_init((char *) (*env)->GetDirectBufferAddress(env, jsource), (*env)->GetDirectBufferCapacity(env, jsource));
+  char *base = (*env)->GetDirectBufferAddress(env, jsource);
+
+  int len = (int) jlen;
+
+  uv_buf_t source = uv_buf_init(base, len);
 
   err = bare_worklet_start(worklet, filename, &source);
   assert(err == 0);

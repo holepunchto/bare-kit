@@ -5,6 +5,8 @@ import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 
 public class Worklet implements Closeable {
   private ByteBuffer handle;
@@ -16,7 +18,7 @@ public class Worklet implements Closeable {
   }
 
   private native ByteBuffer init ();
-  private native void start (ByteBuffer handle, String filename, ByteBuffer source);
+  private native void start (ByteBuffer handle, String filename, ByteBuffer source, int len);
   private native void suspend (ByteBuffer handle, int linger);
   private native void resume (ByteBuffer handle);
   private native void terminate (ByteBuffer handle);
@@ -24,14 +26,37 @@ public class Worklet implements Closeable {
   private native FileDescriptor outgoing (ByteBuffer handle);
 
   public void start (String filename, ByteBuffer source) {
-    start(handle, filename, source);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(source.limit());
+
+    buffer.put(source);
+    buffer.flip();
+
+    start(handle, filename, buffer, buffer.limit());
 
     incoming = incoming(handle);
     outgoing = outgoing(handle);
   }
 
   public void start (String filename, InputStream source) throws IOException {
-    start(handle, filename, ByteBuffer.wrap(source.readAllBytes()));
+    source.reset();
+
+    ByteBuffer buffer = ByteBuffer.allocateDirect(Math.max(4096, source.available()));
+
+    ReadableByteChannel channel = Channels.newChannel(source);
+
+    while (channel.read(buffer) != -1) {
+      if (buffer.hasRemaining()) continue;
+
+      ByteBuffer resized = ByteBuffer.allocateDirect(buffer.capacity() * 2);
+      buffer.flip();
+      resized.put(buffer);
+      buffer = resized;
+    }
+
+    buffer.flip();
+    channel.close();
+
+    start(handle, filename, buffer, buffer.limit());
   }
 
   public void suspend () {
@@ -52,11 +77,11 @@ public class Worklet implements Closeable {
     handle = null;
   }
 
-  public FileDescriptor incoming() {
+  public FileDescriptor incoming () {
     return incoming;
   }
 
-  public FileDescriptor outgoing() {
+  public FileDescriptor outgoing () {
     return outgoing;
   }
 
