@@ -10,7 +10,7 @@ set_target_properties(
 target_sources(
   bare_kit
   PRIVATE
-    src/main/c/Worklet.c
+    src/main/jni/Worklet.c
 )
 
 target_link_libraries(
