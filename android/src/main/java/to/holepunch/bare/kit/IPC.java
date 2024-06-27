@@ -3,6 +3,7 @@ package to.holepunch.bare.kit;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -16,9 +17,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import to.holepunch.bare.kit.Worklet;
 
-public class IPC {
+public class IPC implements Closeable {
   @FunctionalInterface
   public interface ReadCallback<T> {
     void
@@ -150,5 +152,26 @@ public class IPC {
   public void
   write (String data, String charset) {
     write(data, charset, defaultWriteCallback);
+  }
+
+  public void
+  close () throws IOException {
+    executor.shutdown();
+
+    try {
+      if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+        executor.shutdownNow();
+      }
+    } catch (InterruptedException exception) {
+      executor.shutdownNow();
+
+      Thread.currentThread().interrupt();
+    }
+
+    reader.close();
+    writer.close();
+
+    incoming.close();
+    outgoing.close();
   }
 }
