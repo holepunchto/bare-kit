@@ -15,7 +15,7 @@ set_target_properties(
 
 target_sources(
   bare_kit
-  INTERFACE
+  PUBLIC
     BareKit/BareKit.h
   PRIVATE
     BareKit/BareKit.m
