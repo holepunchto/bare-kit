@@ -1,10 +1,17 @@
 {
-  "private": true,
   "name": "bare-kit",
+  "version": "0.0.0",
   "description": "Bare for native application development",
-  "scripts": {
-    "test": "standard"
+  "exports": {
+    ".": {
+      "require": "./index.cjs",
+      "import": "./index.mjs"
+    }
   },
+  "files": [
+    "index.cjs",
+    "index.mjs"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/holepunchto/bare-kit.git"
@@ -14,12 +21,5 @@
   "bugs": {
     "url": "https://github.com/holepunchto/bare-kit/issues"
   },
-  "homepage": "https://github.com/holepunchto/bare-kit#readme",
-  "dependencies": {
-    "bare-ipc": "^1.0.0",
-    "bare-rpc": "^0.0.1"
-  },
-  "devDependencies": {
-    "standard": "^17.0.0"
-  }
+  "homepage": "https://github.com/holepunchto/bare-kit"
 }

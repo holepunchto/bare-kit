@@ -1,10 +1,15 @@
 const IPC = require('bare-ipc')
+const RPC = require('bare-rpc')
 
 const ports = IPC.open()
 
 class BareKit {
   constructor () {
     this.IPC = new IPC(ports[0])
+  }
+
+  get RPC () {
+    return RPC
   }
 
   [Symbol.for('bare.inspect')] () {
