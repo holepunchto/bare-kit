@@ -14,6 +14,10 @@ if(NOT TARGET bare)
   add_subdirectory(vendor/bare EXCLUDE_FROM_ALL)
 endif()
 
+if(NOT TARGET rpc)
+  add_subdirectory(vendor/librpc EXCLUDE_FROM_ALL)
+endif()
+
 add_subdirectory(shared)
 
 if(APPLE)

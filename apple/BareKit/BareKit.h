@@ -31,6 +31,28 @@
 
 @end
 
+@interface BareRPCIncomingRequest : NSObject
+
+@property(atomic, readonly, nonnull) NSNumber *id;
+@property(atomic, readonly, nonnull) NSString *command;
+
+@end
+
+@interface BareRPCOutgoingRequest : NSObject
+
+@property(atomic, readonly, nonnull) NSString *command;
+
+@end
+
+typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nonnull request);
+typedef void (^BareRPCErrorHandler)(NSError *_Nonnull error);
+
+@interface BareRPC : NSObject
+
+- (_Nullable id)initWithIPC:(BareIPC *_Nonnull)ipc requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler errorHandler:(BareRPCErrorHandler _Nonnull)errorHandler;
+
+@end
+
 #endif
 
 #endif // BARE_KIT_H
