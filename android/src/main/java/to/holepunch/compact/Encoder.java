@@ -19,7 +19,7 @@ public class Encoder {
 
     buffer.flip();
 
-    ByteBuffer copy = ByteBuffer.allocateDirect(buffer.limit() * 2);
+    ByteBuffer copy = ByteBuffer.allocateDirect(buffer.capacity() * 2);
     copy.order(ByteOrder.LITTLE_ENDIAN);
     copy.put(buffer);
 
