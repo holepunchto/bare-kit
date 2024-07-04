@@ -2,7 +2,6 @@ package to.holepunch.bare.kit;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -58,7 +57,7 @@ public class IPC implements Closeable {
     handler = Handler.createAsync(Looper.getMainLooper());
     executor = Executors.newWorkStealingPool();
 
-    buffer = ByteBuffer.allocate(65536);
+    buffer = ByteBuffer.allocateDirect(65536);
   }
 
   public IPC(Worklet worklet) {
@@ -83,6 +82,7 @@ public class IPC implements Closeable {
           handler.post(() -> callback.apply(result, null));
         }
 
+        buffer.clear();
       } catch (IOException exception) {
         handler.post(() -> callback.apply(null, exception));
       }
@@ -105,6 +105,7 @@ public class IPC implements Closeable {
           handler.post(() -> callback.apply(result, null));
         }
 
+        buffer.clear();
       } catch (IOException exception) {
         handler.post(() -> callback.apply(null, exception));
       }
