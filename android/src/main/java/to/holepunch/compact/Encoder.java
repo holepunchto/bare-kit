@@ -57,6 +57,12 @@ public class Encoder {
   }
 
   public void
+  putUint64 (long n) {
+    grow(8);
+    buffer.putLong(n);
+  }
+
+  public void
   putUint (long n) {
     if (n <= 0xfc) {
       grow(1);
@@ -70,7 +76,9 @@ public class Encoder {
       putUint8((short) 0xfe);
       putUint32(n & 0xffffffff);
     } else {
-      throw new RuntimeException("Unsigned integer overflow");
+      grow(9);
+      putUint8((short) 0xff);
+      putUint64(n);
     }
   }
 
@@ -90,7 +98,12 @@ public class Encoder {
   }
 
   public void
-  putInt (int n) {
+  putInt64 (long n) {
+    putUint64(zigZag(n));
+  }
+
+  public void
+  putInt (long n) {
     putUint(zigZag(n));
   }
 
@@ -107,6 +120,11 @@ public class Encoder {
   private long
   zigZag (int n) {
     return (n << 1) ^ -(n >> 3);
+  }
+
+  private long
+  zigZag (long n) {
+    return (n << 1) ^ -(n >> 7);
   }
 
   public void

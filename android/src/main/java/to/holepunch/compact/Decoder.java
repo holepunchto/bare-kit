@@ -34,27 +34,37 @@ public class Decoder {
   }
 
   public long
+  getUint64 () {
+    return buffer.getLong();
+  }
+
+  public long
   getUint () {
     int len = getUint8();
     if (len <= 0xfc) return len;
     if (len == 0xfd) return getUint16();
     if (len == 0xfe) return getUint32();
-    throw new RuntimeException("Unsigned integer overflow");
+    return getUint64();
   }
 
   public byte
   getInt8 () {
-    return zigZag(getUint8());
+    return (byte) zigZag(getUint8());
   }
 
   public short
   getInt16 () {
-    return buffer.getShort();
+    return (short) zigZag(getUint16());
   }
 
   public int
   getInt32 () {
-    return buffer.getInt();
+    return (int) zigZag(getUint32());
+  }
+
+  public long
+  getInt64 () {
+    return zigZag(getUint64());
   }
 
   public long
@@ -62,26 +72,16 @@ public class Decoder {
     return zigZag(getUint());
   }
 
-  private byte
-  zigZag (short n) {
-    return (byte) ((n >> 1) ^ -(n & 1));
-  }
-
-  private short
-  zigZag (int n) {
-    return (short) ((n >> 1) ^ -(n & 1));
-  }
-
-  private int
+  private long
   zigZag (long n) {
-    return (int) ((n >> 1) ^ -(n & 1));
+    return (n >> 1) ^ -(n & 1);
   }
 
   public byte[]
   getUint8Array () {
-    long len = getUint();
+    int len = (int) getUint();
 
-    byte[] data = new byte[(int) len];
+    byte[] data = new byte[len];
     buffer.get(data);
 
     return data;
@@ -89,16 +89,16 @@ public class Decoder {
 
   public ByteBuffer
   getBuffer () {
-    long len = getUint();
+    int len = (int) getUint();
 
     ByteBuffer copy = buffer.slice();
-    copy.limit((int) len);
+    copy.limit(len);
 
-    ByteBuffer data = ByteBuffer.allocateDirect((int) len);
+    ByteBuffer data = ByteBuffer.allocateDirect(len);
     data.put(copy);
     data.flip();
 
-    buffer.position(buffer.position() + (int) len);
+    buffer.position(buffer.position() + len);
 
     return data;
   }
