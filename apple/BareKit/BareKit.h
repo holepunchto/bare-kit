@@ -31,6 +31,39 @@
 
 @end
 
+@interface BareRPCIncomingRequest : NSObject
+
+@property(atomic, readonly, nonnull) NSNumber *id;
+@property(atomic, readonly, nonnull) NSString *command;
+@property(atomic, readonly, nonnull) NSData *data;
+
+- (NSString *_Nonnull)dataWithEncoding:(NSStringEncoding)encoding;
+- (void)reply:(NSData *_Nonnull)data;
+- (void)reply:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding;
+
+@end
+
+@interface BareRPCOutgoingRequest : NSObject
+
+@property(atomic, readonly, nonnull) NSString *command;
+
+- (void)send:(NSData *_Nonnull)data;
+- (void)send:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding;
+- (void)reply:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
+- (void)reply:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSString *_Nullable data, NSError *_Nullable error))completion;
+
+@end
+
+typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nullable request, NSError *_Nullable error);
+typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullable error);
+
+@interface BareRPC : NSObject
+
+- (_Nullable id)initWithIPC:(BareIPC *_Nonnull)ipc requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler;
+- (BareRPCOutgoingRequest *_Nonnull)request:(NSString *_Nonnull)command;
+
+@end
+
 #endif
 
 #endif // BARE_KIT_H

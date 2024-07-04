@@ -5,11 +5,13 @@ const ports = IPC.open()
 
 class BareKit {
   constructor () {
-    this.IPC = new IPC(ports[0])
-  }
+    const ipc = this.IPC = new IPC(ports[0])
 
-  get RPC () {
-    return RPC
+    this.RPC = class extends RPC {
+      constructor (onrequest) {
+        super(ipc, onrequest)
+      }
+    }
   }
 
   [Symbol.for('bare.inspect')] () {

@@ -33,4 +33,6 @@ target_link_libraries(
     "-framework Foundation"
   PUBLIC
     bare_worklet
+  PRIVATE
+    rpc_static
 )
