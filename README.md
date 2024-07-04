@@ -6,6 +6,31 @@ Bare for native application development. The kit provides a web worker-like API 
 
 ## Usage
 
+### JavaScript
+
+```js
+const rpc = new BareKit.RPC((req) => {
+  if (req.command === 'ping') {
+    console.log(req.data.toString())
+
+    req.reply('pong')
+  }
+})
+```
+
+```js
+const req = rpc.request('ping')
+```
+
+```js
+req.send('ping')
+```
+
+```js
+const data = await req.reply()
+console.log(data.toString())
+```
+
 ### iOS
 
 ```objc
