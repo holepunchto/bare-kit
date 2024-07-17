@@ -112,9 +112,9 @@ bare_worklet__on_thread (void *opaque) {
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
 
-  uv_sem_post(&worklet->ready);
-
   bare_load(bare, worklet->filename, &worklet->source, NULL);
+
+  uv_sem_post(&worklet->ready);
 
   err = bare_run(bare);
   assert(err == 0);
