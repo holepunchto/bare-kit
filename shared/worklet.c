@@ -92,7 +92,7 @@ bare_worklet__on_thread (void *opaque) {
   assert(err == 0);
 
   js_value_t *port;
-  err = js_get_named_property(env, exports, "port", &exports);
+  err = js_get_named_property(env, exports, "port", &port);
   assert(err == 0);
 
   js_value_t *incoming;
