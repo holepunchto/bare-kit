@@ -18,9 +18,9 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
 @property(nonatomic, strong) NSData *payload;
 @property(nonatomic, strong) NSOperationQueue *queue;
 
-- (id)initWithHandler:(BareWorkletPushHandler)handler
-              payload:(NSData *)payload
-                queue:(NSOperationQueue *)queue;
+- (_Nullable instancetype)initWithHandler:(BareWorkletPushHandler)handler
+                                  payload:(NSData *)payload
+                                    queue:(NSOperationQueue *)queue;
 
 @end
 
@@ -29,9 +29,9 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
   bare_worklet_push_t _req;
 }
 
-- (id)initWithHandler:(BareWorkletPushHandler)handler
-              payload:(NSData *)payload
-                queue:(NSOperationQueue *)queue {
+- (_Nullable instancetype)initWithHandler:(BareWorkletPushHandler)handler
+                                  payload:(NSData *)payload
+                                    queue:(NSOperationQueue *)queue {
   self = [super init];
 
   if (self) {
@@ -85,7 +85,7 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   bare_worklet_t _worklet;
 }
 
-- (id)init {
+- (_Nullable instancetype)init {
   self = [super init];
 
   if (self) {
@@ -177,7 +177,7 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   NSFileHandle *_outgoing;
 }
 
-- (_Nullable id)initWithWorklet:(BareWorklet *_Nonnull)worklet {
+- (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
   self = [super init];
 
   if (self) {
@@ -276,7 +276,7 @@ BareRPC ()
   BareRPC *_rpc;
 }
 
-- (_Nullable id)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
   self = [super init];
 
   if (self) {
@@ -309,8 +309,8 @@ BareRPC ()
   BareRPCResponseHandler _responseHandler;
 }
 
-- (_Nullable id)initWithRPC:(BareRPC *_Nonnull)rpc
-                    command:(NSString *_Nonnull)command {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
+                              command:(NSString *_Nonnull)command {
   self = [super init];
 
   if (self) {
@@ -357,8 +357,8 @@ BareRPC ()
   NSData *_buffer;
 }
 
-- (_Nullable id)initWithIPC:(BareIPC *_Nonnull)ipc
-             requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler {
+- (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
+                       requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler {
   self = [super init];
 
   if (self) {

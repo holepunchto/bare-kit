@@ -32,7 +32,7 @@
 
 @interface BareIPC : NSObject
 
-- (_Nullable id)initWithWorklet:(BareWorklet *_Nonnull)worklet;
+- (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet;
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data))completion;
 - (void)read:(NSStringEncoding)encoding
   completion:(void (^_Nonnull)(NSString *_Nullable data))completion;
@@ -79,8 +79,8 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 @interface BareRPC : NSObject
 
-- (_Nullable id)initWithIPC:(BareIPC *_Nonnull)ipc
-             requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler;
+- (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
+                       requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler;
 - (BareRPCOutgoingRequest *_Nonnull)request:(NSString *_Nonnull)command;
 
 @end
