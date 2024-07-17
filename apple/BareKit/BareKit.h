@@ -15,6 +15,8 @@
 - (void)suspendWithLinger:(int)linger;
 - (void)resume;
 - (void)terminate;
+- (void)push:(NSData *_Nonnull)payload completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion;
+- (void)push:(NSString *_Nonnull)payload encoding:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion;
 
 @end
 

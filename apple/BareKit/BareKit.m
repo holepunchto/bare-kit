@@ -10,6 +10,71 @@
 
 #import "../../shared/worklet.h"
 
+typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullable error);
+
+@interface BareWorkletPushContext : NSObject
+
+@property(nonatomic, copy) BareWorkletPushHandler handler;
+@property(nonatomic, strong) NSData *payload;
+@property(nonatomic, strong) dispatch_queue_t queue;
+
+- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(dispatch_queue_t)queue;
+
+@end
+
+@implementation BareWorkletPushContext {
+@public
+  bare_worklet_push_t _req;
+}
+
+- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(dispatch_queue_t)queue {
+  self = [super init];
+
+  if (self) {
+    _handler = [handler copy];
+    _payload = [payload retain];
+    _queue = queue;
+    _req.data = (__bridge void *) self;
+  }
+
+  return self;
+}
+
+@end
+
+static void
+bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
+  @autoreleasepool {
+    BareWorkletPushContext *context = (__bridge BareWorkletPushContext *) req->data;
+
+    [context.payload release];
+
+    NSError *error;
+
+    if (err) {
+      error = [NSError
+        errorWithDomain:@"to.holepunch.bare.kit"
+                   code:-1
+               userInfo:@{NSLocalizedDescriptionKey : @"Push error"}];
+
+    } else {
+      error = nil;
+    }
+
+    NSData *data;
+
+    if (reply) {
+      data = [NSData dataWithBytes:reply->base length:reply->len];
+    } else {
+      data = nil;
+    }
+
+    dispatch_async(context.queue, ^{
+      context.handler(data, error);
+    });
+  }
+}
+
 @implementation BareWorklet {
   bare_worklet_t _worklet;
 }
@@ -64,6 +129,23 @@
   assert(err == 0);
 
   bare_worklet_destroy(&_worklet);
+}
+
+- (void)push:(NSData *_Nonnull)payload completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  BareWorkletPushContext *context = [[BareWorkletPushContext alloc]
+    initWithHandler:completion
+            payload:payload
+              queue:dispatch_get_main_queue()];
+
+  uv_buf_t buf = uv_buf_init((char *) payload.bytes, payload.length);
+
+  int err;
+  err = bare_worklet_push(&_worklet, &context->_req, &buf, bare_worklet__on_push);
+  assert(err == 0);
+}
+
+- (void)push:(NSString *_Nonnull)payload encoding:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:[payload dataUsingEncoding:encoding] completion:completion];
 }
 
 @end
