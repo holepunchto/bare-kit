@@ -16,9 +16,9 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
 
 @property(nonatomic, copy) BareWorkletPushHandler handler;
 @property(nonatomic, strong) NSData *payload;
-@property(nonatomic, strong) dispatch_queue_t queue;
+@property(nonatomic, strong) NSOperationQueue *queue;
 
-- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(dispatch_queue_t)queue;
+- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(NSOperationQueue *)queue;
 
 @end
 
@@ -27,13 +27,13 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
   bare_worklet_push_t _req;
 }
 
-- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(dispatch_queue_t)queue {
+- (id)initWithHandler:(BareWorkletPushHandler)handler payload:(NSData *)payload queue:(NSOperationQueue *)queue {
   self = [super init];
 
   if (self) {
     _handler = [handler copy];
     _payload = [payload retain];
-    _queue = queue;
+    _queue = [queue retain];
     _req.data = (__bridge void *) self;
   }
 
@@ -69,9 +69,11 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
       data = nil;
     }
 
-    dispatch_async(context.queue, ^{
+    [context.queue addOperationWithBlock:^{
       context.handler(data, error);
-    });
+    }];
+
+    [context.queue release];
   }
 }
 
@@ -131,17 +133,25 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   bare_worklet_destroy(&_worklet);
 }
 
-- (void)push:(NSData *_Nonnull)payload completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+- (void)push:(NSData *_Nonnull)payload queue:(NSOperationQueue *_Nonnull)queue completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
   BareWorkletPushContext *context = [[BareWorkletPushContext alloc]
     initWithHandler:completion
             payload:payload
-              queue:dispatch_get_main_queue()];
+              queue:queue];
 
   uv_buf_t buf = uv_buf_init((char *) payload.bytes, payload.length);
 
   int err;
   err = bare_worklet_push(&_worklet, &context->_req, &buf, bare_worklet__on_push);
   assert(err == 0);
+}
+
+- (void)push:(NSData *_Nonnull)payload completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:payload queue:[NSOperationQueue mainQueue] completion:completion];
+}
+
+- (void)push:(NSString *_Nonnull)payload encoding:(NSStringEncoding)encoding queue:(NSOperationQueue *_Nonnull)queue completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:[payload dataUsingEncoding:encoding] queue:queue completion:completion];
 }
 
 - (void)push:(NSString *_Nonnull)payload encoding:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
