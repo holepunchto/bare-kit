@@ -8,10 +8,14 @@
 #include "worklet.h"
 
 int
-bare_worklet_init (bare_worklet_t *worklet) {
+bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *options) {
   int err;
 
   worklet->bare = NULL;
+
+  memset(&worklet->options, 0, sizeof(worklet->options));
+
+  if (options) worklet->options = *options;
 
   err = uv_sem_init(&worklet->ready, 0);
   assert(err == 0);
@@ -50,11 +54,25 @@ bare_worklet__on_thread (void *opaque) {
   assert(err == 0);
 
   js_platform_t *platform;
-  err = js_create_platform(&loop, NULL, &platform);
+  {
+    js_platform_options_t options = {
+      .version = 1,
+      .optimize_for_memory = worklet->options.optimize_for_memory,
+    };
+
+    err = js_create_platform(&loop, &options, &platform);
+  }
   assert(err == 0);
 
   js_env_t *env;
-  err = bare_setup(&loop, platform, &env, argc, argv, NULL, &worklet->bare);
+  {
+    bare_options_t options = {
+      .version = 0,
+      .memory_limit = worklet->options.memory_limit,
+    };
+
+    err = bare_setup(&loop, platform, &env, argc, argv, &options, &worklet->bare);
+  }
   assert(err == 0);
 
   bare_t *bare = worklet->bare;
@@ -73,15 +91,19 @@ bare_worklet__on_thread (void *opaque) {
   err = js_get_named_property(env, module, "exports", &exports);
   assert(err == 0);
 
+  js_value_t *port;
+  err = js_get_named_property(env, exports, "port", &exports);
+  assert(err == 0);
+
   js_value_t *incoming;
-  err = js_get_named_property(env, exports, "incoming", &incoming);
+  err = js_get_named_property(env, port, "incoming", &incoming);
   assert(err == 0);
 
   err = js_get_value_int32(env, incoming, &worklet->incoming);
   assert(err == 0);
 
   js_value_t *outgoing;
-  err = js_get_named_property(env, exports, "outgoing", &outgoing);
+  err = js_get_named_property(env, port, "outgoing", &outgoing);
   assert(err == 0);
 
   err = js_get_value_int32(env, outgoing, &worklet->outgoing);
@@ -110,10 +132,10 @@ bare_worklet__on_thread (void *opaque) {
   err = js_destroy_platform(platform);
   assert(err == 0);
 
-  err = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  err = uv_run(&loop, UV_RUN_DEFAULT);
   assert(err == 0);
 
-  err = uv_loop_close(uv_default_loop());
+  err = uv_loop_close(&loop);
   assert(err == 0);
 }
 

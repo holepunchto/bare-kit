@@ -9,9 +9,28 @@ extern "C" {
 #include <uv.h>
 
 typedef struct bare_worklet_s bare_worklet_t;
+typedef struct bare_worklet_options_s bare_worklet_options_t;
+
+struct bare_worklet_options_s {
+  /**
+   * The memory limit of each JavaScript heap. By default, the limit will be
+   * inferred based on the amount of physical memory of the device.
+   *
+   * Note that the limit applies individually to each thread, including the
+   * main thread.
+   */
+  size_t memory_limit;
+
+  /**
+   * Enable trade-off of performance for memory.
+   */
+  bool optimize_for_memory;
+};
 
 struct bare_worklet_s {
   bare_t *bare;
+
+  bare_worklet_options_t options;
 
   const char *filename;
   uv_buf_t source;
@@ -25,7 +44,7 @@ struct bare_worklet_s {
 };
 
 int
-bare_worklet_init (bare_worklet_t *worklet);
+bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *options);
 
 void
 bare_worklet_destroy (bare_worklet_t *worklet);

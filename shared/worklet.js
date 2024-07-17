@@ -28,4 +28,4 @@ Object.defineProperty(global, 'BareKit', {
   configurable: true
 })
 
-module.exports = ports[1]
+exports.port = ports[1]

@@ -14,7 +14,7 @@ Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
 
   jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
 
-  err = bare_worklet_init(worklet);
+  err = bare_worklet_init(worklet, NULL);
   assert(err == 0);
 
   return handle;

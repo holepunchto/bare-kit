@@ -19,7 +19,7 @@
 
   if (self) {
     int err;
-    err = bare_worklet_init(&_worklet);
+    err = bare_worklet_init(&_worklet, NULL);
     assert(err == 0);
   }
 
