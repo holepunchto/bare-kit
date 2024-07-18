@@ -160,14 +160,18 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 - (void)push:(NSString *_Nonnull)payload
     encoding:(NSStringEncoding)encoding
        queue:(NSOperationQueue *_Nonnull)queue
-  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
-  [self push:[payload dataUsingEncoding:encoding] queue:queue completion:completion];
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:[payload dataUsingEncoding:encoding]
+         queue:queue
+    completion:^(NSData *reply, NSError *error) {
+      completion(reply == nil ? nil : [[NSString alloc] initWithData:reply encoding:encoding], error);
+    }];
 }
 
 - (void)push:(NSString *_Nonnull)payload
     encoding:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
-  [self push:[payload dataUsingEncoding:encoding] completion:completion];
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:payload encoding:encoding queue:[NSOperationQueue mainQueue] completion:completion];
 }
 
 @end

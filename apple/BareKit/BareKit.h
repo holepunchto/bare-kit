@@ -23,10 +23,10 @@
 - (void)push:(NSString *_Nonnull)payload
     encoding:(NSStringEncoding)encoding
        queue:(NSOperationQueue *_Nonnull)queue
-  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion;
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion;
 - (void)push:(NSString *_Nonnull)payload
     encoding:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion;
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion;
 
 @end
 
