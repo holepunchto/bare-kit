@@ -58,4 +58,4 @@ jobs:
         java-version: 21
     - run: npm install -g bare-dev
     - run: bare-dev android sdk licenses accept
-    - run: bare-dev build
+    - run: bare-dev build --gradle
