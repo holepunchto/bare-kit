@@ -6,10 +6,14 @@ extern "C" {
 #endif
 
 #include <bare.h>
+#include <js.h>
 #include <uv.h>
 
 typedef struct bare_worklet_s bare_worklet_t;
 typedef struct bare_worklet_options_s bare_worklet_options_t;
+typedef struct bare_worklet_push_s bare_worklet_push_t;
+
+typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
 
 struct bare_worklet_options_s {
   /**
@@ -41,6 +45,18 @@ struct bare_worklet_s {
 
   uv_file incoming;
   uv_file outgoing;
+
+  js_threadsafe_function_t *push;
+};
+
+struct bare_worklet_push_s {
+  bare_worklet_t *worklet;
+
+  bare_worklet_push_cb cb;
+
+  uv_buf_t payload;
+
+  void *data;
 };
 
 int
@@ -60,6 +76,9 @@ bare_worklet_resume (bare_worklet_t *worklet);
 
 int
 bare_worklet_terminate (bare_worklet_t *worklet);
+
+int
+bare_worklet_push (bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb);
 
 #ifdef __cplusplus
 }

@@ -10,11 +10,82 @@
 
 #import "../../shared/worklet.h"
 
+typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullable error);
+
+@interface BareWorkletPushContext : NSObject
+
+@property(nonatomic, copy) BareWorkletPushHandler handler;
+@property(nonatomic, strong) NSData *payload;
+@property(nonatomic, strong) NSOperationQueue *queue;
+
+- (_Nullable instancetype)initWithHandler:(BareWorkletPushHandler)handler
+                                  payload:(NSData *)payload
+                                    queue:(NSOperationQueue *)queue;
+
+@end
+
+@implementation BareWorkletPushContext {
+@public
+  bare_worklet_push_t _req;
+}
+
+- (_Nullable instancetype)initWithHandler:(BareWorkletPushHandler)handler
+                                  payload:(NSData *)payload
+                                    queue:(NSOperationQueue *)queue {
+  self = [super init];
+
+  if (self) {
+    _handler = [handler copy];
+    _payload = [payload retain];
+    _queue = [queue retain];
+    _req.data = (__bridge void *) self;
+  }
+
+  return self;
+}
+
+@end
+
+static void
+bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
+  @autoreleasepool {
+    BareWorkletPushContext *context = (__bridge BareWorkletPushContext *) req->data;
+
+    [context.payload release];
+
+    NSError *error;
+
+    if (err) {
+      error = [NSError
+        errorWithDomain:@"to.holepunch.bare.kit"
+                   code:-1
+               userInfo:@{NSLocalizedDescriptionKey : @"Push error"}];
+
+    } else {
+      error = nil;
+    }
+
+    NSData *data;
+
+    if (reply) {
+      data = [NSData dataWithBytes:reply->base length:reply->len];
+    } else {
+      data = nil;
+    }
+
+    [context.queue addOperationWithBlock:^{
+      context.handler(data, error);
+    }];
+
+    [context.queue release];
+  }
+}
+
 @implementation BareWorklet {
   bare_worklet_t _worklet;
 }
 
-- (id)init {
+- (_Nullable instancetype)init {
   self = [super init];
 
   if (self) {
@@ -66,6 +137,43 @@
   bare_worklet_destroy(&_worklet);
 }
 
+- (void)push:(NSData *_Nonnull)payload
+       queue:(NSOperationQueue *_Nonnull)queue
+  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  BareWorkletPushContext *context = [[BareWorkletPushContext alloc]
+    initWithHandler:completion
+            payload:payload
+              queue:queue];
+
+  uv_buf_t buf = uv_buf_init((char *) payload.bytes, payload.length);
+
+  int err;
+  err = bare_worklet_push(&_worklet, &context->_req, &buf, bare_worklet__on_push);
+  assert(err == 0);
+}
+
+- (void)push:(NSData *_Nonnull)payload
+  completion:(void (^_Nonnull)(NSData *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:payload queue:[NSOperationQueue mainQueue] completion:completion];
+}
+
+- (void)push:(NSString *_Nonnull)payload
+    encoding:(NSStringEncoding)encoding
+       queue:(NSOperationQueue *_Nonnull)queue
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:[payload dataUsingEncoding:encoding]
+         queue:queue
+    completion:^(NSData *reply, NSError *error) {
+      completion(reply == nil ? nil : [[NSString alloc] initWithData:reply encoding:encoding], error);
+    }];
+}
+
+- (void)push:(NSString *_Nonnull)payload
+    encoding:(NSStringEncoding)encoding
+  completion:(void (^_Nonnull)(NSString *_Nullable reply, NSError *_Nullable error))completion {
+  [self push:payload encoding:encoding queue:[NSOperationQueue mainQueue] completion:completion];
+}
+
 @end
 
 @implementation BareIPC {
@@ -73,7 +181,7 @@
   NSFileHandle *_outgoing;
 }
 
-- (_Nullable id)initWithWorklet:(BareWorklet *_Nonnull)worklet {
+- (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
   self = [super init];
 
   if (self) {
@@ -103,7 +211,8 @@
   };
 }
 
-- (void)read:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSString *_Nullable data))completion {
+- (void)read:(NSStringEncoding)encoding
+  completion:(void (^_Nonnull)(NSString *_Nullable data))completion {
   _incoming.readabilityHandler = ^(NSFileHandle *handle) {
     NSData *data = [handle availableData];
 
@@ -117,7 +226,8 @@
   };
 }
 
-- (void)write:(NSData *_Nonnull)data completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
+- (void)write:(NSData *_Nonnull)data
+   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
   _outgoing.writeabilityHandler = ^(NSFileHandle *handle) {
     handle.writeabilityHandler = nil;
 
@@ -137,11 +247,14 @@
   };
 }
 
-- (void)write:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
+- (void)write:(NSString *_Nonnull)data
+     encoding:(NSStringEncoding)encoding
+   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
   [self write:[data dataUsingEncoding:encoding] completion:completion];
 }
 
-- (void)write:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding {
+- (void)write:(NSString *_Nonnull)data
+     encoding:(NSStringEncoding)encoding {
   [self write:[data dataUsingEncoding:encoding]];
 }
 
@@ -155,8 +268,11 @@
 @interface
 BareRPC ()
 
-- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request data:(NSData *_Nonnull)data;
-- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request data:(NSData *_Nonnull)data;
+- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request
+         data:(NSData *_Nonnull)data;
+
+- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request
+          data:(NSData *_Nonnull)data;
 
 @end
 
@@ -164,7 +280,7 @@ BareRPC ()
   BareRPC *_rpc;
 }
 
-- (_Nullable id)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
   self = [super init];
 
   if (self) {
@@ -185,7 +301,8 @@ BareRPC ()
   [_rpc _reply:self data:data];
 }
 
-- (void)reply:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding {
+- (void)reply:(NSString *_Nonnull)data
+     encoding:(NSStringEncoding)encoding {
   [_rpc _reply:self data:[data dataUsingEncoding:encoding]];
 }
 
@@ -196,7 +313,8 @@ BareRPC ()
   BareRPCResponseHandler _responseHandler;
 }
 
-- (_Nullable id)initWithRPC:(BareRPC *_Nonnull)rpc command:(NSString *_Nonnull)command {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
+                              command:(NSString *_Nonnull)command {
   self = [super init];
 
   if (self) {
@@ -212,7 +330,8 @@ BareRPC ()
   [_rpc _send:self data:data];
 }
 
-- (void)send:(NSString *_Nonnull)data encoding:(NSStringEncoding)encoding {
+- (void)send:(NSString *_Nonnull)data
+    encoding:(NSStringEncoding)encoding {
   [_rpc _send:self data:[data dataUsingEncoding:encoding]];
 }
 
@@ -220,13 +339,15 @@ BareRPC ()
   _responseHandler = [completion copy];
 }
 
-- (void)reply:(NSStringEncoding)encoding completion:(void (^_Nonnull)(NSString *_Nonnull data, NSError *_Nullable error))completion {
+- (void)reply:(NSStringEncoding)encoding
+   completion:(void (^_Nonnull)(NSString *_Nonnull data, NSError *_Nullable error))completion {
   _responseHandler = [^(NSData *_Nullable data, NSError *_Nullable error) {
     completion(data == nil ? nil : [[NSString alloc] initWithData:data encoding:encoding], error);
   } copy];
 }
 
-- (void)_responseHandler:(NSData *_Nullable)data error:(NSError *_Nullable)error {
+- (void)_responseHandler:(NSData *_Nullable)data
+                   error:(NSError *_Nullable)error {
   if (_responseHandler) _responseHandler(data, error);
 }
 
@@ -240,7 +361,8 @@ BareRPC ()
   NSData *_buffer;
 }
 
-- (_Nullable id)initWithIPC:(BareIPC *_Nonnull)ipc requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler {
+- (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
+                       requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler {
   self = [super init];
 
   if (self) {
@@ -339,7 +461,8 @@ BareRPC ()
   }
 }
 
-- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request data:(NSData *_Nonnull)data {
+- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request
+         data:(NSData *_Nonnull)data {
   int err;
 
   NSNumber *id = [NSNumber numberWithUnsignedInteger:++_id];
@@ -371,7 +494,8 @@ BareRPC ()
   [_ipc write:buffer];
 }
 
-- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request data:(NSData *_Nonnull)data {
+- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request
+          data:(NSData *_Nonnull)data {
   int err;
 
   rpc_message_t message = {
