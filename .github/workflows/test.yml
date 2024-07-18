@@ -1,0 +1,61 @@
+name: Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  test-ios:
+    strategy:
+      matrix:
+        include:
+        - os: macos-latest
+          platform: ios
+          arch: arm64
+        - os: macos-latest
+          platform: ios
+          arch: x64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: vendor/bare/corestore
+        key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - run: npm install -g bare-dev
+    - run: bare-dev configure --debug --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --simulator
+    - run: bare-dev build --debug
+  test-android:
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          platform: android
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: vendor/bare/corestore
+        key: corestore-${{ matrix.platform }}
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
+    - run: npm install -g bare-dev
+    - run: bare-dev android sdk licenses accept
+    - run: bare-dev build
