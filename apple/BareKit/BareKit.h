@@ -10,6 +10,7 @@
 @property(atomic, readonly) int incoming;
 @property(atomic, readonly) int outgoing;
 
+- (void)start:(NSString *_Nonnull)filename;
 - (void)start:(NSString *_Nonnull)filename source:(NSData *_Nonnull)source;
 - (void)suspend;
 - (void)suspendWithLinger:(int)linger;

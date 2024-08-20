@@ -37,7 +37,7 @@ struct bare_worklet_s {
   bare_worklet_options_t options;
 
   const char *filename;
-  uv_buf_t source;
+  const uv_buf_t *source;
 
   uv_thread_t thread;
   uv_sem_t ready;

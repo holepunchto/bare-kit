@@ -97,6 +97,18 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   return self;
 }
 
+- (void)start:(NSString *_Nonnull)filename {
+  int err;
+
+  const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
+
+  err = bare_worklet_start(&_worklet, _filename, NULL);
+  assert(err == 0);
+
+  _incoming = _worklet.incoming;
+  _outgoing = _worklet.outgoing;
+}
+
 - (void)start:(NSString *_Nonnull)filename source:(NSData *_Nonnull)source {
   int err;
 
