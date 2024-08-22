@@ -174,15 +174,15 @@ public class RPC {
     protected void
     subencode (Encoder encoder) {
       encoder.putUTF8(command);
-      encoder.putBuffer(data);
       encoder.putUint(0); // Reserved
+      encoder.putBuffer(data);
     }
 
     static RequestMessage
     decode (Decoder decoder, long id) {
       String command = decoder.getUTF8();
-      ByteBuffer data = decoder.getBuffer();
       decoder.getUint(); // Reserved
+      ByteBuffer data = decoder.getBuffer();
 
       return new RequestMessage(id, command, data);
     }
@@ -204,6 +204,7 @@ public class RPC {
       boolean hasError = error != null;
 
       encoder.putBool(hasError);
+      encoder.putUint(0); // Reserved
 
       if (hasError) {
         encoder.putUTF8(error.getMessage());
@@ -212,13 +213,12 @@ public class RPC {
       } else {
         encoder.putBuffer(data);
       }
-
-      encoder.putUint(0); // Reserved
     }
 
     static ResponseMessage
     decode (Decoder decoder, long id) {
       boolean hasError = decoder.getBool();
+      decoder.getUint(); // Reserved
 
       ByteBuffer data = null;
       Error error = null;
@@ -232,8 +232,6 @@ public class RPC {
       } else {
         data = decoder.getBuffer();
       }
-
-      decoder.getUint(); // Reserved
 
       return new ResponseMessage(id, data, error);
     }
