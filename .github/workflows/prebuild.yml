@@ -1,13 +1,8 @@
-name: Test
+name: Prebuild
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 jobs:
-  test-apple:
+  prebuild-apple:
     strategy:
       matrix:
         include:
@@ -42,33 +37,11 @@ jobs:
         key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     - uses: actions/setup-node@v4
       with:
-        node-version: lts/*
+        node-version: 20
     - run: npm install -g bare-dev
-    - run: bare-dev configure --debug --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
-    - run: bare-dev build --debug
-  test-android:
-    strategy:
-      matrix:
-        include:
-        - os: ubuntu-latest
-          platform: android
-    runs-on: ${{ matrix.os }}
-    name: ${{ matrix.platform }}
-    steps:
-    - uses: actions/checkout@v4
+    - run: bare-dev configure --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
+    - run: bare-dev build
+    - uses: actions/upload-artifact@v4
       with:
-        submodules: recursive
-    - uses: actions/cache@v4
-      with:
-        path: vendor/bare/corestore
-        key: corestore-${{ matrix.platform }}
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 21
-    - run: npm install -g bare-dev
-    - run: bare-dev android sdk licenses accept
-    - run: bare-dev build --gradle
+        name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
+        path: build/apple/BareKit.framework
