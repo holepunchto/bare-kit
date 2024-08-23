@@ -12,6 +12,20 @@ android {
   defaultConfig {
     minSdk 31
     targetSdk 34
+
+    externalNativeBuild {
+      cmake {
+        targets 'bare_kit'
+        arguments "-DCMAKE_MODULE_PATH=$System.env.CMAKE_MODULE_PATH"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      version '3.25.0+'
+      path '../CMakeLists.txt'
+    }
   }
 }
 

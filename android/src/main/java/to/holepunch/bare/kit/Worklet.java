@@ -12,6 +12,10 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
 
 public class Worklet implements Closeable {
+  static {
+    System.loadLibrary("barekit");
+  }
+
   @FunctionalInterface
   public interface PushCallback<T> {
     void
