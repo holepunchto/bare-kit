@@ -4,6 +4,8 @@ project(bare_kit LANGUAGES C VERSION 1.0)
 
 include(bare)
 
+set(BARE_USE_SYSTEM_LOG ON CACHE BOOL "Use system logging" FORCE)
+
 install_node_modules(LOCKFILE)
 
 if(APPLE)

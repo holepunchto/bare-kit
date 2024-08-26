@@ -16,8 +16,18 @@ android {
     externalNativeBuild {
       cmake {
         targets 'bare_kit'
-        arguments "-DCMAKE_MODULE_PATH=$System.env.CMAKE_MODULE_PATH"
+        arguments "-DCMAKE_MODULE_PATH=$System.env.CMAKE_MODULE_PATH", "-DANDROID_STL=none"
       }
+    }
+  }
+
+  buildFeatures {
+    prefabPublishing true
+  }
+
+  prefab {
+    bare_kit {
+      libraryName "libbarekit"
     }
   }
 
