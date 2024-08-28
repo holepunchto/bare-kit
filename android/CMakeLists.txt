@@ -5,7 +5,7 @@ set_target_properties(
   PROPERTIES
   C_STANDARD 11
   POSITION_INDEPENDENT_CODE ON
-  OUTPUT_NAME barekit
+  OUTPUT_NAME bare-kit
 )
 
 target_sources(

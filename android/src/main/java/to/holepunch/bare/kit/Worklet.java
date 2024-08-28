@@ -13,7 +13,7 @@ import java.nio.charset.Charset;
 
 public class Worklet implements Closeable {
   static {
-    System.loadLibrary("barekit");
+    System.loadLibrary("bare-kit");
   }
 
   @FunctionalInterface

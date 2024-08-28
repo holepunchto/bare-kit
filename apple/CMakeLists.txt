@@ -4,7 +4,7 @@ set_target_properties(
   bare_kit
   PROPERTIES
   OBJC_STANDARD 11
-  OUTPUT_NAME barekit
+  OUTPUT_NAME bare-kit
 )
 
 target_sources(

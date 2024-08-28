@@ -7,7 +7,7 @@ group 'to.holepunch'
 android {
   namespace 'to.holepunch.bare.kit'
   compileSdk 34
-  ndkVersion '27.0.11718014'
+  ndkVersion '27.0.12077973'
 
   defaultConfig {
     minSdk 31
@@ -16,7 +16,7 @@ android {
     externalNativeBuild {
       cmake {
         targets 'bare_kit'
-        arguments "-DCMAKE_MODULE_PATH=$System.env.CMAKE_MODULE_PATH", "-DANDROID_STL=none"
+        arguments "-DCMAKE_MODULE_PATH=" + "bare-dev paths cmake".execute().text, "-DANDROID_STL=none"
       }
     }
   }
@@ -27,7 +27,7 @@ android {
 
   prefab {
     bare_kit {
-      libraryName "libbarekit"
+      libraryName "libbare-kit"
     }
   }
 
