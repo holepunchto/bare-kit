@@ -44,7 +44,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-        path: build/apple/BareKit.framework
+        path: build/apple/*.framework
   prebuild-android:
     strategy:
       matrix:
@@ -74,4 +74,4 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.platform }}
-        path: android/build/outputs/aar/bare-kit-release.aar
+        path: android/build/outputs/aar/*-release.aar
