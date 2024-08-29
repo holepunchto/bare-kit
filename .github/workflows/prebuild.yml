@@ -44,7 +44,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-        path: build/apple/*.framework
+        path: build/apple/*.dylib
   prebuild-android:
     strategy:
       matrix:
