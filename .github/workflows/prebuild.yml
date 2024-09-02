@@ -41,10 +41,11 @@ jobs:
     - run: npm install -g bare-dev
     - run: bare-dev configure --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
     - run: bare-dev build
+    - run: tar -cvf build/apple/BareKit.framework.tar build/apple/BareKit.framework
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-        path: build/apple/*.dylib
+        path: build/apple/*.framework.tar
   prebuild-android:
     strategy:
       matrix:
