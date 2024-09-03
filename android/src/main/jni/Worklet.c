@@ -18,6 +18,8 @@ typedef struct {
 
 JNIEXPORT jobject JNICALL
 Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
+  int err;
+
   bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 
   jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
