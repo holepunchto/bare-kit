@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <jni.h>
-#include <log.h>
 #include <stdlib.h>
 
 #include <android/file_descriptor_jni.h>
@@ -19,11 +18,6 @@ typedef struct {
 
 JNIEXPORT jobject JNICALL
 Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
-  int err;
-
-  err = log_open("bare", 0);
-  assert(err == 0);
-
   bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 
   jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
@@ -88,9 +82,6 @@ Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject
   bare_worklet_destroy(worklet);
 
   free(worklet);
-
-  err = log_close();
-  assert(err == 0);
 }
 
 JNIEXPORT jobject JNICALL

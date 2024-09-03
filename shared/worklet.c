@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <bare.h>
 #include <js.h>
+#include <log.h>
 #include <stddef.h>
 #include <utf.h>
 #include <uv.h>
@@ -8,8 +9,19 @@
 #include "worklet.bundle.h"
 #include "worklet.h"
 
+static uv_once_t bare_worklet__init_guard = UV_ONCE_INIT;
+
+static void
+bare_worklet__on_init (void) {
+  int err;
+  err = log_open("bare", 0);
+  assert(err == 0);
+}
+
 int
 bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *options) {
+  uv_once(&bare_worklet__init_guard, bare_worklet__on_init);
+
   int err;
 
   worklet->bare = NULL;
