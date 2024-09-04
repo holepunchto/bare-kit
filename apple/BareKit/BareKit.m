@@ -211,7 +211,15 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data))completion {
   _incoming.readabilityHandler = ^(NSFileHandle *handle) {
-    NSData *data = [handle availableData];
+    NSData *data;
+
+    @try {
+      data = [handle availableData];
+    } @catch (NSException *err) {
+      completion(nil);
+
+      return;
+    }
 
     handle.readabilityHandler = nil;
 
