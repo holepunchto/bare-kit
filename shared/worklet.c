@@ -210,6 +210,11 @@ bare_worklet__on_push (js_env_t *env, js_value_t *onpush, void *context, void *d
 }
 
 static void
+bare_worklet__on_signal (uv_async_t *handle) {
+  uv_close((uv_handle_t *) handle, NULL);
+}
+
+static void
 bare_worklet__on_thread (void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
 
@@ -219,6 +224,9 @@ bare_worklet__on_thread (void *opaque) {
 
   uv_loop_t loop;
   err = uv_loop_init(&loop);
+  assert(err == 0);
+
+  err = uv_async_init(&loop, &worklet->signal, bare_worklet__on_signal);
   assert(err == 0);
 
   bare_options_t options = {
@@ -271,6 +279,9 @@ bare_worklet__on_thread (void *opaque) {
   err = js_create_threadsafe_function(env, push, 64, 1, NULL, NULL, (void *) worklet, bare_worklet__on_push, &worklet->push);
   assert(err == 0);
 
+  err = js_unref_threadsafe_function(env, worklet->push);
+  assert(err == 0);
+
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
 
@@ -316,8 +327,10 @@ bare_worklet_suspend (bare_worklet_t *worklet, int linger) {
 
   uv_mutex_lock(&worklet->lock);
 
-  if (worklet->bare) err = bare_suspend(worklet->bare, linger);
-  else err = -1;
+  if (worklet->bare == NULL) err = -1;
+  else {
+    err = bare_suspend(worklet->bare, linger);
+  }
 
   uv_mutex_unlock(&worklet->lock);
 
@@ -330,8 +343,10 @@ bare_worklet_resume (bare_worklet_t *worklet) {
 
   uv_mutex_lock(&worklet->lock);
 
-  if (worklet->bare) err = bare_resume(worklet->bare);
-  else err = -1;
+  if (worklet->bare == NULL) err = -1;
+  else {
+    err = bare_resume(worklet->bare);
+  }
 
   uv_mutex_unlock(&worklet->lock);
 
@@ -344,8 +359,13 @@ bare_worklet_terminate (bare_worklet_t *worklet) {
 
   uv_mutex_lock(&worklet->lock);
 
-  if (worklet->bare) err = bare_terminate(worklet->bare);
-  else err = -1;
+  if (worklet->bare == NULL) err = -1;
+  else {
+    err = uv_async_send(&worklet->signal);
+    assert(err == 0);
+
+    err = bare_terminate(worklet->bare);
+  }
 
   uv_mutex_unlock(&worklet->lock);
 
@@ -362,8 +382,10 @@ bare_worklet_push (bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_b
 
   uv_mutex_lock(&worklet->lock);
 
-  if (worklet->bare) err = js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
-  else err = -1;
+  if (worklet->bare == NULL) err = -1;
+  else {
+    err = js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
+  }
 
   uv_mutex_unlock(&worklet->lock);
 

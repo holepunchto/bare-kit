@@ -37,6 +37,7 @@ struct bare_worklet_s {
   uv_thread_t thread;
   uv_sem_t ready;
   uv_mutex_t lock;
+  uv_async_t signal;
 
   uv_file incoming;
   uv_file outgoing;
