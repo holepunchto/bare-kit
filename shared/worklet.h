@@ -24,11 +24,6 @@ struct bare_worklet_options_s {
    * main thread.
    */
   size_t memory_limit;
-
-  /**
-   * Enable trade-off of performance for memory.
-   */
-  bool optimize_for_memory;
 };
 
 struct bare_worklet_s {
@@ -58,6 +53,13 @@ struct bare_worklet_push_s {
 
   void *data;
 };
+
+/**
+ * Enable trade-off of performance for memory. Must be configured before
+ * starting the first worklet.
+ */
+int
+bare_worklet_optimize_for_memory (bool enabled);
 
 int
 bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *options);

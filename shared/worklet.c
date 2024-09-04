@@ -51,6 +51,81 @@ bare_worklet_destroy (bare_worklet_t *worklet) {
   uv_mutex_destroy(&worklet->lock);
 }
 
+static js_platform_options_t bare_worklet__platform_options = {
+  .version = 1,
+};
+
+int
+bare_worklet_optimize_for_memory (bool enabled) {
+  bare_worklet__platform_options.optimize_for_memory = enabled;
+
+  return 0;
+}
+
+static uv_async_t bare_worklet__platform_signal;
+
+static void
+bare_worklet__on_platform_signal (uv_async_t *handle) {
+  uv_close((uv_handle_t *) handle, NULL);
+}
+
+static js_platform_t *bare_worklet__platform;
+
+static uv_sem_t bare_worklet__platform_ready;
+
+static void
+bare_worklet__on_platform (void *opaque) {
+  int err;
+
+  int argc = 0;
+  char **argv = NULL;
+
+  uv_setup_args(argc, argv);
+
+  uv_loop_t loop;
+  err = uv_loop_init(&loop);
+  assert(err == 0);
+
+  err = uv_async_init(&loop, &bare_worklet__platform_signal, bare_worklet__on_platform_signal);
+  assert(err == 0);
+
+  err = js_create_platform(&loop, &bare_worklet__platform_options, &bare_worklet__platform);
+  assert(err == 0);
+
+  uv_sem_post(&bare_worklet__platform_ready);
+
+  err = uv_run(&loop, UV_RUN_DEFAULT);
+  assert(err == 0);
+
+  err = js_destroy_platform(bare_worklet__platform);
+  assert(err == 0);
+
+  err = uv_run(&loop, UV_RUN_DEFAULT);
+  assert(err == 0);
+
+  err = uv_loop_close(&loop);
+  assert(err == 0);
+}
+
+static uv_once_t bare_worklet__platform_guard = UV_ONCE_INIT;
+
+static uv_thread_t bare_worklet__platform_thread;
+
+static void
+bare_worklet__on_platform_init (void) {
+  int err;
+
+  err = uv_sem_init(&bare_worklet__platform_ready, 0);
+  assert(err == 0);
+
+  err = uv_thread_create(&bare_worklet__platform_thread, bare_worklet__on_platform, NULL);
+  assert(err == 0);
+
+  uv_sem_wait(&bare_worklet__platform_ready);
+
+  uv_sem_destroy(&bare_worklet__platform_ready);
+}
+
 static js_value_t *
 bare_worklet__on_push_reply (js_env_t *env, js_callback_info_t *info) {
   int err;
@@ -136,39 +211,23 @@ bare_worklet__on_push (js_env_t *env, js_value_t *onpush, void *context, void *d
 
 static void
 bare_worklet__on_thread (void *opaque) {
+  uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
+
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
-
-  int argc = 0;
-  char **argv = NULL;
-
-  argv = uv_setup_args(argc, argv);
 
   uv_loop_t loop;
   err = uv_loop_init(&loop);
   assert(err == 0);
 
-  js_platform_t *platform;
-  {
-    js_platform_options_t options = {
-      .version = 1,
-      .optimize_for_memory = worklet->options.optimize_for_memory,
-    };
-
-    err = js_create_platform(&loop, &options, &platform);
-  }
-  assert(err == 0);
+  bare_options_t options = {
+    .version = 0,
+    .memory_limit = worklet->options.memory_limit,
+  };
 
   js_env_t *env;
-  {
-    bare_options_t options = {
-      .version = 0,
-      .memory_limit = worklet->options.memory_limit,
-    };
-
-    err = bare_setup(&loop, platform, &env, argc, argv, &options, &worklet->bare);
-  }
+  err = bare_setup(&loop, bare_worklet__platform, &env, 0, NULL, &options, &worklet->bare);
   assert(err == 0);
 
   bare_t *bare = worklet->bare;
@@ -233,15 +292,6 @@ bare_worklet__on_thread (void *opaque) {
 
   int exit_code;
   err = bare_teardown(bare, &exit_code);
-  assert(err == 0);
-
-  err = js_destroy_platform(platform);
-  assert(err == 0);
-
-  err = uv_run(&loop, UV_RUN_DEFAULT);
-  assert(err == 0);
-
-  err = uv_loop_close(&loop);
   assert(err == 0);
 }
 
