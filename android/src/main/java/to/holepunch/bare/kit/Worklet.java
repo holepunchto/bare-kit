@@ -87,6 +87,16 @@ public class Worklet implements Closeable {
   }
 
   public void
+  start (String filename, String source, Charset charset) {
+    start(filename, ByteBuffer.wrap(source.getBytes(charset)));
+  }
+
+  public void
+  start (String filename, String source, String charset) {
+    start(filename, source, Charset.forName(charset));
+  }
+
+  public void
   start (String filename, InputStream source) throws IOException {
     source.reset();
 
