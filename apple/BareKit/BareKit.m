@@ -123,6 +123,10 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   _outgoing = _worklet.outgoing;
 }
 
+- (void)start:(NSString *_Nonnull)filename source:(NSString *_Nonnull)source encoding:(NSStringEncoding)encoding {
+  [self start:filename source:[source dataUsingEncoding:encoding]];
+}
+
 - (void)suspend {
   int err;
   err = bare_worklet_suspend(&_worklet, 0);

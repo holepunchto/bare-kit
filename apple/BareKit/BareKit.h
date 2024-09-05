@@ -11,7 +11,11 @@
 @property(atomic, readonly) int outgoing;
 
 - (void)start:(NSString *_Nonnull)filename;
-- (void)start:(NSString *_Nonnull)filename source:(NSData *_Nonnull)source;
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source;
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding;
 - (void)suspend;
 - (void)suspendWithLinger:(int)linger;
 - (void)resume;
