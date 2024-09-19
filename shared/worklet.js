@@ -29,8 +29,14 @@ exports.BareKit = new BareKit()
 exports.port = ports[1]
 
 exports.push = function push (payload, reply) {
-  if (exports.BareKit.emit('push', Buffer.from(payload), reply) === false) {
-    reply(null, null)
+  if (exports.BareKit.emit('push', Buffer.from(payload), replyOnce) === false) {
+    replyOnce(null, null)
+  }
+
+  function replyOnce (err, payload, encoding) {
+    reply(err, typeof payload === 'string' ? Buffer.from(payload, encoding) : payload)
+
+    reply = noop
   }
 }
 
@@ -40,3 +46,5 @@ Object.defineProperty(global, 'BareKit', {
   writable: false,
   configurable: true
 })
+
+function noop () {}
