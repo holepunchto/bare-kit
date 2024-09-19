@@ -85,6 +85,12 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   bare_worklet_t _worklet;
 }
 
++ (void)optimizeForMemory:(BOOL)enabled {
+  int err;
+  err = bare_worklet_optimize_for_memory(enabled);
+  assert(err == 0);
+}
+
 - (_Nullable instancetype)init {
   self = [super init];
 
