@@ -1,13 +1,13 @@
 plugins {
-  id 'com.android.library'
+  id "com.android.library"
 }
 
-group 'to.holepunch'
+group "to.holepunch"
 
 android {
-  namespace 'to.holepunch.bare.kit'
+  namespace "to.holepunch.bare.kit"
   compileSdk 34
-  ndkVersion '27.0.12077973'
+  ndkVersion "27.0.12077973"
 
   defaultConfig {
     minSdk 31
@@ -15,7 +15,7 @@ android {
 
     externalNativeBuild {
       cmake {
-        targets 'bare_kit'
+        targets "bare_kit"
         arguments "-DCMAKE_MODULE_PATH=$System.env.CMAKE_MODULE_PATH", "-DANDROID_STL=none"
       }
     }
@@ -33,12 +33,12 @@ android {
 
   externalNativeBuild {
     cmake {
-      version '3.25.0+'
-      path '../CMakeLists.txt'
+      version "3.25.0+"
+      path "../CMakeLists.txt"
     }
   }
 }
 
 dependencies {
-  implementation fileTree(dir: 'libs', include: ['*.jar'])
+  implementation fileTree(dir: "libs", include: ["*.jar"])
 }

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
   }
 }
 
-include ':bare-kit'
-project(':bare-kit').projectDir = file('android')
+include ":bare-kit"
+project(":bare-kit").projectDir = file("android")
