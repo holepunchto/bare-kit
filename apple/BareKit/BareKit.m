@@ -554,7 +554,7 @@ BareRPC ()
 
 @end
 
-@implementation BareKitNotificationService {
+@implementation BareNotificationService {
   BareWorklet *_worklet;
 }
 
