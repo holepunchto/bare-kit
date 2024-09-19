@@ -96,7 +96,10 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 @interface BareKitNotificationService : UNNotificationServiceExtension
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSString *_Nonnull)source;
+                                    source:(NSData *_Nonnull)source;
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSString *_Nonnull)source
+                                  encoding:(NSStringEncoding)encoding;
 
 @end
 

@@ -559,7 +559,7 @@ BareRPC ()
 }
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSString *_Nonnull)source {
+                                    source:(NSData *_Nonnull)source {
   self = [super init];
 
   if (self) {
@@ -567,10 +567,16 @@ BareRPC ()
 
     _worklet = [[BareWorklet alloc] init];
 
-    [_worklet start:filename source:source encoding:NSUTF8StringEncoding];
+    [_worklet start:filename source:source];
   }
 
   return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSString *_Nonnull)source
+                                  encoding:(NSStringEncoding)encoding {
+  return [self initWithFilename:filename source:[source dataUsingEncoding:encoding]];
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
