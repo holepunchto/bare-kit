@@ -576,7 +576,27 @@ BareRPC ()
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSString *_Nonnull)source
                                   encoding:(NSStringEncoding)encoding {
-  return [self initWithFilename:filename source:[source dataUsingEncoding:encoding]];
+  return [self initWithFilename:filename
+                         source:[source dataUsingEncoding:encoding]];
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                                  inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type];
+
+  return [self initWithFilename:path
+                         source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath
+                                  inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+
+  return [self initWithFilename:path
+                         source:[NSData dataWithContentsOfFile:path]];
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request

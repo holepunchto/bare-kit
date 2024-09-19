@@ -100,6 +100,13 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSString *_Nonnull)source
                                   encoding:(NSStringEncoding)encoding;
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                                  inBundle:(NSBundle *_Nonnull)bundle;
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath
+                                  inBundle:(NSBundle *_Nonnull)bundle;
 
 @end
 
