@@ -4,6 +4,7 @@
 #if defined(__OBJC__)
 
 #import <Foundation/Foundation.h>
+#import <UserNotifications/UserNotifications.h>
 
 @interface BareWorklet : NSObject
 
@@ -89,6 +90,13 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 - (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
                        requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler;
 - (BareRPCOutgoingRequest *_Nonnull)request:(NSString *_Nonnull)command;
+
+@end
+
+@interface BareKitNotificationService : UNNotificationServiceExtension
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSString *_Nonnull)source;
 
 @end
 
