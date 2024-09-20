@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <UserNotifications/UserNotifications.h>
 
 #import <assert.h>
 #import <compact.h>
@@ -549,6 +550,128 @@ BareRPC ()
   assert(err == 0);
 
   [_ipc write:buffer];
+}
+
+@end
+
+@implementation BareNotificationService {
+  BareWorklet *_worklet;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSData *_Nonnull)source {
+  self = [super init];
+
+  if (self) {
+    [BareWorklet optimizeForMemory:YES];
+
+    _worklet = [[BareWorklet alloc] init];
+
+    [_worklet start:filename source:source];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSString *_Nonnull)source
+                                  encoding:(NSStringEncoding)encoding {
+  return [self initWithFilename:filename
+                         source:[source dataUsingEncoding:encoding]];
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                                  inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type];
+
+  return [self initWithFilename:path
+                         source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath
+                                  inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+
+  return [self initWithFilename:path
+                         source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
+                   withContentHandler:(void (^)(UNNotificationContent *_Nonnull))contentHandler {
+  NSError *error;
+
+  NSData *json = [NSJSONSerialization dataWithJSONObject:request.content.userInfo options:0 error:&error];
+
+  assert(error == nil); // `userInfo` has already been validated
+
+  [_worklet push:json
+      completion:^(NSData *_Nullable reply, NSError *_Nullable error) {
+        UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+
+        if (reply) {
+          NSError *error;
+
+          id data = [NSJSONSerialization JSONObjectWithData:reply options:0 error:&error];
+
+          if (data) {
+            // Primary content
+            content.title = data[@"title"];
+            content.subtitle = data[@"subtitle"];
+            content.body = data[@"body"];
+
+            // Supplementary content
+            content.userInfo = data[@"userInfo"];
+
+            // App behavior
+            content.badge = data[@"badge"];
+            content.targetContentIdentifier = data[@"targetContentIdentifier"];
+
+            // System integration
+            id sound = data[@"sound"];
+
+            if (sound) {
+              id type = sound[@"type"];
+              id critical = sound[@"critical"];
+              id volume = sound[@"volume"];
+
+              if ([type isEqualToString:@"default"]) {
+                if (critical) {
+                  if (volume) {
+                    content.sound = [UNNotificationSound defaultCriticalSoundWithAudioVolume:[volume floatValue]];
+                  } else {
+                    content.sound = [UNNotificationSound defaultCriticalSound];
+                  }
+                } else {
+                  content.sound = [UNNotificationSound defaultSound];
+                }
+              } else if ([type isEqualToString:@"named"]) {
+                if (critical) {
+                  if (volume) {
+                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"] withAudioVolume:[volume floatValue]];
+                  } else {
+                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"]];
+                  }
+                } else {
+                  content.sound = [UNNotificationSound soundNamed:sound[@"name"]];
+                }
+              }
+            }
+
+            // Grouping
+            content.threadIdentifier = data[@"threadIdentifier"];
+            content.categoryIdentifier = data[@"categoryIdentifier"];
+          }
+        }
+
+        contentHandler(content);
+      }];
+}
+
+- (void)serviceExtensionTimeWillExpire {
+  [_worklet suspend];
 }
 
 @end

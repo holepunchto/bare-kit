@@ -31,6 +31,7 @@ target_link_libraries(
   bare_kit
   PUBLIC
     "-framework Foundation"
+    "-framework UserNotifications"
   PUBLIC
     bare_worklet
   PRIVATE
