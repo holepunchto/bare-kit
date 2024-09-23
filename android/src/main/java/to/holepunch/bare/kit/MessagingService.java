@@ -20,50 +20,34 @@ public abstract class MessagingService extends FirebaseMessagingService {
   protected Worklet worklet;
   protected ReplyCallback callback;
 
-  private MessagingService(ReplyCallback callback) {
+  protected MessagingService(ReplyCallback callback) {
     super();
 
     this.worklet = new Worklet();
     this.callback = callback;
   }
 
-  protected MessagingService(String filename, ByteBuffer source) {
+  protected MessagingService() {
     this(null);
+  }
+
+  protected void
+  start (String filename, ByteBuffer source) {
     this.worklet.start(filename, source);
   }
 
-  protected MessagingService(String filename, ByteBuffer source, ReplyCallback callback) {
-    this(callback);
-    this.worklet.start(filename, source);
-  }
-
-  protected MessagingService(String filename, String source, Charset charset) {
-    this(null);
+  protected void
+  start (String filename, String source, Charset charset) {
     this.worklet.start(filename, source, charset);
   }
 
-  protected MessagingService(String filename, String source, Charset charset, ReplyCallback callback) {
-    this(callback);
+  protected void
+  start (String filename, String source, String charset) {
     this.worklet.start(filename, source, charset);
   }
 
-  protected MessagingService(String filename, String source, String charset) {
-    this(null);
-    this.worklet.start(filename, source, charset);
-  }
-
-  protected MessagingService(String filename, String source, String charset, ReplyCallback callback) {
-    this(callback);
-    this.worklet.start(filename, source, charset);
-  }
-
-  protected MessagingService(String filename, InputStream source) throws IOException {
-    this(null);
-    this.worklet.start(filename, source);
-  }
-
-  protected MessagingService(String filename, InputStream source, ReplyCallback callback) throws IOException {
-    this(callback);
+  protected void
+  start (String filename, InputStream source) throws IOException {
     this.worklet.start(filename, source);
   }
 
