@@ -116,7 +116,8 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   _outgoing = _worklet.outgoing;
 }
 
-- (void)start:(NSString *_Nonnull)filename source:(NSData *_Nonnull)source {
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source {
   int err;
 
   const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
@@ -130,8 +131,27 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   _outgoing = _worklet.outgoing;
 }
 
-- (void)start:(NSString *_Nonnull)filename source:(NSString *_Nonnull)source encoding:(NSStringEncoding)encoding {
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding {
   [self start:filename source:[source dataUsingEncoding:encoding]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type];
+
+  [self start:path source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+
+  [self start:path source:[NSData dataWithContentsOfFile:path]];
 }
 
 - (void)suspend {
@@ -311,7 +331,8 @@ BareRPC ()
   BareRPC *_rpc;
 }
 
-- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
+                              request:(rpc_message_t *)request {
   self = [super init];
 
   if (self) {
@@ -338,6 +359,8 @@ BareRPC ()
 }
 
 @end
+
+typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullable error);
 
 @implementation BareRPCOutgoingRequest {
   BareRPC *_rpc;
@@ -558,8 +581,7 @@ BareRPC ()
   BareWorklet *_worklet;
 }
 
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSData *_Nonnull)source {
+- (_Nullable instancetype)init {
   self = [super init];
 
   if (self) {
@@ -568,8 +590,27 @@ BareRPC ()
     [BareWorklet optimizeForMemory:YES];
 
     _worklet = [[BareWorklet alloc] init];
+  }
 
-    [_worklet start:filename source:source];
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename {
+  self = [self init];
+
+  if (self) {
+    [self start:filename];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSData *_Nonnull)source {
+  self = [self init];
+
+  if (self) {
+    [self start:filename source:source];
   }
 
   return self;
@@ -578,27 +619,66 @@ BareRPC ()
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSString *_Nonnull)source
                                   encoding:(NSStringEncoding)encoding {
-  return [self initWithFilename:filename
-                         source:[source dataUsingEncoding:encoding]];
+  self = [self init];
+
+  if (self) {
+    [self start:filename source:source encoding:encoding];
+  }
+
+  return self;
 }
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                   inBundle:(NSBundle *_Nonnull)bundle {
-  NSString *path = [bundle pathForResource:name ofType:type];
+  self = [self init];
 
-  return [self initWithFilename:path
-                         source:[NSData dataWithContentsOfFile:path]];
+  if (self) {
+    [self start:name ofType:type inBundle:bundle];
+  }
+
+  return self;
 }
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                inDirectory:(NSString *_Nonnull)subpath
                                   inBundle:(NSBundle *_Nonnull)bundle {
-  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+  self = [self init];
 
-  return [self initWithFilename:path
-                         source:[NSData dataWithContentsOfFile:path]];
+  if (self) {
+    [self start:name ofType:type inDirectory:subpath inBundle:bundle];
+  }
+
+  return self;
+}
+
+- (void)start:(NSString *_Nonnull)filename {
+  [_worklet start:filename];
+}
+
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source {
+  [_worklet start:filename source:source];
+}
+
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding {
+  [_worklet start:filename source:source encoding:encoding];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle {
+  [_worklet start:name ofType:type inBundle:bundle];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle {
+  [_worklet start:name ofType:type inDirectory:subpath inBundle:bundle];
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request

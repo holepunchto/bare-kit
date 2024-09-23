@@ -19,6 +19,13 @@
 - (void)start:(NSString *_Nonnull)filename
        source:(NSString *_Nonnull)source
      encoding:(NSStringEncoding)encoding;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle;
 - (void)suspend;
 - (void)suspendWithLinger:(int)linger;
 - (void)resume;
@@ -83,7 +90,6 @@
 @end
 
 typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nullable request, NSError *_Nullable error);
-typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullable error);
 
 @interface BareRPC : NSObject
 
@@ -103,6 +109,8 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 @property(nonatomic, assign, nonnull) id<BareNotificationServiceDelegate> delegate;
 
+- (_Nullable instancetype)init;
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename;
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSData *_Nonnull)source;
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
@@ -115,6 +123,19 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
                                     ofType:(NSString *_Nonnull)type
                                inDirectory:(NSString *_Nonnull)subpath
                                   inBundle:(NSBundle *_Nonnull)bundle;
+- (void)start:(NSString *_Nonnull)filename;
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source;
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle;
 
 @end
 

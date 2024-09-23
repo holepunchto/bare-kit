@@ -27,8 +27,48 @@ public abstract class MessagingService extends FirebaseMessagingService {
     this.callback = callback;
   }
 
+  protected MessagingService(String filename, ByteBuffer source, ReplyCallback callback) {
+    this(callback);
+    start(filename, source);
+  }
+
+  protected MessagingService(String filename, String source, Charset charset, ReplyCallback callback) {
+    this(callback);
+    start(filename, source, charset);
+  }
+
+  protected MessagingService(String filename, String source, String charset, ReplyCallback callback) {
+    this(callback);
+    start(filename, source, charset);
+  }
+
+  protected MessagingService(String filename, InputStream source, ReplyCallback callback) throws IOException {
+    this(callback);
+    start(filename, source);
+  }
+
   protected MessagingService() {
     this(null);
+  }
+
+  protected MessagingService(String filename, ByteBuffer source) {
+    this();
+    start(filename, source);
+  }
+
+  protected MessagingService(String filename, String source, Charset charset) {
+    this();
+    start(filename, source, charset);
+  }
+
+  protected MessagingService(String filename, String source, String charset) {
+    this();
+    start(filename, source, charset);
+  }
+
+  protected MessagingService(String filename, InputStream source) throws IOException {
+    this();
+    start(filename, source);
   }
 
   protected void
