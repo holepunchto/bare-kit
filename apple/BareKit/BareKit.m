@@ -116,7 +116,8 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   _outgoing = _worklet.outgoing;
 }
 
-- (void)start:(NSString *_Nonnull)filename source:(NSData *_Nonnull)source {
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source {
   int err;
 
   const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
@@ -130,8 +131,38 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   _outgoing = _worklet.outgoing;
 }
 
-- (void)start:(NSString *_Nonnull)filename source:(NSString *_Nonnull)source encoding:(NSStringEncoding)encoding {
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding {
   [self start:filename source:[source dataUsingEncoding:encoding]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type {
+  [self start:name ofType:type inBundle:[NSBundle mainBundle]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type];
+
+  [self start:path source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath {
+  [self start:name ofType:type inDirectory:subpath inBundle:[NSBundle mainBundle]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle {
+  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+
+  [self start:path source:[NSData dataWithContentsOfFile:path]];
 }
 
 - (void)suspend {
@@ -311,7 +342,8 @@ BareRPC ()
   BareRPC *_rpc;
 }
 
-- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc request:(rpc_message_t *)request {
+- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
+                              request:(rpc_message_t *)request {
   self = [super init];
 
   if (self) {
@@ -338,6 +370,8 @@ BareRPC ()
 }
 
 @end
+
+typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullable error);
 
 @implementation BareRPCOutgoingRequest {
   BareRPC *_rpc;
@@ -558,16 +592,36 @@ BareRPC ()
   BareWorklet *_worklet;
 }
 
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSData *_Nonnull)source {
+- (_Nullable instancetype)init {
   self = [super init];
 
   if (self) {
+    _delegate = self;
+
     [BareWorklet optimizeForMemory:YES];
 
     _worklet = [[BareWorklet alloc] init];
+  }
 
-    [_worklet start:filename source:source];
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename {
+  self = [self init];
+
+  if (self) {
+    [self start:filename];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                    source:(NSData *_Nonnull)source {
+  self = [self init];
+
+  if (self) {
+    [self start:filename source:source];
   }
 
   return self;
@@ -576,27 +630,100 @@ BareRPC ()
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSString *_Nonnull)source
                                   encoding:(NSStringEncoding)encoding {
-  return [self initWithFilename:filename
-                         source:[source dataUsingEncoding:encoding]];
+  self = [self init];
+
+  if (self) {
+    [self start:filename source:source encoding:encoding];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type {
+  self = [self init];
+
+  if (self) {
+    [self start:name ofType:type];
+  }
+
+  return self;
 }
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                   inBundle:(NSBundle *_Nonnull)bundle {
-  NSString *path = [bundle pathForResource:name ofType:type];
+  self = [self init];
 
-  return [self initWithFilename:path
-                         source:[NSData dataWithContentsOfFile:path]];
+  if (self) {
+    [self start:name ofType:type inBundle:bundle];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath {
+  self = [self init];
+
+  if (self) {
+    [self start:name ofType:type inDirectory:subpath];
+  }
+
+  return self;
 }
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                inDirectory:(NSString *_Nonnull)subpath
                                   inBundle:(NSBundle *_Nonnull)bundle {
-  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
+  self = [self init];
 
-  return [self initWithFilename:path
-                         source:[NSData dataWithContentsOfFile:path]];
+  if (self) {
+    [self start:name ofType:type inDirectory:subpath inBundle:bundle];
+  }
+
+  return self;
+}
+
+- (void)start:(NSString *_Nonnull)filename {
+  [_worklet start:filename];
+}
+
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSData *_Nonnull)source {
+  [_worklet start:filename source:source];
+}
+
+- (void)start:(NSString *_Nonnull)filename
+       source:(NSString *_Nonnull)source
+     encoding:(NSStringEncoding)encoding {
+  [_worklet start:filename source:source encoding:encoding];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type {
+  [_worklet start:name ofType:type];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+     inBundle:(NSBundle *_Nonnull)bundle {
+  [_worklet start:name ofType:type inBundle:bundle];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath {
+  [_worklet start:name ofType:type inDirectory:subpath];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle {
+  [_worklet start:name ofType:type inDirectory:subpath inBundle:bundle];
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
@@ -609,7 +736,7 @@ BareRPC ()
 
   [_worklet push:json
       completion:^(NSData *_Nullable reply, NSError *_Nullable error) {
-        UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+        UNNotificationContent *content = [[UNNotificationContent alloc] init];
 
         if (reply) {
           NSError *error;
@@ -617,52 +744,7 @@ BareRPC ()
           id data = [NSJSONSerialization JSONObjectWithData:reply options:0 error:&error];
 
           if (data) {
-            // Primary content
-            content.title = data[@"title"];
-            content.subtitle = data[@"subtitle"];
-            content.body = data[@"body"];
-
-            // Supplementary content
-            content.userInfo = data[@"userInfo"];
-
-            // App behavior
-            content.badge = data[@"badge"];
-            content.targetContentIdentifier = data[@"targetContentIdentifier"];
-
-            // System integration
-            id sound = data[@"sound"];
-
-            if (sound) {
-              id type = sound[@"type"];
-              id critical = sound[@"critical"];
-              id volume = sound[@"volume"];
-
-              if ([type isEqualToString:@"default"]) {
-                if (critical) {
-                  if (volume) {
-                    content.sound = [UNNotificationSound defaultCriticalSoundWithAudioVolume:[volume floatValue]];
-                  } else {
-                    content.sound = [UNNotificationSound defaultCriticalSound];
-                  }
-                } else {
-                  content.sound = [UNNotificationSound defaultSound];
-                }
-              } else if ([type isEqualToString:@"named"]) {
-                if (critical) {
-                  if (volume) {
-                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"] withAudioVolume:[volume floatValue]];
-                  } else {
-                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"]];
-                  }
-                } else {
-                  content.sound = [UNNotificationSound soundNamed:sound[@"name"]];
-                }
-              }
-            }
-
-            // Grouping
-            content.threadIdentifier = data[@"threadIdentifier"];
-            content.categoryIdentifier = data[@"categoryIdentifier"];
+            content = [_delegate workletDidReply:data];
           }
         }
 
@@ -672,6 +754,59 @@ BareRPC ()
 
 - (void)serviceExtensionTimeWillExpire {
   [_worklet suspend];
+}
+
+- (UNNotificationContent *_Nonnull)workletDidReply:(NSDictionary *_Nonnull)reply {
+  UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+
+  // Primary content
+  content.title = reply[@"title"];
+  content.subtitle = reply[@"subtitle"];
+  content.body = reply[@"body"];
+
+  // Supplementary content
+  content.userInfo = reply[@"userInfo"];
+
+  // App behavior
+  content.badge = reply[@"badge"];
+  content.targetContentIdentifier = reply[@"targetContentIdentifier"];
+
+  // System integration
+  id sound = reply[@"sound"];
+
+  if (sound) {
+    id type = sound[@"type"];
+    id critical = sound[@"critical"];
+    id volume = sound[@"volume"];
+
+    if ([type isEqualToString:@"default"]) {
+      if (critical) {
+        if (volume) {
+          content.sound = [UNNotificationSound defaultCriticalSoundWithAudioVolume:[volume floatValue]];
+        } else {
+          content.sound = [UNNotificationSound defaultCriticalSound];
+        }
+      } else {
+        content.sound = [UNNotificationSound defaultSound];
+      }
+    } else if ([type isEqualToString:@"named"]) {
+      if (critical) {
+        if (volume) {
+          content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"] withAudioVolume:[volume floatValue]];
+        } else {
+          content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"]];
+        }
+      } else {
+        content.sound = [UNNotificationSound soundNamed:sound[@"name"]];
+      }
+    }
+  }
+
+  // Grouping
+  content.threadIdentifier = reply[@"threadIdentifier"];
+  content.categoryIdentifier = reply[@"categoryIdentifier"];
+
+  return content;
 }
 
 @end
