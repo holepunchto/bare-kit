@@ -93,7 +93,15 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 @end
 
-@interface BareNotificationService : UNNotificationServiceExtension
+@protocol BareNotificationServiceDelegate
+
+- (UNNotificationContent *_Nonnull)workletDidReply:(NSDictionary *_Nonnull)reply;
+
+@end
+
+@interface BareNotificationService : UNNotificationServiceExtension <BareNotificationServiceDelegate>
+
+@property(nonatomic, assign, nonnull) id<BareNotificationServiceDelegate> delegate;
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSData *_Nonnull)source;

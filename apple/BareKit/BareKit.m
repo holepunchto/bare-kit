@@ -563,6 +563,8 @@ BareRPC ()
   self = [super init];
 
   if (self) {
+    _delegate = self;
+
     [BareWorklet optimizeForMemory:YES];
 
     _worklet = [[BareWorklet alloc] init];
@@ -609,7 +611,7 @@ BareRPC ()
 
   [_worklet push:json
       completion:^(NSData *_Nullable reply, NSError *_Nullable error) {
-        UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+        UNNotificationContent *content = [[UNNotificationContent alloc] init];
 
         if (reply) {
           NSError *error;
@@ -617,52 +619,7 @@ BareRPC ()
           id data = [NSJSONSerialization JSONObjectWithData:reply options:0 error:&error];
 
           if (data) {
-            // Primary content
-            content.title = data[@"title"];
-            content.subtitle = data[@"subtitle"];
-            content.body = data[@"body"];
-
-            // Supplementary content
-            content.userInfo = data[@"userInfo"];
-
-            // App behavior
-            content.badge = data[@"badge"];
-            content.targetContentIdentifier = data[@"targetContentIdentifier"];
-
-            // System integration
-            id sound = data[@"sound"];
-
-            if (sound) {
-              id type = sound[@"type"];
-              id critical = sound[@"critical"];
-              id volume = sound[@"volume"];
-
-              if ([type isEqualToString:@"default"]) {
-                if (critical) {
-                  if (volume) {
-                    content.sound = [UNNotificationSound defaultCriticalSoundWithAudioVolume:[volume floatValue]];
-                  } else {
-                    content.sound = [UNNotificationSound defaultCriticalSound];
-                  }
-                } else {
-                  content.sound = [UNNotificationSound defaultSound];
-                }
-              } else if ([type isEqualToString:@"named"]) {
-                if (critical) {
-                  if (volume) {
-                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"] withAudioVolume:[volume floatValue]];
-                  } else {
-                    content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"]];
-                  }
-                } else {
-                  content.sound = [UNNotificationSound soundNamed:sound[@"name"]];
-                }
-              }
-            }
-
-            // Grouping
-            content.threadIdentifier = data[@"threadIdentifier"];
-            content.categoryIdentifier = data[@"categoryIdentifier"];
+            content = [_delegate workletDidReply:data];
           }
         }
 
@@ -672,6 +629,59 @@ BareRPC ()
 
 - (void)serviceExtensionTimeWillExpire {
   [_worklet suspend];
+}
+
+- (UNNotificationContent *_Nonnull)workletDidReply:(NSDictionary *_Nonnull)reply {
+  UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+
+  // Primary content
+  content.title = reply[@"title"];
+  content.subtitle = reply[@"subtitle"];
+  content.body = reply[@"body"];
+
+  // Supplementary content
+  content.userInfo = reply[@"userInfo"];
+
+  // App behavior
+  content.badge = reply[@"badge"];
+  content.targetContentIdentifier = reply[@"targetContentIdentifier"];
+
+  // System integration
+  id sound = reply[@"sound"];
+
+  if (sound) {
+    id type = sound[@"type"];
+    id critical = sound[@"critical"];
+    id volume = sound[@"volume"];
+
+    if ([type isEqualToString:@"default"]) {
+      if (critical) {
+        if (volume) {
+          content.sound = [UNNotificationSound defaultCriticalSoundWithAudioVolume:[volume floatValue]];
+        } else {
+          content.sound = [UNNotificationSound defaultCriticalSound];
+        }
+      } else {
+        content.sound = [UNNotificationSound defaultSound];
+      }
+    } else if ([type isEqualToString:@"named"]) {
+      if (critical) {
+        if (volume) {
+          content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"] withAudioVolume:[volume floatValue]];
+        } else {
+          content.sound = [UNNotificationSound criticalSoundNamed:sound[@"name"]];
+        }
+      } else {
+        content.sound = [UNNotificationSound soundNamed:sound[@"name"]];
+      }
+    }
+  }
+
+  // Grouping
+  content.threadIdentifier = reply[@"threadIdentifier"];
+  content.categoryIdentifier = reply[@"categoryIdentifier"];
+
+  return content;
 }
 
 @end
