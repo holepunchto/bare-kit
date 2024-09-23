@@ -138,11 +138,22 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 }
 
 - (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type {
+  [self start:name ofType:type inBundle:[NSBundle mainBundle]];
+}
+
+- (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
      inBundle:(NSBundle *_Nonnull)bundle {
   NSString *path = [bundle pathForResource:name ofType:type];
 
   [self start:path source:[NSData dataWithContentsOfFile:path]];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath {
+  [self start:name ofType:type inDirectory:subpath inBundle:[NSBundle mainBundle]];
 }
 
 - (void)start:(NSString *_Nonnull)name
@@ -629,12 +640,35 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 }
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type {
+  self = [self init];
+
+  if (self) {
+    [self start:name ofType:type];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                   inBundle:(NSBundle *_Nonnull)bundle {
   self = [self init];
 
   if (self) {
     [self start:name ofType:type inBundle:bundle];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath {
+  self = [self init];
+
+  if (self) {
+    [self start:name ofType:type inDirectory:subpath];
   }
 
   return self;
@@ -669,9 +703,20 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 }
 
 - (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type {
+  [_worklet start:name ofType:type];
+}
+
+- (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
      inBundle:(NSBundle *_Nonnull)bundle {
   [_worklet start:name ofType:type inBundle:bundle];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath {
+  [_worklet start:name ofType:type inDirectory:subpath];
 }
 
 - (void)start:(NSString *_Nonnull)name

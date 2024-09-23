@@ -20,8 +20,13 @@
        source:(NSString *_Nonnull)source
      encoding:(NSStringEncoding)encoding;
 - (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type;
+- (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
      inBundle:(NSBundle *_Nonnull)bundle;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath;
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
   inDirectory:(NSString *_Nonnull)subpath
@@ -117,8 +122,13 @@ typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nullable request,
                                     source:(NSString *_Nonnull)source
                                   encoding:(NSStringEncoding)encoding;
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type;
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                   inBundle:(NSBundle *_Nonnull)bundle;
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath;
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                inDirectory:(NSString *_Nonnull)subpath
@@ -130,8 +140,13 @@ typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nullable request,
        source:(NSString *_Nonnull)source
      encoding:(NSStringEncoding)encoding;
 - (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type;
+- (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
      inBundle:(NSBundle *_Nonnull)bundle;
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath;
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
   inDirectory:(NSString *_Nonnull)subpath
