@@ -20,75 +20,75 @@ public abstract class MessagingService extends FirebaseMessagingService {
   protected Worklet worklet;
   protected ReplyCallback callback;
 
-  protected MessagingService(ReplyCallback callback) {
+  protected MessagingService(Worklet.Options options, ReplyCallback callback) {
     super();
 
-    this.worklet = new Worklet();
+    this.worklet = new Worklet(options);
     this.callback = callback;
   }
 
-  protected MessagingService(String filename, ByteBuffer source, ReplyCallback callback) {
-    this(callback);
-    start(filename, source);
+  protected MessagingService(String filename, ByteBuffer source, String[] arguments, Worklet.Options options, ReplyCallback callback) {
+    this(options, callback);
+    start(filename, source, arguments);
   }
 
-  protected MessagingService(String filename, String source, Charset charset, ReplyCallback callback) {
-    this(callback);
-    start(filename, source, charset);
+  protected MessagingService(String filename, String source, Charset charset, String[] arguments, Worklet.Options options, ReplyCallback callback) {
+    this(options, callback);
+    start(filename, source, charset, arguments);
   }
 
-  protected MessagingService(String filename, String source, String charset, ReplyCallback callback) {
-    this(callback);
-    start(filename, source, charset);
+  protected MessagingService(String filename, String source, String charset, String[] arguments, Worklet.Options options, ReplyCallback callback) {
+    this(options, callback);
+    start(filename, source, charset, arguments);
   }
 
-  protected MessagingService(String filename, InputStream source, ReplyCallback callback) throws IOException {
-    this(callback);
-    start(filename, source);
+  protected MessagingService(String filename, InputStream source, String[] arguments, Worklet.Options options, ReplyCallback callback) throws IOException {
+    this(options, callback);
+    start(filename, source, arguments);
   }
 
-  protected MessagingService() {
-    this(null);
+  protected MessagingService(Worklet.Options options) {
+    this(options, null);
   }
 
-  protected MessagingService(String filename, ByteBuffer source) {
-    this();
-    start(filename, source);
+  protected MessagingService(String filename, ByteBuffer source, String[] arguments, Worklet.Options options) {
+    this(options);
+    start(filename, source, arguments);
   }
 
-  protected MessagingService(String filename, String source, Charset charset) {
-    this();
-    start(filename, source, charset);
+  protected MessagingService(String filename, String source, Charset charset, String[] arguments, Worklet.Options options) {
+    this(options);
+    start(filename, source, charset, arguments);
   }
 
-  protected MessagingService(String filename, String source, String charset) {
-    this();
-    start(filename, source, charset);
+  protected MessagingService(String filename, String source, String charset, String[] arguments, Worklet.Options options) {
+    this(options);
+    start(filename, source, charset, arguments);
   }
 
-  protected MessagingService(String filename, InputStream source) throws IOException {
-    this();
-    start(filename, source);
-  }
-
-  protected void
-  start (String filename, ByteBuffer source) {
-    this.worklet.start(filename, source);
+  protected MessagingService(String filename, InputStream source, String[] arguments, Worklet.Options options) throws IOException {
+    this(options);
+    start(filename, source, arguments);
   }
 
   protected void
-  start (String filename, String source, Charset charset) {
-    this.worklet.start(filename, source, charset);
+  start (String filename, ByteBuffer source, String[] arguments) {
+    this.worklet.start(filename, source, arguments);
   }
 
   protected void
-  start (String filename, String source, String charset) {
-    this.worklet.start(filename, source, charset);
+  start (String filename, String source, Charset charset, String[] arguments) {
+    this.worklet.start(filename, source, charset, arguments);
   }
 
   protected void
-  start (String filename, InputStream source) throws IOException {
-    this.worklet.start(filename, source);
+  start (String filename, String source, String charset, String[] arguments) {
+    this.worklet.start(filename, source, charset, arguments);
+  }
+
+  protected void
+  start (String filename, InputStream source, String[] arguments) throws IOException {
+    this.worklet.start(filename, source, arguments);
   }
 
   @Override

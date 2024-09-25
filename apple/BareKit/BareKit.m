@@ -82,6 +82,24 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   }
 }
 
+@implementation BareWorkletConfiguration
+
++ (BareWorkletConfiguration *_Nullable)defaultWorkletConfiguration {
+  return [[BareWorkletConfiguration alloc] init];
+}
+
+- (_Nullable instancetype)init {
+  self = [super init];
+
+  if (self) {
+    _memoryLimit = 0;
+  }
+
+  return self;
+}
+
+@end
+
 @implementation BareWorklet {
   bare_worklet_t _worklet;
 }
@@ -92,40 +110,52 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   assert(err == 0);
 }
 
-- (_Nullable instancetype)init {
+- (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options {
   self = [super init];
 
   if (self) {
+    bare_worklet_options_t _options;
+
+    if (options) {
+      _options.memory_limit = options.memoryLimit;
+    } else {
+      _options.memory_limit = 0;
+    }
+
     int err;
-    err = bare_worklet_init(&_worklet, NULL);
+    err = bare_worklet_init(&_worklet, &_options);
     assert(err == 0);
   }
 
   return self;
 }
 
-- (void)start:(NSString *_Nonnull)filename {
-  int err;
-
-  const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
-
-  err = bare_worklet_start(&_worklet, _filename, NULL);
-  assert(err == 0);
-
-  _incoming = _worklet.incoming;
-  _outgoing = _worklet.outgoing;
-}
-
 - (void)start:(NSString *_Nonnull)filename
-       source:(NSData *_Nonnull)source {
+       source:(NSData *_Nullable)source
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
   int err;
 
   const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
 
-  uv_buf_t _source = uv_buf_init((char *) source.bytes, source.length);
+  int argc = arguments == nil ? 0 : [arguments count];
 
-  err = bare_worklet_start(&_worklet, _filename, &_source);
-  assert(err == 0);
+  const char **argv = calloc(argc, sizeof(char *));
+
+  for (int i = 0; i < argc; i++) {
+    argv[i] = [arguments[i] UTF8String];
+  }
+
+  if (source == NULL) {
+    err = bare_worklet_start(&_worklet, _filename, NULL, argc, argv);
+    assert(err == 0);
+  } else {
+    uv_buf_t _source = uv_buf_init((char *) source.bytes, source.length);
+
+    err = bare_worklet_start(&_worklet, _filename, &_source, argc, argv);
+    assert(err == 0);
+  }
+
+  free(argv);
 
   _incoming = _worklet.incoming;
   _outgoing = _worklet.outgoing;
@@ -133,36 +163,40 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 
 - (void)start:(NSString *_Nonnull)filename
        source:(NSString *_Nonnull)source
-     encoding:(NSStringEncoding)encoding {
-  [self start:filename source:[source dataUsingEncoding:encoding]];
+     encoding:(NSStringEncoding)encoding
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [self start:filename source:[source dataUsingEncoding:encoding] arguments:arguments];
 }
-
 - (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type {
-  [self start:name ofType:type inBundle:[NSBundle mainBundle]];
+       ofType:(NSString *_Nonnull)type
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [self start:name ofType:type inBundle:[NSBundle mainBundle] arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
-     inBundle:(NSBundle *_Nonnull)bundle {
+     inBundle:(NSBundle *_Nonnull)bundle
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
   NSString *path = [bundle pathForResource:name ofType:type];
 
-  [self start:path source:[NSData dataWithContentsOfFile:path]];
-}
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type
-  inDirectory:(NSString *_Nonnull)subpath {
-  [self start:name ofType:type inDirectory:subpath inBundle:[NSBundle mainBundle]];
+  [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
   inDirectory:(NSString *_Nonnull)subpath
-     inBundle:(NSBundle *_Nonnull)bundle {
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [self start:name ofType:type inDirectory:subpath inBundle:[NSBundle mainBundle] arguments:arguments];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
   NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
 
-  [self start:path source:[NSData dataWithContentsOfFile:path]];
+  [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
 }
 
 - (void)suspend {
@@ -592,7 +626,7 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
   BareWorklet *_worklet;
 }
 
-- (_Nullable instancetype)init {
+- (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options {
   self = [super init];
 
   if (self) {
@@ -600,28 +634,20 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
     [BareWorklet optimizeForMemory:YES];
 
-    _worklet = [[BareWorklet alloc] init];
-  }
-
-  return self;
-}
-
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename {
-  self = [self init];
-
-  if (self) {
-    [self start:filename];
+    _worklet = [[BareWorklet alloc] initWithConfiguration:options];
   }
 
   return self;
 }
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSData *_Nonnull)source {
-  self = [self init];
+                                    source:(NSData *_Nullable)source
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
 
   if (self) {
-    [self start:filename source:source];
+    [self start:filename source:source arguments:arguments];
   }
 
   return self;
@@ -629,22 +655,13 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSString *_Nonnull)source
-                                  encoding:(NSStringEncoding)encoding {
-  self = [self init];
+                                  encoding:(NSStringEncoding)encoding
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
 
   if (self) {
-    [self start:filename source:source encoding:encoding];
-  }
-
-  return self;
-}
-
-- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
-                                    ofType:(NSString *_Nonnull)type {
-  self = [self init];
-
-  if (self) {
-    [self start:name ofType:type];
+    [self start:filename source:source encoding:encoding arguments:arguments];
   }
 
   return self;
@@ -652,11 +669,12 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
-                                  inBundle:(NSBundle *_Nonnull)bundle {
-  self = [self init];
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
 
   if (self) {
-    [self start:name ofType:type inBundle:bundle];
+    [self start:name ofType:type arguments:arguments];
   }
 
   return self;
@@ -664,11 +682,13 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
-                               inDirectory:(NSString *_Nonnull)subpath {
-  self = [self init];
+                                  inBundle:(NSBundle *_Nonnull)bundle
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
 
   if (self) {
-    [self start:name ofType:type inDirectory:subpath];
+    [self start:name ofType:type inBundle:bundle arguments:arguments];
   }
 
   return self;
@@ -677,53 +697,71 @@ typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullabl
 - (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
                                     ofType:(NSString *_Nonnull)type
                                inDirectory:(NSString *_Nonnull)subpath
-                                  inBundle:(NSBundle *_Nonnull)bundle {
-  self = [self init];
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
 
   if (self) {
-    [self start:name ofType:type inDirectory:subpath inBundle:bundle];
+    [self start:name ofType:type inDirectory:subpath arguments:arguments];
   }
 
   return self;
 }
 
-- (void)start:(NSString *_Nonnull)filename {
-  [_worklet start:filename];
+- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
+                                    ofType:(NSString *_Nonnull)type
+                               inDirectory:(NSString *_Nonnull)subpath
+                                  inBundle:(NSBundle *_Nonnull)bundle
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
+
+  if (self) {
+    [self start:name ofType:type inDirectory:subpath inBundle:bundle arguments:arguments];
+  }
+
+  return self;
 }
 
 - (void)start:(NSString *_Nonnull)filename
-       source:(NSData *_Nonnull)source {
-  [_worklet start:filename source:source];
+       source:(NSData *_Nullable)source
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:filename source:source arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)filename
        source:(NSString *_Nonnull)source
-     encoding:(NSStringEncoding)encoding {
-  [_worklet start:filename source:source encoding:encoding];
-}
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type {
-  [_worklet start:name ofType:type];
+     encoding:(NSStringEncoding)encoding
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:filename source:source encoding:encoding arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
-     inBundle:(NSBundle *_Nonnull)bundle {
-  [_worklet start:name ofType:type inBundle:bundle];
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:name ofType:type arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
-  inDirectory:(NSString *_Nonnull)subpath {
-  [_worklet start:name ofType:type inDirectory:subpath];
+     inBundle:(NSBundle *_Nonnull)bundle
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:name ofType:type inBundle:bundle arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
        ofType:(NSString *_Nonnull)type
   inDirectory:(NSString *_Nonnull)subpath
-     inBundle:(NSBundle *_Nonnull)bundle {
-  [_worklet start:name ofType:type inDirectory:subpath inBundle:bundle];
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:name ofType:type inDirectory:subpath arguments:arguments];
+}
+
+- (void)start:(NSString *_Nonnull)name
+       ofType:(NSString *_Nonnull)type
+  inDirectory:(NSString *_Nonnull)subpath
+     inBundle:(NSBundle *_Nonnull)bundle
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:name ofType:type inDirectory:subpath inBundle:bundle arguments:arguments];
 }
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request

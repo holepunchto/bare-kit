@@ -17,35 +17,60 @@ typedef struct {
 } bare_worklet_push_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self) {
+Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory_limit) {
   int err;
 
   bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 
-  jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
+  bare_worklet_options_t options = {
+    .memory_limit = (int) jmemory_limit,
+  };
 
-  err = bare_worklet_init(worklet, NULL);
+  err = bare_worklet_init(worklet, &options);
   assert(err == 0);
+
+  jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
 
   return handle;
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen) {
+Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen, jobjectArray jarguments) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   const char *filename = (*env)->GetStringUTFChars(env, jfilename, NULL);
 
-  char *base = (*env)->GetDirectBufferAddress(env, jsource);
+  int argc = (*env)->IsSameObject(env, jarguments, NULL) ? 0 : (*env)->GetArrayLength(env, jarguments);
 
-  int len = (int) jlen;
+  const char **argv = calloc(argc, sizeof(char *));
 
-  uv_buf_t source = uv_buf_init(base, len);
+  for (int i = 0; i < argc; i++) {
+    jstring arg = (jstring) (*env)->GetObjectArrayElement(env, jarguments, i);
 
-  err = bare_worklet_start(worklet, filename, &source);
-  assert(err == 0);
+    argv[i] = (*env)->GetStringUTFChars(env, arg, NULL);
+  }
+
+  if ((*env)->IsSameObject(env, jsource, NULL)) {
+    err = bare_worklet_start(worklet, filename, NULL, argc, argv);
+    assert(err == 0);
+  } else {
+    char *base = (*env)->GetDirectBufferAddress(env, jsource);
+
+    int len = (int) jlen;
+
+    uv_buf_t source = uv_buf_init(base, len);
+
+    err = bare_worklet_start(worklet, filename, &source, argc, argv);
+    assert(err == 0);
+  }
+
+  for (int i = 0; i < argc; i++) {
+    jstring arg = (jstring) (*env)->GetObjectArrayElement(env, jarguments, i);
+
+    (*env)->ReleaseStringUTFChars(env, arg, argv[i]);
+  }
 
   (*env)->ReleaseStringUTFChars(env, jfilename, filename);
 }

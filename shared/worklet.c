@@ -235,7 +235,7 @@ bare_worklet__on_thread (void *opaque) {
   };
 
   js_env_t *env;
-  err = bare_setup(&loop, bare_worklet__platform, &env, 0, NULL, &options, &worklet->bare);
+  err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &worklet->bare);
   assert(err == 0);
 
   bare_t *bare = worklet->bare;
@@ -247,7 +247,7 @@ bare_worklet__on_thread (void *opaque) {
   uv_buf_t source = uv_buf_init((char *) worklet_bundle, worklet_bundle_len);
 
   js_value_t *module;
-  err = bare_load(bare, "/worklet.bundle", &source, &module);
+  err = bare_load(bare, "bare:/worklet.bundle", &source, &module);
   assert(err == 0);
 
   js_value_t *exports;
@@ -307,11 +307,13 @@ bare_worklet__on_thread (void *opaque) {
 }
 
 int
-bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source) {
+bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]) {
   int err;
 
   worklet->filename = filename;
   worklet->source = source;
+  worklet->argc = argc;
+  worklet->argv = argv;
 
   err = uv_thread_create(&worklet->thread, bare_worklet__on_thread, (void *) worklet);
   if (err < 0) return err;

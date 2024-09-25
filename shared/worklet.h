@@ -34,6 +34,9 @@ struct bare_worklet_s {
   const char *filename;
   const uv_buf_t *source;
 
+  int argc;
+  const char **argv;
+
   uv_thread_t thread;
   uv_sem_t ready;
   uv_mutex_t lock;
@@ -69,7 +72,7 @@ void
 bare_worklet_destroy (bare_worklet_t *worklet);
 
 int
-bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source);
+bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]);
 
 int
 bare_worklet_suspend (bare_worklet_t *worklet, int linger);

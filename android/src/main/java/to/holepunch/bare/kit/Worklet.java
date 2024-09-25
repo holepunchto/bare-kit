@@ -28,22 +28,34 @@ public class Worklet implements Closeable {
     apply (ByteBuffer reply, String exception);
   }
 
+  public static class Options {
+    public int memoryLimit = 0;
+
+    public Options
+    memoryLimit (int memoryLimit) {
+      this.memoryLimit = memoryLimit;
+      return this;
+    }
+  }
+
   private ByteBuffer handle;
   private FileDescriptor incoming;
   private FileDescriptor outgoing;
   private Handler handler;
 
-  public Worklet() {
-    handle = init();
+  public Worklet(Options options) {
+    if (options == null) options = new Options();
+
+    handle = init(options.memoryLimit);
 
     handler = Handler.createAsync(Looper.getMainLooper());
   }
 
   private native ByteBuffer
-  init ();
+  init (int memoryLimit);
 
   private native void
-  start (ByteBuffer handle, String filename, ByteBuffer source, int len);
+  start (ByteBuffer handle, String filename, ByteBuffer source, int len, String[] arguments);
 
   private native void
   suspend (ByteBuffer handle, int linger);
@@ -64,15 +76,15 @@ public class Worklet implements Closeable {
   push (ByteBuffer handle, ByteBuffer payload, int len, NativePushCallback callback);
 
   private void
-  start (String filename, ByteBuffer source, int len) {
-    start(handle, filename, source, len);
+  start (String filename, ByteBuffer source, int len, String[] arguments) {
+    start(handle, filename, source, len, arguments);
 
     incoming = incoming(handle);
     outgoing = outgoing(handle);
   }
 
   public void
-  start (String filename, ByteBuffer source) {
+  start (String filename, ByteBuffer source, String[] arguments) {
     ByteBuffer buffer;
 
     if (source.isDirect()) {
@@ -83,21 +95,21 @@ public class Worklet implements Closeable {
       buffer.flip();
     }
 
-    start(filename, buffer, buffer.limit());
+    start(filename, buffer, buffer.limit(), arguments);
   }
 
   public void
-  start (String filename, String source, Charset charset) {
-    start(filename, ByteBuffer.wrap(source.getBytes(charset)));
+  start (String filename, String source, Charset charset, String[] arguments) {
+    start(filename, ByteBuffer.wrap(source.getBytes(charset)), arguments);
   }
 
   public void
-  start (String filename, String source, String charset) {
-    start(filename, source, Charset.forName(charset));
+  start (String filename, String source, String charset, String[] arguments) {
+    start(filename, source, Charset.forName(charset), arguments);
   }
 
   public void
-  start (String filename, InputStream source) throws IOException {
+  start (String filename, InputStream source, String[] arguments) throws IOException {
     source.reset();
 
     ByteBuffer buffer = ByteBuffer.allocateDirect(Math.max(4096, source.available()));
@@ -118,7 +130,7 @@ public class Worklet implements Closeable {
     buffer.flip();
     channel.close();
 
-    start(filename, buffer, buffer.limit());
+    start(filename, buffer, buffer.limit(), arguments);
   }
 
   public void
