@@ -7,7 +7,7 @@ group "to.holepunch"
 android {
   namespace "to.holepunch.bare.kit"
   compileSdk 34
-  ndkVersion "27.0.12077973"
+  ndkVersion "26.1.10909125"
 
   defaultConfig {
     minSdk 31
