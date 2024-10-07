@@ -3,6 +3,7 @@
 #include <js.h>
 #include <log.h>
 #include <stddef.h>
+#include <string.h>
 #include <utf.h>
 #include <uv.h>
 
@@ -28,7 +29,10 @@ bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *option
 
   memset(&worklet->options, 0, sizeof(worklet->options));
 
-  if (options) worklet->options = *options;
+  if (options) {
+    worklet->options.memory_limit = options->memory_limit;
+    worklet->options.assets = strdup(options->assets);
+  }
 
   err = uv_sem_init(&worklet->ready, 0);
   assert(err == 0);
@@ -49,6 +53,8 @@ bare_worklet_destroy (bare_worklet_t *worklet) {
   uv_sem_destroy(&worklet->ready);
 
   uv_mutex_destroy(&worklet->lock);
+
+  free((char *) worklet->options.assets);
 }
 
 static js_platform_options_t bare_worklet__platform_options = {
@@ -282,10 +288,40 @@ bare_worklet__on_thread (void *opaque) {
   err = js_unref_threadsafe_function(env, worklet->push);
   assert(err == 0);
 
-  err = js_close_handle_scope(env, scope);
+  js_value_t *start;
+  err = js_get_named_property(env, exports, "start", &start);
   assert(err == 0);
 
-  bare_load(bare, worklet->filename, worklet->source, NULL);
+  js_value_t *args[3];
+
+  err = js_create_string_utf8(env, (const utf8_t *) worklet->filename, -1, &args[0]);
+  assert(err == 0);
+
+  if (worklet->source) {
+    err = js_create_external_arraybuffer(env, worklet->source->base, worklet->source->len, NULL, NULL, &args[1]);
+    assert(err == 0);
+  } else {
+    err = js_get_null(env, &args[1]);
+    assert(err == 0);
+  }
+
+  if (worklet->options.assets) {
+    err = js_create_string_utf8(env, (const utf8_t *) worklet->options.assets, -1, &args[2]);
+    assert(err == 0);
+  } else {
+    err = js_get_null(env, &args[2]);
+    assert(err == 0);
+  }
+
+  js_call_function(env, module, start, 3, args, NULL);
+
+  if (worklet->source) {
+    err = js_detach_arraybuffer(env, args[1]);
+    assert(err == 0);
+  }
+
+  err = js_close_handle_scope(env, scope);
+  assert(err == 0);
 
   uv_sem_post(&worklet->ready);
 
