@@ -67,21 +67,17 @@ exports.start = function start (filename, source, assets) {
 
   if (source === null) source = protocol.read(url)
 
-  switch (path.extname(url.href)) {
-    case '.bundle': {
-      if (assets) {
-        const bundle = Bundle.from(source)
+  if (assets && path.extname(url.href) === '.bundle') {
+    const bundle = Bundle.from(source)
 
-        fs.mkdirSync(assets, { recursive: true })
+    fs.mkdirSync(assets, { recursive: true })
 
-        for (const asset of bundle.assets) {
-          const target = path.join(assets, asset)
+    for (const asset of bundle.assets) {
+      const target = path.join(assets, asset)
 
-          if (fs.existsSync(target)) continue
+      if (fs.existsSync(target)) continue
 
-          fs.writeFileSync(target, bundle.read(asset))
-        }
-      }
+      fs.writeFileSync(target, bundle.read(asset))
     }
   }
 
