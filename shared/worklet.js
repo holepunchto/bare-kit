@@ -1,6 +1,7 @@
 /* global Bare */
 const path = require('bare-path')
 const fs = require('bare-fs')
+const crypto = require('bare-crypto')
 const { fileURLToPath, pathToFileURL } = require('bare-url')
 const EventEmitter = require('bare-events')
 const IPC = require('bare-ipc')
@@ -70,14 +71,28 @@ exports.start = function start (filename, source, assets) {
   if (assets && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
 
-    fs.mkdirSync(assets, { recursive: true })
+    if (bundle.id === null) assets = null
+    else {
+      const id = crypto.createHash('blake2b256').update(bundle.id).digest('hex')
 
-    for (const asset of bundle.assets) {
-      const target = path.join(assets, asset)
+      const root = path.join(assets, id)
 
-      if (fs.existsSync(target)) continue
+      if (fs.existsSync(root)) assets = root
+      else {
+        const tmp = path.join(assets, 'tmp')
 
-      fs.writeFileSync(target, bundle.read(asset))
+        fs.rmSync(tmp, { recursive: true, force: true })
+
+        fs.mkdirSync(tmp, { recursive: true })
+
+        for (const asset of bundle.assets) {
+          fs.writeFileSync(path.join(tmp, asset), bundle.read(asset))
+        }
+
+        fs.renameSync(tmp, root)
+
+        assets = root
+      }
     }
   }
 
