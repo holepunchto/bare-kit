@@ -86,7 +86,7 @@ exports.start = function start (filename, source, assets) {
   if (assets && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
 
-    if (bundle.id === null) assets = null
+    if (bundle.id === null || bundle.assets.length === 0) assets = null
     else {
       const id = crypto.createHash('blake2b256').update(bundle.id).digest('hex')
 
