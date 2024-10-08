@@ -24,6 +24,13 @@ struct bare_worklet_options_s {
    * main thread.
    */
   size_t memory_limit;
+
+  /**
+   * The directory in which assets should be stored. The worklet require both
+   * read and write access to the directory. By default, assets may not be
+   * referenced and doing so will result in a runtime error.
+   */
+  const char *assets;
 };
 
 struct bare_worklet_s {

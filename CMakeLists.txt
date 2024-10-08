@@ -29,3 +29,9 @@ endif()
 if(ANDROID)
   add_subdirectory(android)
 endif()
+
+if(PROJECT_IS_TOP_LEVEL)
+  enable_testing()
+
+  add_subdirectory(test)
+endif()

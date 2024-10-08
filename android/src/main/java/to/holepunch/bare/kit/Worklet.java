@@ -30,10 +30,17 @@ public class Worklet implements Closeable {
 
   public static class Options {
     public int memoryLimit = 0;
+    public String assets = null;
 
     public Options
     memoryLimit (int memoryLimit) {
       this.memoryLimit = memoryLimit;
+      return this;
+    }
+
+    public Options
+    assets (String assets) {
+      this.assets = assets;
       return this;
     }
   }
@@ -46,13 +53,13 @@ public class Worklet implements Closeable {
   public Worklet(Options options) {
     if (options == null) options = new Options();
 
-    handle = init(options.memoryLimit);
+    handle = init(options.memoryLimit, options.assets);
 
     handler = Handler.createAsync(Looper.getMainLooper());
   }
 
   private native ByteBuffer
-  init (int memoryLimit);
+  init (int memoryLimit, String assets);
 
   private native void
   start (ByteBuffer handle, String filename, ByteBuffer source, int len, String[] arguments);
