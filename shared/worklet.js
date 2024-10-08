@@ -67,6 +67,7 @@ exports.start = function start (filename, source, assets) {
   if (url === null) url = URL.pathToFileURL(filename)
 
   if (source === null) source = protocol.read(url)
+  else source = Buffer.from(source)
 
   if (assets && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
