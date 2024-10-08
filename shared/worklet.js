@@ -98,6 +98,8 @@ exports.start = function start (filename, source, assets) {
 
         fs.rmSync(tmp, { recursive: true, force: true })
 
+        fs.mkdirSync(tmp, { recursive: true })
+
         for (const asset of bundle.assets) {
           const target = path.join(tmp, asset)
 
