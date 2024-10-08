@@ -29,7 +29,7 @@ Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory
   if ((*env)->IsSameObject(env, jassets, NULL)) {
     options.assets = NULL;
   } else {
-    options.assets = (*env)->GetStringUTFChars(env, jassets, NULL)
+    options.assets = (*env)->GetStringUTFChars(env, jassets, NULL);
   }
 
   err = bare_worklet_init(worklet, &options);
