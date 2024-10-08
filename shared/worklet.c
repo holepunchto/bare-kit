@@ -340,6 +340,9 @@ bare_worklet__on_thread (void *opaque) {
   int exit_code;
   err = bare_teardown(bare, &exit_code);
   assert(err == 0);
+
+  err = uv_loop_close(&loop);
+  assert(err == 0);
 }
 
 int
