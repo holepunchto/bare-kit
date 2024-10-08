@@ -119,7 +119,7 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 
     if (options) {
       _options.memory_limit = options.memoryLimit;
-      _options.assets = [options.assets UTF8String];
+      _options.assets = options.assets == nil ? nil : [options.assets UTF8String];
     } else {
       _options.memory_limit = 0;
       _options.assets = nil;
