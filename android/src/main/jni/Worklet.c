@@ -17,17 +17,27 @@ typedef struct {
 } bare_worklet_push_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory_limit) {
+Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory_limit, jobject jassets) {
   int err;
 
   bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 
-  bare_worklet_options_t options = {
-    .memory_limit = (int) jmemory_limit,
-  };
+  bare_worklet_options_t options;
+
+  options.memory_limit = (int) jmemory_limit;
+
+  if ((*env)->IsSameObject(env, jassets, NULL)) {
+    options.assets = NULL;
+  } else {
+    options.assets = (*env)->GetStringUTFChars(env, jassets, NULL)
+  }
 
   err = bare_worklet_init(worklet, &options);
   assert(err == 0);
+
+  if (options.assets) {
+    (*env)->ReleaseStringUTFChars(env, jassets, options.assets);
+  }
 
   jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
 

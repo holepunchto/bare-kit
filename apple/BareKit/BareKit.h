@@ -9,6 +9,7 @@
 @interface BareWorkletConfiguration : NSObject
 
 @property NSUInteger memoryLimit;
+@property(nullable, copy) NSString *assets;
 
 + (BareWorkletConfiguration *_Nullable)defaultWorkletConfiguration;
 
