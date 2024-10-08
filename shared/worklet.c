@@ -31,7 +31,7 @@ bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *option
 
   if (options) {
     worklet->options.memory_limit = options->memory_limit;
-    worklet->options.assets = strdup(options->assets);
+    worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
 
   err = uv_sem_init(&worklet->ready, 0);
