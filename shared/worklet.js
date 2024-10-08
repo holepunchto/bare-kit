@@ -98,10 +98,12 @@ exports.start = function start (filename, source, assets) {
 
         fs.rmSync(tmp, { recursive: true, force: true })
 
-        fs.mkdirSync(tmp, { recursive: true })
-
         for (const asset of bundle.assets) {
-          fs.writeFileSync(path.join(tmp, asset), bundle.read(asset))
+          const target = path.join(tmp, asset)
+
+          fs.mkdirSync(path.dirname(target), { recursive: true })
+
+          fs.writeFileSync(target, bundle.read(asset))
         }
 
         fs.renameSync(tmp, root)
