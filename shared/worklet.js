@@ -52,7 +52,21 @@ exports.push = function push (payload, reply) {
 }
 
 exports.start = function start (filename, source, assets) {
-  if (assets) assets = path.resolve(assets)
+  if (assets) {
+    let url
+
+    if (startsWithWindowsDriveLetter(assets)) {
+      url = null
+    } else {
+      url = URL.parse(assets)
+    }
+
+    if (url === null) url = pathToFileURL(assets)
+
+    assets = fileURLToPath(url)
+  } else {
+    assets = null
+  }
 
   const protocol = Module.protocol.extend({ asset })
 
@@ -64,7 +78,7 @@ exports.start = function start (filename, source, assets) {
     url = URL.parse(filename)
   }
 
-  if (url === null) url = URL.pathToFileURL(filename)
+  if (url === null) url = pathToFileURL(filename)
 
   if (source === null) source = protocol.read(url)
   else source = Buffer.from(source)
