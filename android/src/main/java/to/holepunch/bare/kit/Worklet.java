@@ -94,15 +94,19 @@ public class Worklet implements Closeable {
   start (String filename, ByteBuffer source, String[] arguments) {
     ByteBuffer buffer;
 
-    if (source.isDirect()) {
-      buffer = source;
+    if (source == null) {
+      start(filename, null, 0, arguments);
     } else {
-      buffer = ByteBuffer.allocateDirect(source.limit());
-      buffer.put(source);
-      buffer.flip();
-    }
+      if (source.isDirect()) {
+        buffer = source;
+      } else {
+        buffer = ByteBuffer.allocateDirect(source.limit());
+        buffer.put(source);
+        buffer.flip();
+      }
 
-    start(filename, buffer, buffer.limit(), arguments);
+      start(filename, buffer, buffer.limit(), arguments);
+    }
   }
 
   public void
