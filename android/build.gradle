@@ -21,16 +21,6 @@ android {
     }
   }
 
-  buildFeatures {
-    prefabPublishing true
-  }
-
-  prefab {
-    bare_kit {
-      libraryName "libbare-kit"
-    }
-  }
-
   externalNativeBuild {
     cmake {
       version "3.25.0+"
@@ -40,7 +30,8 @@ android {
 
   packagingOptions {
     jniLibs {
-      excludes.add("**/*.so")
+      excludes.add("**/libuv.so")
+      excludes.add("**/libc++_shared.so")
     }
   }
 }
