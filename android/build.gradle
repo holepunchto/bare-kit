@@ -37,6 +37,12 @@ android {
       path "../CMakeLists.txt"
     }
   }
+
+  packagingOptions {
+    jniLibs {
+      excludes.add("**/*.so")
+    }
+  }
 }
 
 dependencies {
