@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(bare_kit LANGUAGES C VERSION 1.0)
+find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
+find_package(cmake-drive REQUIRED PATHS node_modules/cmake-drive)
+find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
+find_package(cmake-npm REQUIRED PATHS node_modules/cmake-npm)
 
-include(bare)
+project(bare_kit LANGUAGES C VERSION 1.0)
 
 set(BARE_USE_SYSTEM_LOG ON CACHE BOOL "Use system logging" FORCE)
 
-install_node_modules(LOCKFILE)
+install_node_modules()
 
 if(APPLE)
   enable_language(OBJC)

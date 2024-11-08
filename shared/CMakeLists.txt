@@ -1,8 +1,8 @@
 add_bare_bundle(
+  bare_worklet_bundle
   ENTRY shared/worklet.js
   OUT shared/worklet.bundle.h
-  NAME worklet_bundle
-  TARGET c
+  BUILTINS shared/builtins.json
   WORKING_DIRECTORY ..
 )
 

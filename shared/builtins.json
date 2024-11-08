@@ -1,0 +1,9 @@
+[
+  { "addon": "bare-crypto" },
+  { "addon": "bare-fs" },
+  { "addon": "bare-module" },
+  { "addon": "bare-module-lexer" },
+  { "addon": "bare-os" },
+  { "addon": "bare-pipe" },
+  { "addon": "bare-url" }
+]

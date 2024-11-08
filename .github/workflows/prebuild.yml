@@ -6,7 +6,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: macos-12
+        - os: macos-14
           platform: darwin
           arch: x64
         - os: macos-14
@@ -33,14 +33,16 @@ jobs:
         submodules: recursive
     - uses: actions/cache@v4
       with:
-        path: vendor/bare/corestore
+        path: build/corestore
         key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     - uses: actions/setup-node@v4
       with:
         node-version: 20
-    - run: npm install -g bare-dev
-    - run: bare-dev configure --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
-    - run: bare-dev build
+    - run: npm install -g bare-make
+    - run: npm install
+    - run: npm install --prefix vendor/bare
+    - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
+    - run: bare-make build
     - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
     - uses: actions/upload-artifact@v4
       with:
@@ -60,7 +62,7 @@ jobs:
         submodules: recursive
     - uses: actions/cache@v4
       with:
-        path: vendor/bare/corestore
+        path: android/build/corestore
         key: corestore-${{ matrix.platform }}
     - uses: actions/setup-node@v4
       with:
@@ -69,9 +71,9 @@ jobs:
       with:
         distribution: temurin
         java-version: 21
-    - run: npm install -g bare-dev
-    - run: bare-dev android sdk licenses accept
-    - run: bare-dev build --gradle
+    - run: npm install
+    - run: npm install --prefix vendor/bare
+    - run: gradle build
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.platform }}
