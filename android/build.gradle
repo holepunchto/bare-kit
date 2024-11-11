@@ -16,7 +16,7 @@ android {
     externalNativeBuild {
       cmake {
         targets "bare_kit"
-        arguments "-DDRIVE_CORESTORE_DIR=build/_drive", "-DANDROID_STL=c++_shared"
+        arguments "-DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH", "-DDRIVE_CORESTORE_DIR=build/_drive", "-DANDROID_STL=c++_shared"
       }
     }
   }
