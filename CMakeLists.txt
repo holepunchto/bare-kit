@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
 find_package(cmake-drive REQUIRED PATHS node_modules/cmake-drive)
+find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
 find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
 find_package(cmake-npm REQUIRED PATHS node_modules/cmake-npm)
 
@@ -15,13 +16,8 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-if(NOT TARGET bare)
-  add_subdirectory(vendor/bare EXCLUDE_FROM_ALL)
-endif()
-
-if(NOT TARGET rpc)
-  add_subdirectory(vendor/librpc EXCLUDE_FROM_ALL)
-endif()
+fetch_package("github:holepunchto/bare")
+fetch_package("github:holepunchto/librpc")
 
 add_subdirectory(shared)
 

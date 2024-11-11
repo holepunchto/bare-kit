@@ -34,8 +34,6 @@ jobs:
     name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - uses: actions/cache@v4
       with:
         path: build/corestore
@@ -45,7 +43,6 @@ jobs:
         node-version: lts/*
     - run: npm install -g bare-make
     - run: npm install
-    - run: npm install --prefix vendor/bare
     - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }} --debug
     - run: bare-make build
   test-android:
@@ -58,8 +55,6 @@ jobs:
     name: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - uses: actions/cache@v4
       with:
         path: android/build/corestore
@@ -72,5 +67,4 @@ jobs:
         distribution: temurin
         java-version: 21
     - run: npm install
-    - run: npm install --prefix vendor/bare
     - run: gradle build

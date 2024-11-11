@@ -29,18 +29,15 @@ jobs:
     name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - uses: actions/cache@v4
       with:
-        path: build/corestore
+        path: build/_drive
         key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     - uses: actions/setup-node@v4
       with:
         node-version: 20
     - run: npm install -g bare-make
     - run: npm install
-    - run: npm install --prefix vendor/bare
     - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
     - run: bare-make build
     - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
@@ -58,11 +55,9 @@ jobs:
     name: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - uses: actions/cache@v4
       with:
-        path: android/build/corestore
+        path: android/build/_drive
         key: corestore-${{ matrix.platform }}
     - uses: actions/setup-node@v4
       with:
@@ -72,7 +67,6 @@ jobs:
         distribution: temurin
         java-version: 21
     - run: npm install
-    - run: npm install --prefix vendor/bare
     - run: gradle build
     - uses: actions/upload-artifact@v4
       with:
