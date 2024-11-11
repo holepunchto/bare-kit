@@ -66,5 +66,6 @@ jobs:
       with:
         distribution: temurin
         java-version: 21
+    - run: npm install -g cmake-runtime ninja-runtime
     - run: npm install
     - run: gradle build
