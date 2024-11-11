@@ -7,7 +7,7 @@ group "to.holepunch"
 android {
   namespace "to.holepunch.bare.kit"
   compileSdk 34
-  ndkVersion "26.1.10909125"
+  ndkVersion "27.2.12479018"
 
   defaultConfig {
     minSdk 31
@@ -23,7 +23,7 @@ android {
 
   externalNativeBuild {
     cmake {
-      version "3.25.0+"
+      version "3.30.5"
       path "../CMakeLists.txt"
     }
   }
