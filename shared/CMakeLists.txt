@@ -27,6 +27,8 @@ target_link_libraries(
   bare_worklet
   PUBLIC
     $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
+  PUBLIC
+    log_static
 )
 
 link_bare_modules(bare_worklet WORKING_DIRECTORY ..)
