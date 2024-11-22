@@ -2,7 +2,7 @@ name: Prebuild
 on:
   workflow_dispatch:
 jobs:
-  prebuild-apple:
+  apple:
     strategy:
       matrix:
         include:
@@ -45,7 +45,7 @@ jobs:
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
           path: build/apple/*.framework.tar
-  prebuild-android:
+  android:
     strategy:
       matrix:
         include:
@@ -68,7 +68,7 @@ jobs:
           java-version: 21
       - run: npm install -g cmake-runtime@3.30.6-4 ninja-runtime
       - run: npm install
-      - run: gradle build
+      - run: gradle aR
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}

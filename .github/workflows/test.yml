@@ -7,7 +7,7 @@ on:
     branches:
       - main
 jobs:
-  test-apple:
+  apple:
     strategy:
       matrix:
         include:
@@ -45,7 +45,7 @@ jobs:
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }} --debug
       - run: bare-make build
-  test-android:
+  android:
     strategy:
       matrix:
         include:
@@ -68,4 +68,4 @@ jobs:
           java-version: 21
       - run: npm install -g cmake-runtime@3.30.6-4 ninja-runtime
       - run: npm install
-      - run: gradle build
+      - run: gradle aR
