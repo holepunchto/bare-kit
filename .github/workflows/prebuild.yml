@@ -74,7 +74,7 @@ jobs:
           name: ${{ matrix.platform }}
           path: android/build/outputs/aar/*-release.aar
   merge:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs:
       - apple
       - android
