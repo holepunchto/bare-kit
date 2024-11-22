@@ -3,7 +3,11 @@ const path = require('path')
 const Bundle = require('bare-bundle')
 
 const bundle = new Bundle()
-  .write('/foo.js', 'console.log(require.asset(\'./bar.txt\'), require.asset(\'./dir/baz.txt\'))\n', { main: true })
+  .write(
+    '/foo.js',
+    "console.log(require.asset('./bar.txt'), require.asset('./dir/baz.txt'))\n",
+    { main: true }
+  )
   .write('/bar.txt', 'hello world\n', { asset: true })
   .write('/dir/baz.txt', 'hello world\n', { asset: true })
 

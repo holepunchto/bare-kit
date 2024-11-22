@@ -6,70 +6,70 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: macos-14
-          platform: darwin
-          arch: x64
-        - os: macos-14
-          platform: darwin
-          arch: arm64
-        - os: macos-14
-          platform: ios
-          arch: arm64
-        - os: macos-14
-          platform: ios
-          arch: arm64
-          tags: -simulator
-          flags: --simulator
-        - os: macos-14
-          platform: ios
-          arch: x64
-          tags: -simulator
-          flags: --simulator
+          - os: macos-14
+            platform: darwin
+            arch: x64
+          - os: macos-14
+            platform: darwin
+            arch: arm64
+          - os: macos-14
+            platform: ios
+            arch: arm64
+          - os: macos-14
+            platform: ios
+            arch: arm64
+            tags: -simulator
+            flags: --simulator
+          - os: macos-14
+            platform: ios
+            arch: x64
+            tags: -simulator
+            flags: --simulator
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: build/_drive
-        key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-    - run: npm install -g bare-make
-    - run: npm install
-    - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
-    - run: bare-make build
-    - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-        path: build/apple/*.framework.tar
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build/_drive
+          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g bare-make
+      - run: npm install
+      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
+      - run: bare-make build
+      - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
+          path: build/apple/*.framework.tar
   prebuild-android:
     strategy:
       matrix:
         include:
-        - os: ubuntu-22.04
-          platform: android
+          - os: ubuntu-22.04
+            platform: android
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: android/build/_drive
-        key: corestore-${{ matrix.platform }}
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 21
-    - run: npm install -g cmake-runtime@3.30.6-4 ninja-runtime
-    - run: npm install
-    - run: gradle build
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.platform }}
-        path: android/build/outputs/aar/*-release.aar
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: android/build/_drive
+          key: corestore-${{ matrix.platform }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm install -g cmake-runtime@3.30.6-4 ninja-runtime
+      - run: npm install
+      - run: gradle build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: android/build/outputs/aar/*-release.aar

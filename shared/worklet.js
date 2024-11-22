@@ -16,19 +16,19 @@ const isWindows = Bare.platform === 'win32'
 const ports = IPC.open()
 
 class BareKit extends EventEmitter {
-  constructor () {
+  constructor() {
     super()
 
-    const ipc = this.IPC = new IPC(ports[0])
+    const ipc = (this.IPC = new IPC(ports[0]))
 
     this.RPC = class extends RPC {
-      constructor (onrequest) {
+      constructor(onrequest) {
         super(ipc, onrequest)
       }
     }
   }
 
-  [Symbol.for('bare.inspect')] () {
+  [Symbol.for('bare.inspect')]() {
     return {
       __proto__: { constructor: BareKit }
     }
@@ -39,19 +39,22 @@ exports.BareKit = new BareKit()
 
 exports.port = ports[1]
 
-exports.push = function push (payload, reply) {
+exports.push = function push(payload, reply) {
   if (exports.BareKit.emit('push', Buffer.from(payload), replyOnce) === false) {
     replyOnce(null, null)
   }
 
-  function replyOnce (err, payload, encoding) {
-    reply(err, typeof payload === 'string' ? Buffer.from(payload, encoding) : payload)
+  function replyOnce(err, payload, encoding) {
+    reply(
+      err,
+      typeof payload === 'string' ? Buffer.from(payload, encoding) : payload
+    )
 
     reply = noop
   }
 }
 
-exports.start = function start (filename, source, assets) {
+exports.start = function start(filename, source, assets) {
   if (assets) {
     let url
 
@@ -119,8 +122,11 @@ exports.start = function start (filename, source, assets) {
 
   return Module.load(url, source, { protocol })
 
-  function asset (context, url) {
-    if (assets) url = pathToFileURL(path.join(assets, path.relative(root, urlToPath(url))))
+  function asset(context, url) {
+    if (assets)
+      url = pathToFileURL(
+        path.join(assets, path.relative(root, urlToPath(url)))
+      )
 
     return url
   }
@@ -133,12 +139,14 @@ Object.defineProperty(global, 'BareKit', {
   configurable: true
 })
 
-function urlToPath (url) {
+function urlToPath(url) {
   if (url.protocol === 'file:') return fileURLToPath(url)
 
   if (isWindows) {
     if (/%2f|%5c/i.test(url.pathname)) {
-      throw new Error('The URL path must not include encoded \\ or / characters')
+      throw new Error(
+        'The URL path must not include encoded \\ or / characters'
+      )
     }
   } else {
     if (/%2f/i.test(url.pathname)) {
@@ -149,4 +157,4 @@ function urlToPath (url) {
   return decodeURIComponent(url.pathname)
 }
 
-function noop () {}
+function noop() {}

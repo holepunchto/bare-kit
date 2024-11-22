@@ -21,16 +21,19 @@ const rpc = new BareKit.RPC((req) => {
   }
 })
 ```
+
 Create an outgoing request with the command `ping`
 
 ```js
 const req = rpc.request('ping')
 ```
+
 Send the request with the data `ping`
 
 ```js
 req.send('ping')
 ```
+
 Store the received data and log it to console
 
 ```js
@@ -47,21 +50,25 @@ Import the BareKit framework
 ```objc
 #import <BareKit/BareKit.h>
 ```
- Create a new Bare worklet instance
+
+Create a new Bare worklet instance
 
 ```objc
 BareWorklet *worklet = [[BareWorklet alloc] init];
 ```
+
 Start the worklet with the specified bundle source
 
 ```objc
 [worklet start:@"/app.bundle" source:/* Source for `app.bundle` */];
 ```
+
 Create an IPC instance associated with the worklet
 
 ```objc
 BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
 ```
+
 Define a request handler block
 
 ```objc
@@ -73,21 +80,25 @@ BareRPCRequestHandler requestHandler = ^(BareRPCIncomingRequest *req, NSError *e
   }
 };
 ```
+
 Create an RPC instance with the IPC and request handler
 
 ```objc
 BareRPC *rpc = [[BareRPC alloc] initWithIPC:ipc requestHandler:requestHandler];
 ```
+
 Create an outgoing request with the command `ping`
 
 ```objc
 BareRPCOutgoingRequest *req = [rpc request:@"ping"];
 ```
+
 Send the request with the data `ping`
 
 ```objc
 [req send:@"ping" encoding:NSUTF8StringEncoding];
 ```
+
 Get the reply data asynchronously and log the received data
 
 ```objc
@@ -109,11 +120,13 @@ import to.holepunch.bare.kit.IPC;
 import to.holepunch.bare.kit.RPC;
 import to.holepunch.bare.kit.Worklet;
 ```
+
 Create a new worklet instance
 
 ```java
 Worklet worklet = new Worklet();
 ```
+
 Start the worklet, loading the bundle from assets
 
 ```java
@@ -123,11 +136,13 @@ try {
   throw new RuntimeException(e);
 }
 ```
+
 Create an IPC instance using the worklet
 
 ```java
 IPC ipc = new IPC(worklet);
 ```
+
 Create an RPC instance with the IPC and a request handler
 
 ```java
@@ -139,16 +154,19 @@ RPC rpc = new RPC(ipc, (req, error) -> {
   }
 });
 ```
+
 Create an outgoing request with command "ping"
 
 ```java
 RPC.OutgoingRequest req = rpc.request("ping");
 ```
+
 Send the request with data "ping"
 
 ```java
 req.send("ping", "UTF-8");
 ```
+
 Get the reply data asynchronously and log the received data
 
 ```java
