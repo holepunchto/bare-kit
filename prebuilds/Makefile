@@ -16,9 +16,9 @@
 	mkdir -p $@
 	unzip -q $< -d $@
 
-all: apple/BareKit.xcframework android/bare-kit
+all: ios/BareKit.xcframework android/bare-kit
 
-apple/BareKit.xcframework:  ios/BareKit.framework ios-simulator/BareKit.framework
+ios/BareKit.xcframework:  ios/BareKit.framework ios-simulator/BareKit.framework
 
 ios/BareKit.framework: ios-arm64/BareKit.framework
 
