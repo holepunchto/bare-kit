@@ -5,11 +5,9 @@ find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
 find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
 find_package(cmake-npm REQUIRED PATHS node_modules/cmake-npm)
 
-project(bare_kit LANGUAGES C VERSION 1.0)
+project(bare_kit LANGUAGES C CXX VERSION 1.0)
 
 include(overrides.cmake)
-
-set(BARE_USE_SYSTEM_LOG ON CACHE BOOL "Use system logging" FORCE)
 
 install_node_modules()
 
@@ -17,8 +15,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.12.0")
-fetch_package("github:holepunchto/librpc")
+fetch_package("github:holepunchto/bare@1.12.2")
 
 add_subdirectory(shared)
 

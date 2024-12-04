@@ -4,6 +4,6 @@
   { "addon": "bare-module" },
   { "addon": "bare-module-lexer" },
   { "addon": "bare-os" },
-  { "addon": "bare-pipe" },
-  { "addon": "bare-url" }
+  { "addon": "bare-url" },
+  { "addon": "bare-zmq" }
 ]

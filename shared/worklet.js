@@ -4,8 +4,7 @@ const fs = require('bare-fs')
 const crypto = require('bare-crypto')
 const { fileURLToPath, pathToFileURL } = require('bare-url')
 const EventEmitter = require('bare-events')
-const IPC = require('bare-ipc')
-const RPC = require('bare-rpc')
+const zmq = require('bare-zmq')
 const URL = require('bare-url')
 const Bundle = require('bare-bundle')
 const Module = require('bare-module')
@@ -13,19 +12,17 @@ const { startsWithWindowsDriveLetter } = require('bare-module-resolve')
 
 const isWindows = Bare.platform === 'win32'
 
-const ports = IPC.open()
+const socket = new zmq.PairSocket(new zmq.Context())
+
+socket.bind('ipc://*')
+
+exports.endpoint = socket.endpoint
 
 class BareKit extends EventEmitter {
   constructor() {
     super()
 
-    const ipc = (this.IPC = new IPC(ports[0]))
-
-    this.RPC = class extends RPC {
-      constructor(onrequest) {
-        super(ipc, onrequest)
-      }
-    }
+    this.IPC = socket.createDuplexStream()
   }
 
   [Symbol.for('bare.inspect')]() {
@@ -37,7 +34,12 @@ class BareKit extends EventEmitter {
 
 exports.BareKit = new BareKit()
 
-exports.port = ports[1]
+Object.defineProperty(global, 'BareKit', {
+  value: exports.BareKit,
+  enumerable: true,
+  writable: false,
+  configurable: true
+})
 
 exports.push = function push(payload, reply) {
   if (exports.BareKit.emit('push', Buffer.from(payload), replyOnce) === false) {
@@ -131,13 +133,6 @@ exports.start = function start(filename, source, assets) {
     return url
   }
 }
-
-Object.defineProperty(global, 'BareKit', {
-  value: exports.BareKit,
-  enumerable: true,
-  writable: false,
-  configurable: true
-})
 
 function urlToPath(url) {
   if (url.protocol === 'file:') return fileURLToPath(url)

@@ -1,7 +1,7 @@
-#include "../shared/worklet.h"
+#include "../../shared/worklet.h"
 
 int
-main () {
+main() {
   int e;
 
   bare_worklet_options_t options = {

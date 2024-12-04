@@ -7,6 +7,7 @@ extern "C" {
 
 #include <bare.h>
 #include <js.h>
+#include <utf.h>
 #include <uv.h>
 
 typedef struct bare_worklet_s bare_worklet_t;
@@ -49,10 +50,11 @@ struct bare_worklet_s {
   uv_mutex_t lock;
   uv_async_t signal;
 
-  uv_file incoming;
-  uv_file outgoing;
+  utf8_t endpoint[1024];
 
   js_threadsafe_function_t *push;
+
+  void *data;
 };
 
 struct bare_worklet_push_s {
@@ -70,28 +72,28 @@ struct bare_worklet_push_s {
  * starting the first worklet.
  */
 int
-bare_worklet_optimize_for_memory (bool enabled);
+bare_worklet_optimize_for_memory(bool enabled);
 
 int
-bare_worklet_init (bare_worklet_t *worklet, const bare_worklet_options_t *options);
+bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options);
 
 void
-bare_worklet_destroy (bare_worklet_t *worklet);
+bare_worklet_destroy(bare_worklet_t *worklet);
 
 int
-bare_worklet_start (bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]);
+bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]);
 
 int
-bare_worklet_suspend (bare_worklet_t *worklet, int linger);
+bare_worklet_suspend(bare_worklet_t *worklet, int linger);
 
 int
-bare_worklet_resume (bare_worklet_t *worklet);
+bare_worklet_resume(bare_worklet_t *worklet);
 
 int
-bare_worklet_terminate (bare_worklet_t *worklet);
+bare_worklet_terminate(bare_worklet_t *worklet);
 
 int
-bare_worklet_push (bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb);
+bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb);
 
 #ifdef __cplusplus
 }
