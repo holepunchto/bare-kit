@@ -1,7 +1,6 @@
 package to.holepunch.bare.kit;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import to.holepunch.bare.kit.Worklet;
