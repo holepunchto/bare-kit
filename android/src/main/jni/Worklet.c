@@ -194,7 +194,7 @@ Java_to_holepunch_bare_kit_Worklet_push(JNIEnv *env, jobject self, jobject handl
 
   (*env)->GetJavaVM(env, &context->vm);
 
-  context->class = (*env)->NewGlobalRef(env, (*env)->FindClass(env, "to/holepunch/bare/kit/Worklet$NativePushCallback"));
+  context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, jcallback));
   context->payload = (*env)->NewGlobalRef(env, jpayload);
   context->callback = (*env)->NewGlobalRef(env, jcallback);
 

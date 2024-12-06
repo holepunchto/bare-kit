@@ -159,25 +159,28 @@ public class Worklet implements Closeable {
   }
 
   private void
-  push(ByteBuffer payload, int len, PushCallback<ByteBuffer> callback) {
-    Handler handler = Handler.createAsync(Looper.getMainLooper());
+  push(ByteBuffer payload, int len, Looper looper, PushCallback<ByteBuffer> callback) {
+    Handler handler = Handler.createAsync(looper);
 
     push(handle, payload, len, (reply, error) -> {
-      ByteBuffer buffer = reply == null ? null : ByteBuffer.allocateDirect(reply.limit());
-
-      if (buffer != null) {
+      if (reply != null) {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(reply.limit());
         buffer.put(reply);
         buffer.flip();
+
+        handler.post(() -> callback.apply(buffer, null));
+      } else if (error != null) {
+        Throwable exception = new Error(error);
+
+        handler.post(() -> callback.apply(null, exception));
+      } else {
+        handler.post(() -> callback.apply(null, null));
       }
-
-      Throwable exception = error == null ? null : new Error(error);
-
-      handler.post(() -> callback.apply(buffer, exception));
     });
   }
 
   public void
-  push(ByteBuffer payload, PushCallback<ByteBuffer> callback) {
+  push(ByteBuffer payload, Looper looper, PushCallback<ByteBuffer> callback) {
     ByteBuffer buffer;
 
     if (payload.isDirect()) {
@@ -188,19 +191,34 @@ public class Worklet implements Closeable {
       buffer.flip();
     }
 
-    push(buffer, buffer.limit(), callback);
+    push(buffer, buffer.limit(), looper, callback);
   }
 
   public void
-  push(String payload, Charset charset, PushCallback<String> callback) {
+  push(ByteBuffer payload, PushCallback<ByteBuffer> callback) {
+    push(payload, Looper.getMainLooper(), callback);
+  }
+
+  public void
+  push(String payload, Charset charset, Looper looper, PushCallback<String> callback) {
     push(ByteBuffer.wrap(payload.getBytes(charset)), (reply, error) -> {
       callback.apply(reply == null ? null : charset.decode(reply).toString(), error);
     });
   }
 
   public void
-  push(String payload, String charset, PushCallback<String> callback) {
+  push(String payload, Charset charset, PushCallback<String> callback) {
+    push(payload, charset, Looper.getMainLooper(), callback);
+  }
+
+  public void
+  push(String payload, String charset, Looper looper, PushCallback<String> callback) {
     push(payload, Charset.forName(charset), callback);
+  }
+
+  public void
+  push(String payload, String charset, PushCallback<String> callback) {
+    push(payload, charset, Looper.getMainLooper(), callback);
   }
 
   public void
