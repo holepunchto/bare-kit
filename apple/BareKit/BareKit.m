@@ -2,13 +2,12 @@
 #import <UserNotifications/UserNotifications.h>
 
 #import <assert.h>
-#import <compact.h>
-#import <rpc.h>
 #import <string.h>
 #import <utf.h>
 
 #import "BareKit.h"
 
+#import "../../shared/ipc.h"
 #import "../../shared/worklet.h"
 
 typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullable error);
@@ -48,7 +47,7 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
 @end
 
 static void
-bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
+bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
   @autoreleasepool {
     BareWorkletPushContext *context = (__bridge BareWorkletPushContext *) req->data;
 
@@ -102,6 +101,7 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 @end
 
 @implementation BareWorklet {
+@public
   bare_worklet_t _worklet;
 }
 
@@ -159,9 +159,6 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
   }
 
   free(argv);
-
-  _incoming = _worklet.incoming;
-  _outgoing = _worklet.outgoing;
 }
 
 - (void)start:(NSString *_Nonnull)filename
@@ -268,359 +265,133 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *err, const uv_buf_t
 @end
 
 @implementation BareIPC {
-  NSFileHandle *_incoming;
-  NSFileHandle *_outgoing;
+  bare_ipc_t _ipc;
+  dispatch_source_t _reader;
+  dispatch_source_t _writer;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
   self = [super init];
 
   if (self) {
-    _incoming = [[NSFileHandle alloc]
-      initWithFileDescriptor:worklet.incoming
-              closeOnDealloc:YES];
+    int err;
 
-    _outgoing = [[NSFileHandle alloc]
-      initWithFileDescriptor:worklet.outgoing
-              closeOnDealloc:YES];
+    err = bare_ipc_init(&_ipc, (const char *) worklet->_worklet.endpoint);
+    assert(err == 0);
+
+    int fd = bare_ipc_fd(&_ipc);
+
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, queue);
+
+    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, queue);
+
+    dispatch_source_set_event_handler(_reader, ^{
+      _readable(self);
+    });
+
+    dispatch_source_set_event_handler(_writer, ^{
+      _writable(self);
+    });
   }
 
   return self;
 }
 
-- (void)read:(void (^_Nonnull)(NSData *_Nullable data))completion {
-  _incoming.readabilityHandler = ^(NSFileHandle *handle) {
-    NSData *data;
+- (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
+  if (readable == nil) {
+    _readable = nil;
 
-    @try {
-      data = [handle availableData];
-    } @catch (NSException *err) {
-      completion(nil);
+    dispatch_suspend(_reader);
+  } else {
+    _readable = [readable copy];
 
-      return;
-    }
-
-    handle.readabilityHandler = nil;
-
-    if (data.length == 0) {
-      completion(nil);
-    } else {
-      completion(data);
-    }
-  };
+    dispatch_resume(_reader);
+  }
 }
 
-- (void)read:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSString *_Nullable data))completion {
-  _incoming.readabilityHandler = ^(NSFileHandle *handle) {
-    NSData *data = [handle availableData];
+- (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
+  if (writable == nil) {
+    _writable = nil;
 
-    handle.readabilityHandler = nil;
+    dispatch_suspend(_writer);
+  } else {
+    _writable = [writable copy];
 
-    if (data.length == 0) {
-      completion(nil);
-    } else {
-      completion([[NSString alloc] initWithData:data encoding:encoding]);
-    }
-  };
+    dispatch_resume(_writer);
+  }
 }
 
-- (void)write:(NSData *_Nonnull)data
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
-  _outgoing.writeabilityHandler = ^(NSFileHandle *handle) {
-    handle.writeabilityHandler = nil;
+- (NSData *_Nullable)read {
+  int err;
 
-    NSError *error = nil;
+  void *data;
+  size_t len;
 
-    [_outgoing writeData:data error:&error];
+  bare_ipc_msg_t msg;
+  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
 
-    completion(error);
-  };
+  if (err == bare_ipc_would_block) {
+    bare_ipc_release(&msg);
+
+    return nil;
+  }
+
+  NSData *result = [[NSData alloc] initWithBytes:data length:len];
+
+  bare_ipc_release(&msg);
+
+  return result;
 }
 
-- (void)write:(NSData *_Nonnull)data {
-  _outgoing.writeabilityHandler = ^(NSFileHandle *handle) {
-    handle.writeabilityHandler = nil;
+- (NSString *_Nullable)read:(NSStringEncoding)encoding {
+  int err;
 
-    [_outgoing writeData:data];
-  };
+  void *data;
+  size_t len;
+
+  bare_ipc_msg_t msg;
+  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
+
+  if (err == bare_ipc_would_block) {
+    bare_ipc_release(&msg);
+
+    return nil;
+  }
+
+  NSString *result = [[NSString alloc] initWithBytes:data length:len encoding:encoding];
+
+  bare_ipc_release(&msg);
+
+  return result;
 }
 
-- (void)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
-  [self write:[data dataUsingEncoding:encoding] completion:completion];
+- (BOOL)write:(NSData *_Nonnull)data {
+  int err;
+
+  bare_ipc_msg_t msg;
+  err = bare_ipc_write(&_ipc, &msg, data.bytes, data.length);
+  assert(err == 0 || err == bare_ipc_would_block);
+
+  bare_ipc_release(&msg);
+
+  return err == 0;
 }
 
-- (void)write:(NSString *_Nonnull)data
+- (BOOL)write:(NSString *_Nonnull)data
      encoding:(NSStringEncoding)encoding {
-  [self write:[data dataUsingEncoding:encoding]];
+  return [self write:[data dataUsingEncoding:encoding]];
 }
 
 - (void)close {
-  [_incoming closeFile];
-  [_outgoing closeFile];
-}
+  dispatch_source_cancel(_reader);
 
-@end
+  dispatch_source_cancel(_writer);
 
-@interface
-BareRPC ()
-
-- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request
-         data:(NSData *_Nonnull)data;
-
-- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request
-          data:(NSData *_Nonnull)data;
-
-@end
-
-@implementation BareRPCIncomingRequest {
-  BareRPC *_rpc;
-}
-
-- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
-                              request:(rpc_message_t *)request {
-  self = [super init];
-
-  if (self) {
-    _rpc = rpc;
-    _id = [[NSNumber alloc] initWithUnsignedLong:request->id];
-    _command = [[NSString alloc] initWithFormat:@"%.*s", (int) request->command.len, request->command.data];
-    _data = [[NSData alloc] initWithBytes:request->data length:request->len];
-  }
-
-  return self;
-}
-
-- (NSString *_Nonnull)dataWithEncoding:(NSStringEncoding)encoding {
-  return [[NSString alloc] initWithData:_data encoding:encoding];
-}
-
-- (void)reply:(NSData *_Nonnull)data {
-  [_rpc _reply:self data:data];
-}
-
-- (void)reply:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding {
-  [_rpc _reply:self data:[data dataUsingEncoding:encoding]];
-}
-
-@end
-
-typedef void (^BareRPCResponseHandler)(NSData *_Nullable data, NSError *_Nullable error);
-
-@implementation BareRPCOutgoingRequest {
-  BareRPC *_rpc;
-  BareRPCResponseHandler _responseHandler;
-}
-
-- (_Nullable instancetype)initWithRPC:(BareRPC *_Nonnull)rpc
-                              command:(NSString *_Nonnull)command {
-  self = [super init];
-
-  if (self) {
-    _rpc = rpc;
-    _command = command;
-    _responseHandler = nil;
-  }
-
-  return self;
-}
-
-- (void)send:(NSData *_Nonnull)data {
-  [_rpc _send:self data:data];
-}
-
-- (void)send:(NSString *_Nonnull)data
-    encoding:(NSStringEncoding)encoding {
-  [_rpc _send:self data:[data dataUsingEncoding:encoding]];
-}
-
-- (void)reply:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
-  _responseHandler = [completion copy];
-}
-
-- (void)reply:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSString *_Nonnull data, NSError *_Nullable error))completion {
-  _responseHandler = [^(NSData *_Nullable data, NSError *_Nullable error) {
-    completion(data == nil ? nil : [[NSString alloc] initWithData:data encoding:encoding], error);
-  } copy];
-}
-
-- (void)_responseHandler:(NSData *_Nullable)data
-                   error:(NSError *_Nullable)error {
-  if (_responseHandler) _responseHandler(data, error);
-}
-
-@end
-
-@implementation BareRPC {
-  BareIPC *_ipc;
-  BareRPCRequestHandler _requestHandler;
-  NSUInteger _id;
-  NSMutableDictionary<NSNumber *, BareRPCOutgoingRequest *> *_requests;
-  NSData *_buffer;
-}
-
-- (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
-                       requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler {
-  self = [super init];
-
-  if (self) {
-    _ipc = ipc;
-    _requestHandler = [requestHandler copy];
-    _id = 0;
-    _requests = [[NSMutableDictionary alloc] initWithCapacity:16];
-    _buffer = nil;
-
-    [self _read];
-  }
-
-  return self;
-}
-
-- (BareRPCOutgoingRequest *_Nonnull)request:(NSString *_Nonnull)command {
-  return [[BareRPCOutgoingRequest alloc] initWithRPC:self command:command];
-}
-
-- (void)_read {
-  [_ipc read:^(NSData *data) {
-    int err;
-
-    if (data == nil) return;
-
-    if (_buffer == nil) _buffer = data;
-    else {
-      NSMutableData *copy = [_buffer mutableCopy];
-      [copy appendData:data];
-      _buffer = copy;
-    }
-
-    while (_buffer != nil) {
-      compact_state_t state = {
-        .start = 0,
-        .end = _buffer.length,
-        .buffer = (uint8_t *) _buffer.bytes,
-      };
-
-      rpc_message_t message;
-      err = rpc_decode_message(&state, &message);
-
-      if (err == rpc_partial) break;
-      else if (err < 0) {
-        NSError *error = [NSError
-          errorWithDomain:@"to.holepunch.bare.kit"
-                     code:err
-                 userInfo:@{NSLocalizedDescriptionKey : @"RPC error"}];
-
-        _requestHandler(nil, error);
-
-        return;
-      }
-
-      switch (message.type) {
-      case rpc_request:
-        [self _requestHandler:&message];
-        break;
-      case rpc_response:
-        [self _responseHandler:&message];
-        break;
-      }
-
-      _buffer = state.start == state.end ? nil : [_buffer subdataWithRange:NSMakeRange(state.start, state.end - state.start)];
-    }
-
-    [self _read];
-  }];
-}
-
-- (void)_requestHandler:(rpc_message_t *)message {
-  _requestHandler([[BareRPCIncomingRequest alloc] initWithRPC:self request:message], nil);
-}
-
-- (void)_responseHandler:(rpc_message_t *)message {
-  if (message->id == 0) return;
-
-  NSNumber *id = [NSNumber numberWithUnsignedInteger:message->id];
-
-  BareRPCOutgoingRequest *request = _requests[id];
-
-  if (request == nil) return;
-
-  [_requests removeObjectForKey:id];
-
-  if (message->error) {
-    NSError *error = [NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:message->status
-             userInfo:@{NSLocalizedDescriptionKey : [[NSString alloc] initWithFormat:@"%.*s", (int) message->message.len, message->message.data]}];
-
-    [request _responseHandler:nil error:error];
-
-  } else {
-    [request _responseHandler:[[NSData alloc] initWithBytes:message->data length:message->len] error:nil];
-  }
-}
-
-- (void)_send:(BareRPCOutgoingRequest *_Nonnull)request
-         data:(NSData *_Nonnull)data {
-  int err;
-
-  NSNumber *id = [NSNumber numberWithUnsignedInteger:++_id];
-
-  _requests[id] = request;
-
-  const char *command = [request.command cStringUsingEncoding:NSUTF8StringEncoding];
-
-  rpc_message_t message = {
-    .type = rpc_request,
-    .id = [id unsignedIntegerValue],
-    .command = utf8_string_view_init((const utf8_t *) command, strlen(command)),
-    .data = (uint8_t *) data.bytes,
-    .len = data.length,
-  };
-
-  compact_state_t state = {0, 0, nil};
-
-  err = rpc_preencode_message(&state, &message);
-  assert(err == 0);
-
-  NSMutableData *buffer = [NSMutableData dataWithLength:state.end];
-
-  state.buffer = (uint8_t *) buffer.mutableBytes;
-
-  err = rpc_encode_message(&state, &message);
-  assert(err == 0);
-
-  [_ipc write:buffer];
-}
-
-- (void)_reply:(BareRPCIncomingRequest *_Nonnull)request
-          data:(NSData *_Nonnull)data {
-  int err;
-
-  rpc_message_t message = {
-    .type = rpc_response,
-    .id = [request.id unsignedIntegerValue],
-    .error = false,
-    .data = (uint8_t *) data.bytes,
-    .len = data.length,
-  };
-
-  compact_state_t state = {0, 0, nil};
-
-  err = rpc_preencode_message(&state, &message);
-  assert(err == 0);
-
-  NSMutableData *buffer = [NSMutableData dataWithLength:state.end];
-
-  state.buffer = (uint8_t *) buffer.mutableBytes;
-
-  err = rpc_encode_message(&state, &message);
-  assert(err == 0);
-
-  [_ipc write:buffer];
+  bare_ipc_destroy(&_ipc);
 }
 
 @end

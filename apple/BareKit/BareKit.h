@@ -17,9 +17,6 @@
 
 @interface BareWorklet : NSObject
 
-@property(atomic, readonly) int incoming;
-@property(atomic, readonly) int outgoing;
-
 + (void)optimizeForMemory:(BOOL)enabled;
 
 - (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options;
@@ -78,68 +75,21 @@
 
 @interface BareIPC : NSObject
 
+@property(nonatomic, copy, nullable) void (^readable)(BareIPC *_Nonnull);
+@property(nonatomic, copy, nullable) void (^writable)(BareIPC *_Nonnull);
+
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet;
 
-- (void)read:(void (^_Nonnull)(NSData *_Nullable data))completion;
+- (NSData *_Nullable)read;
 
-- (void)read:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSString *_Nullable data))completion;
+- (NSString *_Nullable)read:(NSStringEncoding)encoding;
 
-- (void)write:(NSData *_Nonnull)data;
+- (BOOL)write:(NSData *_Nonnull)data;
 
-- (void)write:(NSData *_Nonnull)data
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
-
-- (void)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
-
-- (void)write:(NSString *_Nonnull)data
+- (BOOL)write:(NSString *_Nonnull)data
      encoding:(NSStringEncoding)encoding;
 
 - (void)close;
-
-@end
-
-@interface BareRPCIncomingRequest : NSObject
-
-@property(atomic, readonly, nonnull) NSNumber *id;
-@property(atomic, readonly, nonnull) NSString *command;
-@property(atomic, readonly, nonnull) NSData *data;
-
-- (NSString *_Nonnull)dataWithEncoding:(NSStringEncoding)encoding;
-
-- (void)reply:(NSData *_Nonnull)data;
-
-- (void)reply:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding;
-
-@end
-
-@interface BareRPCOutgoingRequest : NSObject
-
-@property(atomic, readonly, nonnull) NSString *command;
-
-- (void)send:(NSData *_Nonnull)data;
-
-- (void)send:(NSString *_Nonnull)data
-    encoding:(NSStringEncoding)encoding;
-
-- (void)reply:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
-
-- (void)reply:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSString *_Nullable data, NSError *_Nullable error))completion;
-
-@end
-
-typedef void (^BareRPCRequestHandler)(BareRPCIncomingRequest *_Nullable request, NSError *_Nullable error);
-
-@interface BareRPC : NSObject
-
-- (_Nullable instancetype)initWithIPC:(BareIPC *_Nonnull)ipc
-                       requestHandler:(BareRPCRequestHandler _Nonnull)requestHandler;
-
-- (BareRPCOutgoingRequest *_Nonnull)request:(NSString *_Nonnull)command;
 
 @end
 

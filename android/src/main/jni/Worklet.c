@@ -2,12 +2,14 @@
 #include <jni.h>
 #include <stdlib.h>
 
-#include <android/file_descriptor_jni.h>
-
 #include "../../../../shared/worklet.h"
 
 typedef struct {
-  bare_worklet_push_t req;
+  bare_worklet_t handle;
+} bare_worklet_context_t;
+
+typedef struct {
+  bare_worklet_push_t handle;
 
   JavaVM *vm;
 
@@ -17,10 +19,12 @@ typedef struct {
 } bare_worklet_push_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory_limit, jobject jassets) {
+Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_limit, jobject jassets) {
   int err;
 
-  bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
+  bare_worklet_context_t *context = malloc(sizeof(bare_worklet_context_t));
+
+  context->handle.data = (void *) context;
 
   bare_worklet_options_t options;
 
@@ -32,20 +36,18 @@ Java_to_holepunch_bare_kit_Worklet_init (JNIEnv *env, jobject self, jint jmemory
     options.assets = (*env)->GetStringUTFChars(env, jassets, NULL);
   }
 
-  err = bare_worklet_init(worklet, &options);
+  err = bare_worklet_init(&context->handle, &options);
   assert(err == 0);
 
   if (options.assets) {
     (*env)->ReleaseStringUTFChars(env, jassets, options.assets);
   }
 
-  jobject handle = (*env)->NewDirectByteBuffer(env, (void *) worklet, sizeof(bare_worklet_t));
-
-  return handle;
+  return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_worklet_context_t));
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen, jobjectArray jarguments) {
+Java_to_holepunch_bare_kit_Worklet_start(JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen, jobjectArray jarguments) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
@@ -86,7 +88,7 @@ Java_to_holepunch_bare_kit_Worklet_start (JNIEnv *env, jobject self, jobject han
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_suspend (JNIEnv *env, jobject self, jobject handle, jint jlinger) {
+Java_to_holepunch_bare_kit_Worklet_suspend(JNIEnv *env, jobject self, jobject handle, jint jlinger) {
   int err;
 
   int linger = (int) jlinger;
@@ -98,7 +100,7 @@ Java_to_holepunch_bare_kit_Worklet_suspend (JNIEnv *env, jobject self, jobject h
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_resume (JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_Worklet_resume(JNIEnv *env, jobject self, jobject handle) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
@@ -108,7 +110,7 @@ Java_to_holepunch_bare_kit_Worklet_resume (JNIEnv *env, jobject self, jobject ha
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject handle) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
@@ -122,37 +124,20 @@ Java_to_holepunch_bare_kit_Worklet_terminate (JNIEnv *env, jobject self, jobject
 }
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_incoming (JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_Worklet_endpoint(JNIEnv *env, jobject self, jobject handle) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  jobject fd = AFileDescriptor_create(env);
+  jobject endpoint = (*env)->NewStringUTF(env, (const char *) worklet->endpoint);
 
   if ((*env)->ExceptionCheck(env)) return NULL;
 
-  AFileDescriptor_setFd(env, fd, worklet->incoming);
-
-  return fd;
-}
-
-JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_outgoing (JNIEnv *env, jobject self, jobject handle) {
-  int err;
-
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  jobject fd = AFileDescriptor_create(env);
-
-  if ((*env)->ExceptionCheck(env)) return NULL;
-
-  AFileDescriptor_setFd(env, fd, worklet->outgoing);
-
-  return fd;
+  return endpoint;
 }
 
 static void
-bare_worklet__on_push (bare_worklet_push_t *req, const char *error, const uv_buf_t *reply) {
+bare_worklet__on_push(bare_worklet_push_t *req, const char *error, const uv_buf_t *reply) {
   int err;
 
   bare_worklet_push_context_t *context = (bare_worklet_push_context_t *) req->data;
@@ -192,7 +177,7 @@ bare_worklet__on_push (bare_worklet_push_t *req, const char *error, const uv_buf
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_Worklet_push (JNIEnv *env, jobject self, jobject handle, jobject jpayload, jint jlen, jobject jcallback) {
+Java_to_holepunch_bare_kit_Worklet_push(JNIEnv *env, jobject self, jobject handle, jobject jpayload, jint jlen, jobject jcallback) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
@@ -205,14 +190,14 @@ Java_to_holepunch_bare_kit_Worklet_push (JNIEnv *env, jobject self, jobject hand
 
   bare_worklet_push_context_t *context = malloc(sizeof(bare_worklet_push_context_t));
 
+  context->handle.data = (void *) context;
+
   (*env)->GetJavaVM(env, &context->vm);
 
-  context->class = (*env)->NewGlobalRef(env, (*env)->FindClass(env, "to/holepunch/bare/kit/Worklet$NativePushCallback"));
+  context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, jcallback));
   context->payload = (*env)->NewGlobalRef(env, jpayload);
   context->callback = (*env)->NewGlobalRef(env, jcallback);
 
-  context->req.data = (void *) context;
-
-  err = bare_worklet_push(worklet, &context->req, &payload, bare_worklet__on_push);
+  err = bare_worklet_push(worklet, &context->handle, &payload, bare_worklet__on_push);
   assert(err == 0);
 }

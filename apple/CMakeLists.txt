@@ -34,6 +34,4 @@ target_link_libraries(
     "-framework UserNotifications"
   PUBLIC
     bare_worklet
-  PRIVATE
-    rpc_static
 )

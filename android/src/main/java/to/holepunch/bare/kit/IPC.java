@@ -1,177 +1,161 @@
 package to.holepunch.bare.kit;
 
-import android.os.Handler;
-import android.os.Looper;
 import java.io.Closeable;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import to.holepunch.bare.kit.Worklet;
 
 public class IPC implements Closeable {
-  @FunctionalInterface
-  public interface ReadCallback<T> {
-    void
-    apply (T result, Throwable exception);
-  }
+  private static int READABLE = 1;
+  private static int WRITABLE = 2;
 
   @FunctionalInterface
-  public interface WriteCallback {
+  public interface PollCallback {
     void
-    apply (Throwable exception);
+    apply();
   }
 
-  private static WriteCallback defaultWriteCallback = (exception) -> {
-    if (exception != null) throw new RuntimeException(exception);
-  };
+  private ByteBuffer handle;
+  private PollCallback readable;
+  private PollCallback writable;
 
-  private FileInputStream incoming;
-  private FileOutputStream outgoing;
-
-  private ReadableByteChannel reader;
-  private WritableByteChannel writer;
-
-  private Handler handler;
-  private ExecutorService executor;
-
-  private ByteBuffer buffer;
-
-  public IPC(FileDescriptor incoming, FileDescriptor outgoing) {
-    this.incoming = new FileInputStream(incoming);
-    this.outgoing = new FileOutputStream(outgoing);
-
-    reader = Channels.newChannel(this.incoming);
-    writer = Channels.newChannel(this.outgoing);
-
-    handler = Handler.createAsync(Looper.getMainLooper());
-    executor = Executors.newWorkStealingPool();
-
-    buffer = ByteBuffer.allocateDirect(65536);
+  public IPC(String endpoint) {
+    handle = init(endpoint);
   }
 
   public IPC(Worklet worklet) {
-    this(worklet.incoming(), worklet.outgoing());
+    this(worklet.endpoint);
+  }
+
+  private native ByteBuffer
+  init(String endpoint);
+
+  private native void
+  destroy(ByteBuffer handle);
+
+  private native ByteBuffer
+  message();
+
+  private native ByteBuffer
+  read(ByteBuffer handle, ByteBuffer message);
+
+  private native boolean
+  write(ByteBuffer handle, ByteBuffer message, ByteBuffer data, int len);
+
+  private native void
+  release(ByteBuffer message);
+
+  private native void
+  poll(ByteBuffer handle, int events);
+
+  private boolean
+  poll(int events) {
+    if ((events & IPC.READABLE) != 0) readable.apply();
+    if ((events & IPC.WRITABLE) != 0) writable.apply();
+
+    return readable != null || writable != null;
+  }
+
+  private void
+  poll() {
+    int events = 0;
+
+    if (readable != null) events |= IPC.READABLE;
+    if (writable != null) events |= IPC.WRITABLE;
+
+    poll(handle, events);
   }
 
   public void
-  read (ReadCallback<ByteBuffer> callback) {
-    executor.submit(() -> {
-      try {
-        int read = reader.read(buffer);
+  readable(PollCallback callback) {
+    readable = callback;
 
-        if (read <= 0) {
-          handler.post(() -> callback.apply(null, null));
-        } else {
-          buffer.flip();
-
-          ByteBuffer result = ByteBuffer.allocateDirect(read);
-          result.put(buffer);
-          result.flip();
-
-          handler.post(() -> callback.apply(result, null));
-        }
-
-        buffer.clear();
-      } catch (IOException exception) {
-        handler.post(() -> callback.apply(null, exception));
-      }
-    });
+    poll();
   }
 
   public void
-  read (Charset charset, ReadCallback<String> callback) {
-    executor.submit(() -> {
-      try {
-        int read = reader.read(buffer);
+  writable(PollCallback callback) {
+    writable = callback;
 
-        if (read <= 0) {
-          handler.post(() -> callback.apply(null, null));
-        } else {
-          buffer.flip();
-
-          String result = charset.decode(buffer).toString();
-
-          handler.post(() -> callback.apply(result, null));
-        }
-
-        buffer.clear();
-      } catch (IOException exception) {
-        handler.post(() -> callback.apply(null, exception));
-      }
-    });
+    poll();
   }
 
-  public void
-  read (String charset, ReadCallback<String> callback) {
-    read(Charset.forName(charset), callback);
-  }
+  public ByteBuffer
+  read() {
+    ByteBuffer message = message();
+    ByteBuffer buffer = read(handle, message);
 
-  public void
-  write (ByteBuffer data, WriteCallback callback) {
-    executor.submit(() -> {
-      try {
-        writer.write(data);
+    if (buffer == null) {
+      release(message);
 
-        handler.post(() -> callback.apply(null));
-      } catch (IOException exception) {
-        handler.post(() -> callback.apply(exception));
-      }
-    });
-  }
-
-  public void
-  write (ByteBuffer data) {
-    write(data, defaultWriteCallback);
-  }
-
-  public void
-  write (String data, Charset charset, WriteCallback callback) {
-    write(ByteBuffer.wrap(data.getBytes(charset)), callback);
-  }
-
-  public void
-  write (String data, Charset charset) {
-    write(data, charset, defaultWriteCallback);
-  }
-
-  public void
-  write (String data, String charset, WriteCallback callback) {
-    write(data, Charset.forName(charset), callback);
-  }
-
-  public void
-  write (String data, String charset) {
-    write(data, charset, defaultWriteCallback);
-  }
-
-  public void
-  close () throws IOException {
-    executor.shutdown();
-
-    try {
-      if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-        executor.shutdownNow();
-      }
-    } catch (InterruptedException exception) {
-      executor.shutdownNow();
-
-      Thread.currentThread().interrupt();
+      return null;
     }
 
-    reader.close();
-    writer.close();
+    ByteBuffer copy = ByteBuffer.allocateDirect(buffer.limit());
+    copy.put(buffer);
+    copy.flip();
 
-    incoming.close();
-    outgoing.close();
+    release(message);
+
+    return copy;
+  }
+
+  public String
+  read(Charset charset) {
+    ByteBuffer message = message();
+    ByteBuffer buffer = read(handle, message);
+
+    if (buffer == null) {
+      release(message);
+
+      return null;
+    }
+
+    String result = charset.decode(buffer).toString();
+
+    release(message);
+
+    return result;
+  }
+
+  public String
+  read(String charset) {
+    return read(Charset.forName(charset));
+  }
+
+  public boolean
+  write(ByteBuffer data) {
+    ByteBuffer message = message();
+    ByteBuffer buffer;
+
+    if (data.isDirect()) {
+      buffer = data;
+    } else {
+      buffer = ByteBuffer.allocateDirect(data.limit());
+      buffer.put(data);
+      buffer.flip();
+    }
+
+    boolean sent = write(handle, message, buffer, buffer.limit());
+
+    release(message);
+
+    return sent;
+  }
+
+  public boolean
+  write(String data, Charset charset) {
+    return write(ByteBuffer.wrap(data.getBytes(charset)));
+  }
+
+  public boolean
+  write(String data, String charset) {
+    return write(data, Charset.forName(charset));
+  }
+
+  public void
+  close() {
+    destroy(handle);
   }
 }

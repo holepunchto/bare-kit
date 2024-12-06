@@ -14,7 +14,7 @@ public abstract class MessagingService extends FirebaseMessagingService {
   @FunctionalInterface
   public interface ReplyCallback {
     void
-    apply (JSONObject reply);
+    apply(JSONObject reply);
   }
 
   protected Worklet worklet;
@@ -72,28 +72,28 @@ public abstract class MessagingService extends FirebaseMessagingService {
   }
 
   protected void
-  start (String filename, ByteBuffer source, String[] arguments) {
+  start(String filename, ByteBuffer source, String[] arguments) {
     this.worklet.start(filename, source, arguments);
   }
 
   protected void
-  start (String filename, String source, Charset charset, String[] arguments) {
+  start(String filename, String source, Charset charset, String[] arguments) {
     this.worklet.start(filename, source, charset, arguments);
   }
 
   protected void
-  start (String filename, String source, String charset, String[] arguments) {
+  start(String filename, String source, String charset, String[] arguments) {
     this.worklet.start(filename, source, charset, arguments);
   }
 
   protected void
-  start (String filename, InputStream source, String[] arguments) throws IOException {
+  start(String filename, InputStream source, String[] arguments) throws IOException {
     this.worklet.start(filename, source, arguments);
   }
 
   @Override
   public void
-  onDestroy () {
+  onDestroy() {
     super.onDestroy();
 
     worklet.terminate();
@@ -101,7 +101,7 @@ public abstract class MessagingService extends FirebaseMessagingService {
 
   @Override
   public void
-  onMessageReceived (RemoteMessage message) {
+  onMessageReceived(RemoteMessage message) {
     JSONObject json = new JSONObject();
 
     try {
@@ -126,10 +126,10 @@ public abstract class MessagingService extends FirebaseMessagingService {
 
   @Override
   public void
-  onNewToken (String token) {}
+  onNewToken(String token) {}
 
   public void
-  onWorkletReply (JSONObject reply) {
+  onWorkletReply(JSONObject reply) {
     if (callback != null) callback.apply(reply);
   }
 }

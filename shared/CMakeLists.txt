@@ -18,6 +18,8 @@ set_target_properties(
 target_sources(
   bare_worklet
   PRIVATE
+    ipc.h
+    ipc.c
     worklet.c
     worklet.bundle.h
     worklet.h
