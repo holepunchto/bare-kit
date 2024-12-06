@@ -18,7 +18,7 @@ global.console = new Console(new SystemLog())
 
 const socket = new zmq.PairSocket(new zmq.Context())
 
-socket.bind('ipc://*')
+socket.bind('tcp://127.0.0.1:*')
 
 exports.endpoint = socket.endpoint
 
