@@ -6,14 +6,14 @@ main() {
 
   bare_worklet_options_t options = {
     .memory_limit = 0,
-    .assets = "test/assets/assets.bundle",
+    .assets = "test/shared/assets/assets.bundle",
   };
 
   bare_worklet_t worklet;
   e = bare_worklet_init(&worklet, &options);
   assert(e == 0);
 
-  e = bare_worklet_start(&worklet, "test/fixtures/assets.bundle", NULL, 0, NULL);
+  e = bare_worklet_start(&worklet, "test/shared/fixtures/assets.bundle", NULL, 0, NULL);
   assert(e == 0);
 
   e = bare_worklet_terminate(&worklet);
