@@ -20,7 +20,7 @@ public class IPC implements Closeable {
   private PollCallback readable;
   private PollCallback writable;
 
-  public IPC(String endpoint) {
+  private IPC(String endpoint) {
     handle = init(endpoint);
   }
 
