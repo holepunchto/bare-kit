@@ -46,7 +46,7 @@ public class Worklet implements Closeable {
   }
 
   private ByteBuffer handle;
-  private String endpoint;
+  String endpoint;
 
   public Worklet(Options options) {
     if (options == null) options = new Options();
@@ -156,11 +156,6 @@ public class Worklet implements Closeable {
     terminate(handle);
 
     handle = null;
-  }
-
-  public String
-  endpoint() {
-    return endpoint;
   }
 
   private void

@@ -25,7 +25,7 @@ public class IPC implements Closeable {
   }
 
   public IPC(Worklet worklet) {
-    this(worklet.endpoint());
+    this(worklet.endpoint);
   }
 
   private native ByteBuffer
