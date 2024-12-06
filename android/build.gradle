@@ -19,6 +19,8 @@ android {
         arguments "-DDRIVE_CORESTORE_DIR=build/_drive", "-DANDROID_STL=c++_shared"
       }
     }
+
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
   }
 
   externalNativeBuild {
@@ -31,11 +33,13 @@ android {
   packagingOptions {
     jniLibs {
       excludes.add("**/libuv.so")
-      excludes.add("**/libc++_shared.so")
     }
   }
 }
 
 dependencies {
   api "com.google.firebase:firebase-messaging:+"
+
+  androidTestImplementation "androidx.test:runner:+"
+  androidTestImplementation "androidx.test:rules:+"
 }

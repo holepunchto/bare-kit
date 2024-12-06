@@ -17,6 +17,8 @@ target_sources(
 
 target_link_libraries(
   bare_kit
+  PRIVATE
+    android
   PUBLIC
     bare_worklet
 )

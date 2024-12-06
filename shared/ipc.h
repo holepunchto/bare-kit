@@ -36,10 +36,10 @@ int
 bare_ipc_fd(bare_ipc_t *ipc);
 
 int
-bare_ipc_receive(bare_ipc_t *ipc, bare_ipc_msg_t *msg, void **data, size_t *len);
+bare_ipc_read(bare_ipc_t *ipc, bare_ipc_msg_t *msg, void **data, size_t *len);
 
 int
-bare_ipc_send(bare_ipc_t *ipc, bare_ipc_msg_t *msg, const void *data, size_t len);
+bare_ipc_write(bare_ipc_t *ipc, bare_ipc_msg_t *msg, const void *data, size_t len);
 
 void
 bare_ipc_release(bare_ipc_msg_t *msg);

@@ -266,7 +266,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 @implementation BareIPC {
   bare_ipc_t _ipc;
-  NSFileHandle *_file;
+  dispatch_source_t _reader;
+  dispatch_source_t _writer;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
@@ -278,129 +279,118 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
     err = bare_ipc_init(&_ipc, (const char *) worklet->_worklet.endpoint);
     assert(err == 0);
 
-    _file = [[NSFileHandle alloc] initWithFileDescriptor:bare_ipc_fd(&_ipc)];
+    int fd = bare_ipc_fd(&_ipc);
+
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, queue);
+
+    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, queue);
+
+    dispatch_source_set_event_handler(_reader, ^{
+      _readable(self);
+    });
+
+    dispatch_source_set_event_handler(_writer, ^{
+      _writable(self);
+    });
   }
 
   return self;
 }
 
-- (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
+- (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
+  if (readable == nil) {
+    _readable = nil;
+
+    dispatch_suspend(_reader);
+  } else {
+    _readable = [readable copy];
+
+    dispatch_resume(_reader);
+  }
+}
+
+- (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
+  if (writable == nil) {
+    _writable = nil;
+
+    dispatch_suspend(_writer);
+  } else {
+    _writable = [writable copy];
+
+    dispatch_resume(_writer);
+  }
+}
+
+- (NSData *_Nullable)read {
   int err;
 
   void *data;
   size_t len;
 
   bare_ipc_msg_t msg;
-  err = bare_ipc_receive(&_ipc, &msg, &data, &len);
+  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
 
-  if (err == 0) {
-    NSData *data = [[NSData alloc] initWithBytes:data length:len];
-
+  if (err == bare_ipc_would_block) {
     bare_ipc_release(&msg);
 
-    return completion(data, nil);
+    return nil;
   }
+
+  NSData *result = [[NSData alloc] initWithBytes:data length:len];
 
   bare_ipc_release(&msg);
 
-  if (err != bare_ipc_would_block) {
-    NSError *error = [NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:err
-             userInfo:@{NSLocalizedDescriptionKey : @"IPC error"}];
+  return result;
+}
 
-    return completion(nil, error);
-  }
+- (NSString *_Nullable)read:(NSStringEncoding)encoding {
+  int err;
 
-  _file.readabilityHandler = ^(NSFileHandle *handle) {
-    int err;
+  void *data;
+  size_t len;
 
-    handle.readabilityHandler = nil;
+  bare_ipc_msg_t msg;
+  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
 
-    void *data;
-    size_t len;
-
-    bare_ipc_msg_t msg;
-    err = bare_ipc_receive(&_ipc, &msg, &data, &len);
-
-    if (err == 0) {
-      NSData *data = [[NSData alloc] initWithBytes:data length:len];
-
-      bare_ipc_release(&msg);
-
-      return completion(data, nil);
-    }
-
+  if (err == bare_ipc_would_block) {
     bare_ipc_release(&msg);
 
-    NSError *error = [NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:err
-             userInfo:@{NSLocalizedDescriptionKey : @"IPC error"}];
+    return nil;
+  }
 
-    return completion(nil, error);
-  };
+  NSString *result = [[NSString alloc] initWithBytes:data length:len encoding:encoding];
+
+  bare_ipc_release(&msg);
+
+  return result;
 }
 
-- (void)read:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSString *_Nullable data, NSError *_Nullable error))completion {
-  [self read:^(NSData *_Nullable data, NSError *_Nullable error) {
-    if (data == nil) {
-      completion(nil, error);
-    } else {
-      completion([[NSString alloc] initWithData:data encoding:encoding], nil);
-    }
-  }];
-}
-
-- (void)write:(NSData *_Nonnull)data
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
+- (BOOL)write:(NSData *_Nonnull)data {
   int err;
 
   bare_ipc_msg_t msg;
-  err = bare_ipc_send(&_ipc, &msg, data.bytes, data.length);
+  err = bare_ipc_write(&_ipc, &msg, data.bytes, data.length);
+  assert(err == 0 || err == bare_ipc_would_block);
 
   bare_ipc_release(&msg);
 
-  if (err == 0) return completion(nil);
-
-  if (err != bare_ipc_would_block) {
-    NSError *error = [NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:err
-             userInfo:@{NSLocalizedDescriptionKey : @"IPC error"}];
-
-    return completion(error);
-  }
-
-  _file.writeabilityHandler = ^(NSFileHandle *handle) {
-    int err;
-
-    handle.writeabilityHandler = nil;
-
-    bare_ipc_msg_t msg;
-    err = bare_ipc_send(&_ipc, &msg, data.bytes, data.length);
-
-    bare_ipc_release(&msg);
-
-    if (err == 0) return completion(nil);
-
-    NSError *error = [NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:err
-             userInfo:@{NSLocalizedDescriptionKey : @"IPC error"}];
-
-    return completion(error);
-  };
+  return err == 0;
 }
 
-- (void)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
-  [self write:[data dataUsingEncoding:encoding] completion:completion];
+- (BOOL)write:(NSString *_Nonnull)data
+     encoding:(NSStringEncoding)encoding {
+  return [self write:[data dataUsingEncoding:encoding]];
 }
 
 - (void)close {
+  dispatch_source_cancel(_reader);
+
+  dispatch_source_cancel(_writer);
+
   bare_ipc_destroy(&_ipc);
 }
 

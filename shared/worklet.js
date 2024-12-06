@@ -9,8 +9,12 @@ const URL = require('bare-url')
 const Bundle = require('bare-bundle')
 const Module = require('bare-module')
 const { startsWithWindowsDriveLetter } = require('bare-module-resolve')
+const { SystemLog } = require('bare-logger')
+const Console = require('bare-console')
 
 const isWindows = Bare.platform === 'win32'
+
+global.console = new Console(new SystemLog())
 
 const socket = new zmq.PairSocket(new zmq.Context())
 

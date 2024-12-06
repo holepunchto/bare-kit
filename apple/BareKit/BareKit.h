@@ -75,19 +75,19 @@
 
 @interface BareIPC : NSObject
 
+@property(nonatomic, copy, nullable) void (^readable)(BareIPC *_Nonnull);
+@property(nonatomic, copy, nullable) void (^writable)(BareIPC *_Nonnull);
+
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet;
 
-- (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
+- (NSData *_Nullable)read;
 
-- (void)read:(NSStringEncoding)encoding
-  completion:(void (^_Nonnull)(NSString *_Nullable data, NSError *_Nullable error))completion;
+- (NSString *_Nullable)read:(NSStringEncoding)encoding;
 
-- (void)write:(NSData *_Nonnull)data
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
+- (BOOL)write:(NSData *_Nonnull)data;
 
-- (void)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding
-   completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
+- (BOOL)write:(NSString *_Nonnull)data
+     encoding:(NSStringEncoding)encoding;
 
 - (void)close;
 

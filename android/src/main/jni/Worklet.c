@@ -43,9 +43,7 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
     (*env)->ReleaseStringUTFChars(env, jassets, options.assets);
   }
 
-  jobject handle = (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_worklet_context_t));
-
-  return handle;
+  return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_worklet_context_t));
 }
 
 JNIEXPORT void JNICALL

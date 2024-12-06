@@ -1,9 +1,13 @@
 [
   { "addon": "bare-crypto" },
   { "addon": "bare-fs" },
+  { "addon": "bare-hrtime" },
+  { "addon": "bare-inspect" },
+  { "addon": "bare-logger" },
   { "addon": "bare-module" },
   { "addon": "bare-module-lexer" },
   { "addon": "bare-os" },
+  { "addon": "bare-type" },
   { "addon": "bare-url" },
   { "addon": "bare-zmq" }
 ]
