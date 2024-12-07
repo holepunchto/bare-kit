@@ -15,7 +15,6 @@
 	rm -rf $@
 	mkdir -p $@
 	unzip -q $< -d $@
-	rm -f $@/**/*/libc++_shared.so
 
 all: ios/BareKit.xcframework android/bare-kit
 
