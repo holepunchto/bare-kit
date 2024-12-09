@@ -4,6 +4,7 @@
 #import <assert.h>
 #import <string.h>
 #import <utf.h>
+#import <uv.h>
 
 #import "BareKit.h"
 
@@ -148,7 +149,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
     argv[i] = [arguments[i] UTF8String];
   }
 
-  if (source == NULL) {
+  if (source == nil) {
     err = bare_worklet_start(&_worklet, _filename, NULL, argc, argv);
     assert(err == 0);
   } else {
