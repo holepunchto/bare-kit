@@ -282,18 +282,26 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
     int fd = bare_ipc_fd(&_ipc);
 
-    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_queue_t queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", nil);
 
     _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, queue);
 
     _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, queue);
 
     dispatch_source_set_event_handler(_reader, ^{
-      _readable(self);
+      if (dispatch_source_get_data(_reader) != 0) {
+        @autoreleasepool {
+          _readable(self);
+        }
+      }
     });
 
     dispatch_source_set_event_handler(_writer, ^{
-      _writable(self);
+      if (dispatch_source_get_data(_writer) != 0) {
+        @autoreleasepool {
+          _writable(self);
+        }
+      }
     });
   }
 
