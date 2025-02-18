@@ -267,6 +267,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 @implementation BareIPC {
   bare_ipc_t _ipc;
+  dispatch_queue_t _queue;
   dispatch_source_t _reader;
   dispatch_source_t _writer;
 }
@@ -282,26 +283,30 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
     int fd = bare_ipc_fd(&_ipc);
 
-    dispatch_queue_t queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", nil);
+    _queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
 
-    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, queue);
+    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, _queue);
 
-    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, queue);
+    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, _queue);
 
     dispatch_source_set_event_handler(_reader, ^{
-      if (dispatch_source_get_data(_reader) != 0) {
-        @autoreleasepool {
-          _readable(self);
-        }
+      @autoreleasepool {
+        _readable(self);
       }
     });
 
     dispatch_source_set_event_handler(_writer, ^{
-      if (dispatch_source_get_data(_writer) != 0) {
-        @autoreleasepool {
-          _writable(self);
-        }
+      @autoreleasepool {
+        _writable(self);
       }
+    });
+
+    dispatch_source_set_cancel_handler(_reader, ^{
+      dispatch_release(_reader);
+    });
+
+    dispatch_source_set_cancel_handler(_writer, ^{
+      dispatch_release(_writer);
     });
   }
 
@@ -399,6 +404,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   dispatch_source_cancel(_reader);
 
   dispatch_source_cancel(_writer);
+
+  dispatch_release(_queue);
 
   bare_ipc_destroy(&_ipc);
 }
