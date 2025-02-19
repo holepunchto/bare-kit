@@ -61,4 +61,42 @@ public class WorkletTest {
 
     ipc.close();
   }
+  
+  @Test
+  public void
+  StressIPC() {
+    Worklet worklet = new Worklet(null);
+
+    worklet.start("/app.js", "BareKit.IPC.on('data', (data) => BareKit.IPC.write(data))", StandardCharsets.UTF_8, null);
+
+    Looper.prepare();
+
+    Looper looper = Looper.myLooper();
+
+    IPC ipc = new IPC(worklet);
+    
+    ipc.readable(() -> {
+      while (true) {
+        String data = ipc.read(StandardCharsets.UTF_8);
+
+        if (data == null) return;
+
+        Log.v("BareKit", data);
+      }
+    });
+
+    ipc.writable(() -> {
+      int i = 0;
+      while (i < 10000) {
+        boolean sent = ipc.write("Hello!", StandardCharsets.UTF_8);
+
+        if (sent) i++;
+        else break;
+      }
+    });
+
+    Looper.loop();
+
+    ipc.close();
+  }
 }
