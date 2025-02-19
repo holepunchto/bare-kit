@@ -4,29 +4,24 @@ const fs = require('bare-fs')
 const crypto = require('bare-crypto')
 const { fileURLToPath, pathToFileURL } = require('bare-url')
 const EventEmitter = require('bare-events')
-const zmq = require('bare-zmq')
 const URL = require('bare-url')
 const Bundle = require('bare-bundle')
 const Module = require('bare-module')
 const { startsWithWindowsDriveLetter } = require('bare-module-resolve')
 const { SystemLog } = require('bare-logger')
 const Console = require('bare-console')
+const IPC = require('bare-ipc')
 
 const isWindows = Bare.platform === 'win32'
+const ports = IPC.open()
 
 global.console = new Console(new SystemLog())
-
-const socket = new zmq.PairSocket(new zmq.Context())
-
-socket.bind('tcp://127.0.0.1:*')
-
-exports.endpoint = socket.endpoint
 
 class BareKit extends EventEmitter {
   constructor() {
     super()
 
-    this.IPC = socket.createDuplexStream()
+    this.IPC = new IPC(ports[0])
   }
 
   [Symbol.for('bare.inspect')]() {
@@ -37,6 +32,7 @@ class BareKit extends EventEmitter {
 }
 
 exports.BareKit = new BareKit()
+exports.port = ports[1]
 
 Object.defineProperty(global, 'BareKit', {
   value: exports.BareKit,
@@ -156,4 +152,4 @@ function urlToPath(url) {
   return decodeURIComponent(url.pathname)
 }
 
-function noop() {}
+function noop() { }

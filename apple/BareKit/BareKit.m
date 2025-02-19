@@ -3,6 +3,7 @@
 
 #import <assert.h>
 #import <string.h>
+#import <sys/ioctl.h>
 #import <utf.h>
 #import <uv.h>
 
@@ -278,16 +279,14 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   if (self) {
     int err;
 
-    err = bare_ipc_init(&_ipc, (const char *) worklet->_worklet.endpoint);
+    err = bare_ipc_init(&_ipc, worklet->_worklet.incoming, worklet->_worklet.outgoing);
     assert(err == 0);
-
-    int fd = bare_ipc_fd(&_ipc);
 
     _queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
 
-    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, fd, 0, _queue);
+    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, _ipc.incoming, 0, _queue);
 
-    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, fd, 0, _queue);
+    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, _ipc.outgoing, 0, _queue);
 
     dispatch_source_set_event_handler(_reader, ^{
       @autoreleasepool {
@@ -340,22 +339,20 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 - (NSData *_Nullable)read {
   int err;
 
-  void *data;
-  size_t len;
+  size_t len = 0;
+  if (ioctl(_ipc.incoming, FIONREAD, &len) == -1 || len <= 0) {
+    return nil;
+  }
 
-  bare_ipc_msg_t msg;
-  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  uint8_t data[len];
+  err = bare_ipc_read(&_ipc, &data, &len);
   assert(err == 0 || err == bare_ipc_would_block);
 
   if (err == bare_ipc_would_block) {
-    bare_ipc_release(&msg);
-
     return nil;
   }
 
   NSData *result = [[NSData alloc] initWithBytes:data length:len];
-
-  bare_ipc_release(&msg);
 
   return result;
 }
@@ -363,22 +360,20 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 - (NSString *_Nullable)read:(NSStringEncoding)encoding {
   int err;
 
-  void *data;
-  size_t len;
+  size_t len = 0;
+  if (ioctl(_ipc.incoming, FIONREAD, &len) == -1 || len <= 0) {
+    return nil;
+  }
 
-  bare_ipc_msg_t msg;
-  err = bare_ipc_read(&_ipc, &msg, &data, &len);
+  uint8_t data[len];
+  err = bare_ipc_read(&_ipc, &data, &len);
   assert(err == 0 || err == bare_ipc_would_block);
 
   if (err == bare_ipc_would_block) {
-    bare_ipc_release(&msg);
-
     return nil;
   }
 
   NSString *result = [[NSString alloc] initWithBytes:data length:len encoding:encoding];
-
-  bare_ipc_release(&msg);
 
   return result;
 }
@@ -386,11 +381,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 - (BOOL)write:(NSData *_Nonnull)data {
   int err;
 
-  bare_ipc_msg_t msg;
-  err = bare_ipc_write(&_ipc, &msg, data.bytes, data.length);
+  err = bare_ipc_write(&_ipc, data.bytes, data.length);
   assert(err == 0 || err == bare_ipc_would_block);
-
-  bare_ipc_release(&msg);
 
   return err == 0;
 }
@@ -406,8 +398,6 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   dispatch_source_cancel(_writer);
 
   dispatch_release(_queue);
-
-  bare_ipc_destroy(&_ipc);
 }
 
 @end
