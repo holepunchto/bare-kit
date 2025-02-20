@@ -38,3 +38,9 @@ bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len) {
 
   return 0;
 }
+
+void
+bare_ipc_destroy(bare_ipc_t *ipc) {
+  close(ipc->incoming);
+  close(ipc->outgoing);
+}

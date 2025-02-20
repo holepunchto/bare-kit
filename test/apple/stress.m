@@ -30,9 +30,11 @@ main() {
     NSLog(@"Messages read %lu", [messages count]);
     if (([messages count]) == i) {
       NSLog(@"All messages read!");
+      [ipc close];
       exit(0);
     } else {
       NSLog(@"Messages missing %d", i - (int) [messages count]);
+      [ipc close];
       exit(1);
     }
   };

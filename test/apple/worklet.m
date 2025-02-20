@@ -52,6 +52,7 @@ main() {
             ipc.readable = nil;
 
             NSLog(@"Third Read %@", data);
+            [ipc close];
             exit(0);
           };
         };

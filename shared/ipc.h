@@ -31,6 +31,9 @@ bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len);
 int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len);
 
+void
+bare_ipc_destroy(bare_ipc_t *ipc);
+
 #ifdef __cplusplus
 }
 #endif
