@@ -124,16 +124,31 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
 }
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_endpoint(JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  jobject endpoint = (*env)->NewStringUTF(env, (const char *) worklet->endpoint);
+  jclass integer_class = (*env)->FindClass(env, "java/lang/Integer");
+  jmethodID integer_constructor = (*env)->GetMethodID(env, integer_class, "<init>", "(I)V");
 
   if ((*env)->ExceptionCheck(env)) return NULL;
 
-  return endpoint;
+  return (*env)->NewObject(env, integer_class, integer_constructor, worklet->incoming);
+}
+
+JNIEXPORT jobject JNICALL
+Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
+  int err;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  jclass integer_class = (*env)->FindClass(env, "java/lang/Integer");
+  jmethodID integer_constructor = (*env)->GetMethodID(env, integer_class, "<init>", "(I)V");
+
+  if ((*env)->ExceptionCheck(env)) return NULL;
+
+  return (*env)->NewObject(env, integer_class, integer_constructor, worklet->outgoing);
 }
 
 static void
