@@ -335,18 +335,14 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   }
 }
 
-- (BOOL)readRawData:(void **)data for:(size_t *)len {
-  int err = bare_ipc_read(&_ipc, data, len);
-  assert(err == 0 || err == bare_ipc_would_block);
-
-  return err == 0;
-}
-
 - (NSData *_Nullable)read {
   void *data;
   size_t len;
 
-  if (![self readRawData:&data for:&len]) {
+  int err = bare_ipc_read(&_ipc, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
+
+  if (err == bare_ipc_would_block) {
     return nil;
   }
 
@@ -357,7 +353,10 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   void *data;
   size_t len;
 
-  if (![self readRawData:&data for:&len]) {
+  int err = bare_ipc_read(&_ipc, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
+
+  if (err == bare_ipc_would_block) {
     return nil;
   }
 

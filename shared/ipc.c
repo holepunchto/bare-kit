@@ -23,7 +23,7 @@ bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
   }
 
   *len = bytes_read;
-  *data = (void *) ipc->data;
+  *data = ipc->data;
 
   return 0;
 }
