@@ -336,46 +336,39 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   }
 }
 
-- (NSData *_Nullable)read {
-  int err;
+- (BOOL)readRawData:(void **)data for:(size_t *)len {
+  int available = 0;
 
-  size_t len = 0;
-  if (ioctl(_ipc.incoming, FIONREAD, &len) == -1 || len <= 0) {
-    return nil;
+  if (ioctl(_ipc.incoming, FIONREAD, &available) == -1 || available == 0) {
+    return NO; // No data available
   }
 
-  uint8_t data[len];
-  err = bare_ipc_read(&_ipc, &data, &len);
+  int err = bare_ipc_read(&_ipc, data, len);
   assert(err == 0 || err == bare_ipc_would_block);
 
-  if (err == bare_ipc_would_block) {
+  return err == 0;
+}
+
+- (NSData *_Nullable)read {
+  void *data;
+  size_t len;
+
+  if (![self readRawData:&data for:&len]) {
     return nil;
   }
 
-  NSData *result = [[NSData alloc] initWithBytes:data length:len];
-
-  return result;
+  return [[NSData alloc] initWithBytes:data length:len];
 }
 
 - (NSString *_Nullable)read:(NSStringEncoding)encoding {
-  int err;
+  void *data;
+  size_t len;
 
-  size_t len = 0;
-  if (ioctl(_ipc.incoming, FIONREAD, &len) == -1 || len <= 0) {
+  if (![self readRawData:&data for:&len]) {
     return nil;
   }
 
-  uint8_t data[len];
-  err = bare_ipc_read(&_ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
-
-  if (err == bare_ipc_would_block) {
-    return nil;
-  }
-
-  NSString *result = [[NSString alloc] initWithBytes:data length:len encoding:encoding];
-
-  return result;
+  return [[NSString alloc] initWithBytes:data length:len encoding:encoding];
 }
 
 - (BOOL)write:(NSData *_Nonnull)data {

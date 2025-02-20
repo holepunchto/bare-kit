@@ -7,11 +7,14 @@ extern "C" {
 
 #include <stddef.h>
 
+#define BARE_IPC_READ_BUFFER_SIZE 64 * 1024
+
 typedef struct bare_ipc_s bare_ipc_t;
 
 struct bare_ipc_s {
   int incoming;
   int outgoing;
+  char data[BARE_IPC_READ_BUFFER_SIZE];
 };
 
 enum {
@@ -23,7 +26,7 @@ int
 bare_ipc_init(bare_ipc_t *ipc, int incoming, int outgoing);
 
 int
-bare_ipc_read(bare_ipc_t *ipc, void *data, size_t *len);
+bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len);
 
 int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len);
