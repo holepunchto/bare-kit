@@ -3,7 +3,6 @@
 
 #import <assert.h>
 #import <string.h>
-#import <sys/ioctl.h>
 #import <utf.h>
 #import <uv.h>
 
@@ -337,12 +336,6 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 }
 
 - (BOOL)readRawData:(void **)data for:(size_t *)len {
-  int available = 0;
-
-  if (ioctl(_ipc.incoming, FIONREAD, &available) == -1 || available == 0) {
-    return NO; // No data available
-  }
-
   int err = bare_ipc_read(&_ipc, data, len);
   assert(err == 0 || err == bare_ipc_would_block);
 
