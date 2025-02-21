@@ -118,9 +118,7 @@ public class IPC implements Closeable {
       buffer.flip();
     }
 
-    boolean sent = write(handle, buffer, buffer.limit());
-
-    return sent;
+    return write(handle, buffer, buffer.limit());
   }
 
   public boolean
