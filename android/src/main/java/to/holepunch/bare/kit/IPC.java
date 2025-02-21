@@ -6,9 +6,6 @@ import java.nio.charset.Charset;
 import to.holepunch.bare.kit.Worklet;
 
 public class IPC implements Closeable {
-  private static int READABLE = 1;
-  private static int WRITABLE = 2;
-
   @FunctionalInterface
   public interface PollCallback {
     void
@@ -54,7 +51,7 @@ public class IPC implements Closeable {
       readable.apply();
     }
 
-    return readable != null;
+    return false;
   }
 
   public boolean
@@ -63,7 +60,7 @@ public class IPC implements Closeable {
       writable.apply();
     }
 
-    return writable != null;
+    return false;
   }
 
   public void

@@ -9,9 +9,6 @@
 #include "../../../../shared/ipc.h"
 #include "../../../../shared/worklet.h"
 
-static int READABLE = 1;
-static int WRITABLE = 2;
-
 typedef struct {
   bare_ipc_t handle;
 
