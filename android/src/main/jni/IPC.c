@@ -26,7 +26,7 @@ typedef struct {
 } bare_ipc_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jobject jincoming, jobject joutgoing) {
+Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jint jincoming, jint joutgoing) {
   int err;
 
   bare_ipc_context_t *context = malloc(sizeof(bare_ipc_context_t));
@@ -35,16 +35,10 @@ Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jobject jincoming
   context->looper = ALooper_forThread();
   context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, self));
   context->self = (*env)->NewGlobalRef(env, self);
+  context->incoming = (int) jincoming;
+  context->outgoing = (int) joutgoing;
 
-  jclass integer_class = (*env)->GetObjectClass(env, jincoming);
-  jmethodID int_value_method = (*env)->GetMethodID(env, integer_class, "intValue", "()I");
-  context->incoming = (int) (*env)->CallIntMethod(env, jincoming, int_value_method);
-
-  integer_class = (*env)->GetObjectClass(env, joutgoing);
-  int_value_method = (*env)->GetMethodID(env, integer_class, "intValue", "()I");
-  context->outgoing = (int) (*env)->CallIntMethod(env, joutgoing, int_value_method);
-
-  err = bare_ipc_init(&context->handle, context->incoming, context->outgoing);
+  err = bare_ipc_init(&context->handle, (int) context->incoming, (int) context->outgoing);
   assert(err == 0);
 
   return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_ipc_context_t));

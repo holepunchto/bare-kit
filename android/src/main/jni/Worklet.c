@@ -2,6 +2,8 @@
 #include <jni.h>
 #include <stdlib.h>
 
+#include <android/log.h>
+
 #include "../../../../shared/worklet.h"
 
 typedef struct {
@@ -123,32 +125,18 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
   free(worklet);
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jint JNICALL
 Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
-  int err;
-
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  jclass integer_class = (*env)->FindClass(env, "java/lang/Integer");
-  jmethodID integer_constructor = (*env)->GetMethodID(env, integer_class, "<init>", "(I)V");
-
-  if ((*env)->ExceptionCheck(env)) return NULL;
-
-  return (*env)->NewObject(env, integer_class, integer_constructor, worklet->incoming);
+  __android_log_print(ANDROID_LOG_DEBUG, "Worklet.c", "incoming: %d\n", worklet->incoming);
+  return worklet->incoming;
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jint JNICALL
 Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
-  int err;
-
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  jclass integer_class = (*env)->FindClass(env, "java/lang/Integer");
-  jmethodID integer_constructor = (*env)->GetMethodID(env, integer_class, "<init>", "(I)V");
-
-  if ((*env)->ExceptionCheck(env)) return NULL;
-
-  return (*env)->NewObject(env, integer_class, integer_constructor, worklet->outgoing);
+  __android_log_print(ANDROID_LOG_DEBUG, "Worklet.c", "outgoing: %d\n", worklet->outgoing);
+  return worklet->outgoing;
 }
 
 static void

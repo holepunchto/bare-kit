@@ -19,7 +19,7 @@ public class IPC implements Closeable {
   private PollCallback readable;
   private PollCallback writable;
 
-  private IPC(Integer incoming, Integer outgoing) {
+  private IPC(int incoming, int outgoing) {
     handle = init(incoming, outgoing);
   }
 
@@ -28,7 +28,7 @@ public class IPC implements Closeable {
   }
 
   private native ByteBuffer
-  init(Integer incoming, Integer outgoing);
+  init(int incoming, int outgoing);
 
   private native void
   destroy(ByteBuffer handle);

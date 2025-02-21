@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
+import android.util.Log;
 
 public class Worklet implements Closeable {
   static {
@@ -46,8 +47,8 @@ public class Worklet implements Closeable {
   }
 
   private ByteBuffer handle;
-  Integer incoming;
-  Integer outgoing;
+  int incoming;
+  int outgoing;
 
   public Worklet(Options options) {
     if (options == null) options = new Options();
@@ -70,10 +71,10 @@ public class Worklet implements Closeable {
   private native void
   terminate(ByteBuffer handle);
 
-  private native Integer
+  private native int
   incoming(ByteBuffer handle);
 
-  private native Integer
+  private native int
   outgoing(ByteBuffer handle);
 
   private native void
@@ -84,7 +85,9 @@ public class Worklet implements Closeable {
     start(handle, filename, source, len, arguments);
 
     incoming = incoming(handle);
+    Log.v("BareKit", "Incoming: " + incoming);
     outgoing = outgoing(handle);
+    Log.v("BareKit", "Outgoing: " + outgoing);
   }
 
   public void
