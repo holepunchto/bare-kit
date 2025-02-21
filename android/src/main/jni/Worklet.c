@@ -2,8 +2,6 @@
 #include <jni.h>
 #include <stdlib.h>
 
-#include <android/log.h>
-
 #include "../../../../shared/worklet.h"
 
 typedef struct {
@@ -128,14 +126,14 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
 JNIEXPORT jint JNICALL
 Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-  __android_log_print(ANDROID_LOG_DEBUG, "Worklet.c", "incoming: %d\n", worklet->incoming);
+
   return worklet->incoming;
 }
 
 JNIEXPORT jint JNICALL
 Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-  __android_log_print(ANDROID_LOG_DEBUG, "Worklet.c", "outgoing: %d\n", worklet->outgoing);
+
   return worklet->outgoing;
 }
 
