@@ -383,6 +383,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   dispatch_source_cancel(_writer);
 
   dispatch_release(_queue);
+
+  bare_ipc_destroy(&_ipc);
 }
 
 @end
