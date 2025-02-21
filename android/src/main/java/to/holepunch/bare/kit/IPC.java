@@ -43,16 +43,10 @@ public class IPC implements Closeable {
   write(ByteBuffer handle, ByteBuffer data, int len);
 
   private native void
-  setReadableHandler(ByteBuffer handle);
+  readable(ByteBuffer handle, boolean reset);
 
   private native void
-  resetReadableHandler(ByteBuffer handle);
-
-  private native void
-  setWritableHandler(ByteBuffer handle);
-
-  private native void
-  resetWritableHandler(ByteBuffer handle);
+  writable(ByteBuffer handle, boolean reset);
 
   public boolean
   callReadable() {
@@ -76,22 +70,14 @@ public class IPC implements Closeable {
   readable(PollCallback callback) {
     readable = callback;
 
-    if (readable != null) {
-      setReadableHandler(handle);
-    } else {
-      resetReadableHandler(handle);
-    }
+    readable(handle, readable == null);
   }
 
   public void
   writable(PollCallback callback) {
     writable = callback;
 
-    if (writable != null) {
-      setWritableHandler(handle);
-    } else {
-      resetWritableHandler(handle);
-    }
+    writable(handle, writable == null);
   }
 
   public ByteBuffer

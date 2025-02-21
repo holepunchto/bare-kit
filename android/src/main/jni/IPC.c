@@ -108,22 +108,15 @@ bare_ipc__on_readable(int fd, int events, void *data) {
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_setReadableHandler(JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_IPC_readable(JNIEnv *env, jobject self, jobject handle, jboolean reset) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "setting readable handler for %d\n", context->incoming);
-
-  int err = ALooper_addFd(context->looper, context->incoming, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_INPUT, bare_ipc__on_readable, (void *) context);
-  assert(err == 1);
-}
-
-JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_resetReadableHandler(JNIEnv *env, jobject self, jobject handle) {
-  bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "resetting readable handler for %d\n", context->incoming);
-
-  int err = ALooper_removeFd(context->looper, context->incoming);
+  int err;
+  if (reset) {
+    err = ALooper_removeFd(context->looper, context->incoming);
+  } else {
+    err = ALooper_addFd(context->looper, context->incoming, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_INPUT, bare_ipc__on_readable, (void *) context);
+  }
   assert(err == 1);
 }
 
@@ -141,21 +134,14 @@ bare_ipc__on_writable(int fd, int events, void *data) {
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_setWritableHandler(JNIEnv *env, jobject self, jobject handle) {
+Java_to_holepunch_bare_kit_IPC_writable(JNIEnv *env, jobject self, jobject handle, jboolean reset) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "setting writable handler for %d\n", context->outgoing);
-
-  int err = ALooper_addFd(context->looper, context->outgoing, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_OUTPUT, bare_ipc__on_writable, (void *) context);
-  assert(err == 1);
-}
-
-JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_resetWritableHandler(JNIEnv *env, jobject self, jobject handle) {
-  bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "resetting writable handler for %d\n", context->outgoing);
-
-  int err = ALooper_removeFd(context->looper, context->outgoing);
+  int err;
+  if (reset) {
+    err = ALooper_removeFd(context->looper, context->outgoing);
+  } else {
+    err = ALooper_addFd(context->looper, context->outgoing, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_OUTPUT, bare_ipc__on_writable, (void *) context);
+  }
   assert(err == 1);
 }
