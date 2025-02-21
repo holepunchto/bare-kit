@@ -50,6 +50,10 @@ main() {
       if (success) i++;
       else break;
     }
+
+    if (i == 100000) {
+      NSLog(@"Wrote %d messages", i);
+    }
   };
 
   [[NSRunLoop currentRunLoop] run];
