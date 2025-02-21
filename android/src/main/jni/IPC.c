@@ -35,7 +35,7 @@ Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jint jincoming, j
   context->incoming = (int) jincoming;
   context->outgoing = (int) joutgoing;
 
-  err = bare_ipc_init(&context->handle, (int) context->incoming, (int) context->outgoing);
+  err = bare_ipc_init(&context->handle, context->incoming, context->outgoing);
   assert(err == 0);
 
   return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_ipc_context_t));
@@ -99,9 +99,9 @@ bare_ipc__on_readable(int fd, int events, void *data) {
 
   JNIEnv *env = context->env;
 
-  jmethodID call_readable = (*env)->GetMethodID(env, context->class, "callReadable", "()Z");
+  jmethodID readable = (*env)->GetMethodID(env, context->class, "readable", "()Z");
 
-  return (*env)->CallBooleanMethod(env, context->self, call_readable);
+  return (*env)->CallBooleanMethod(env, context->self, readable);
 }
 
 JNIEXPORT void JNICALL
@@ -109,11 +109,13 @@ Java_to_holepunch_bare_kit_IPC_readable(JNIEnv *env, jobject self, jobject handl
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   int err;
+
   if (reset) {
     err = ALooper_removeFd(context->looper, context->incoming);
   } else {
     err = ALooper_addFd(context->looper, context->incoming, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_INPUT, bare_ipc__on_readable, (void *) context);
   }
+
   assert(err == 1);
 }
 
@@ -125,9 +127,9 @@ bare_ipc__on_writable(int fd, int events, void *data) {
 
   JNIEnv *env = context->env;
 
-  jmethodID call_writable = (*env)->GetMethodID(env, context->class, "callWritable", "()Z");
+  jmethodID writable = (*env)->GetMethodID(env, context->class, "writable", "()Z");
 
-  return (*env)->CallBooleanMethod(env, context->self, call_writable);
+  return (*env)->CallBooleanMethod(env, context->self, writable);
 }
 
 JNIEXPORT void JNICALL
@@ -135,10 +137,12 @@ Java_to_holepunch_bare_kit_IPC_writable(JNIEnv *env, jobject self, jobject handl
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   int err;
+
   if (reset) {
     err = ALooper_removeFd(context->looper, context->outgoing);
   } else {
     err = ALooper_addFd(context->looper, context->outgoing, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_OUTPUT, bare_ipc__on_writable, (void *) context);
   }
+
   assert(err == 1);
 }

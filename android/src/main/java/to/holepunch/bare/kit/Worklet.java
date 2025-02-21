@@ -2,6 +2,7 @@ package to.holepunch.bare.kit;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -10,7 +11,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
-import android.util.Log;
 
 public class Worklet implements Closeable {
   static {

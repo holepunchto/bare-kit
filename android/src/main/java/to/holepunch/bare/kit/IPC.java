@@ -46,21 +46,10 @@ public class IPC implements Closeable {
   writable(ByteBuffer handle, boolean reset);
 
   public boolean
-  callReadable() {
-    if (readable != null) {
-      readable.apply();
-    }
+  readable() {
+    if (readable != null) readable.apply();
 
-    return false;
-  }
-
-  public boolean
-  callWritable() {
-    if (writable != null) {
-      writable.apply();
-    }
-
-    return false;
+    return writable != null;
   }
 
   public void
@@ -68,6 +57,13 @@ public class IPC implements Closeable {
     readable = callback;
 
     readable(handle, readable == null);
+  }
+
+  public boolean
+  writable() {
+    if (writable != null) writable.apply();
+
+    return writable != null;
   }
 
   public void
@@ -101,7 +97,6 @@ public class IPC implements Closeable {
     }
 
     String result = charset.decode(buffer).toString();
-
 
     return result;
   }
