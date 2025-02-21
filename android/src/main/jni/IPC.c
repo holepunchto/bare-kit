@@ -3,7 +3,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include <android/log.h>
 #include <android/looper.h>
 
 #include "../../../../shared/ipc.h"
@@ -95,8 +94,6 @@ static int
 bare_ipc__on_readable(int fd, int events, void *data) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) data;
 
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "on readable for %d\n", fd);
-
   JNIEnv *env = context->env;
 
   jmethodID readable = (*env)->GetMethodID(env, context->class, "readable", "()Z");
@@ -122,8 +119,6 @@ Java_to_holepunch_bare_kit_IPC_readable(JNIEnv *env, jobject self, jobject handl
 static int
 bare_ipc__on_writable(int fd, int events, void *data) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) data;
-
-  __android_log_print(ANDROID_LOG_DEBUG, "IPC.c", "on writable for %d\n", fd);
 
   JNIEnv *env = context->env;
 

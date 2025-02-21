@@ -2,7 +2,6 @@ package to.holepunch.bare.kit;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -85,9 +84,7 @@ public class Worklet implements Closeable {
     start(handle, filename, source, len, arguments);
 
     incoming = incoming(handle);
-    Log.v("BareKit", "Incoming: " + incoming);
     outgoing = outgoing(handle);
-    Log.v("BareKit", "Outgoing: " + outgoing);
   }
 
   public void
