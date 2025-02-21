@@ -12,6 +12,7 @@ main() {
   BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
 
   __block int i = 0;
+
   NSMutableArray<NSString *> *messages = [NSMutableArray new];
 
   ipc.readable = ^(BareIPC *ipc) {
@@ -21,20 +22,23 @@ main() {
       if (data == nil) break;
 
       NSArray *parts = [data componentsSeparatedByString:@"\n"];
-      for (NSUInteger i = 0; i < parts.count - 1; i++) {
+
+      for (int i = 0; i < parts.count - 1; i++) {
         [messages addObject:parts[i]];
       }
     }
 
-    NSLog(@"Messages written %d", i);
-    NSLog(@"Messages read %lu", [messages count]);
-    if (([messages count]) == i) {
-      NSLog(@"All messages read!");
+    if ([messages count] == i) {
+      NSLog(@"Read %lu messages", messages.count);
+
       [ipc close];
+
       exit(0);
     } else {
-      NSLog(@"Messages missing %d", i - (int) [messages count]);
+      NSLog(@"%lu messages missing", i - messages.count);
+
       [ipc close];
+
       exit(1);
     }
   };

@@ -18,7 +18,7 @@ main() {
 
     ipc.readable = nil;
 
-    NSLog(@"First read %@", data);
+    NSLog(@"%@", data);
 
     ipc.writable = ^(BareIPC *ipc) {
       BOOL sent = [ipc write:@"Hello back!" encoding:NSUTF8StringEncoding];
@@ -34,13 +34,12 @@ main() {
 
         ipc.readable = nil;
 
-        NSLog(@"Second read %@", data);
+        NSLog(@"%@", data);
 
         ipc.writable = ^(BareIPC *ipc) {
           BOOL sent = [ipc write:@"Hello back again!" encoding:NSUTF8StringEncoding];
-          if (sent == NO) {
-            NSLog(@"Failed to send message");
-          }
+
+          if (sent == NO) return;
 
           ipc.writable = nil;
 
@@ -51,8 +50,10 @@ main() {
 
             ipc.readable = nil;
 
-            NSLog(@"Third Read %@", data);
+            NSLog(@"%@", data);
+
             [ipc close];
+
             exit(0);
           };
         };
