@@ -77,7 +77,7 @@ public class WorkletTest {
   @Test
   public void
   StressIPC() throws InterruptedException {
-    HandlerThread thread = new HandlerThread("CreateWorklet");
+    HandlerThread thread = new HandlerThread("StressIPC");
     thread.start();
 
     Handler handler = new Handler(thread.getLooper());
