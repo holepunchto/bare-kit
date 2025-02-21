@@ -6,9 +6,6 @@ import java.nio.charset.Charset;
 import to.holepunch.bare.kit.Worklet;
 
 public class IPC implements Closeable {
-  private static int READABLE = 1;
-  private static int WRITABLE = 2;
-
   @FunctionalInterface
   public interface PollCallback {
     void
@@ -19,16 +16,16 @@ public class IPC implements Closeable {
   private PollCallback readable;
   private PollCallback writable;
 
-  private IPC(String endpoint) {
-    handle = init(endpoint);
+  private IPC(int incoming, int outgoing) {
+    handle = init(incoming, outgoing);
   }
 
   public IPC(Worklet worklet) {
-    this(worklet.endpoint);
+    this(worklet.incoming, worklet.outgoing);
   }
 
   private native ByteBuffer
-  init(String endpoint);
+  init(int incoming, int outgoing);
 
   private native void
   destroy(ByteBuffer handle);
@@ -37,57 +34,50 @@ public class IPC implements Closeable {
   message();
 
   private native ByteBuffer
-  read(ByteBuffer handle, ByteBuffer message);
+  read(ByteBuffer handle);
 
   private native boolean
-  write(ByteBuffer handle, ByteBuffer message, ByteBuffer data, int len);
+  write(ByteBuffer handle, ByteBuffer data, int len);
 
   private native void
-  release(ByteBuffer message);
+  readable(ByteBuffer handle, boolean reset);
 
   private native void
-  poll(ByteBuffer handle, int events);
+  writable(ByteBuffer handle, boolean reset);
 
-  private boolean
-  poll(int events) {
-    if ((events & IPC.READABLE) != 0) readable.apply();
-    if ((events & IPC.WRITABLE) != 0) writable.apply();
+  public boolean
+  readable() {
+    if (readable != null) readable.apply();
 
-    return readable != null || writable != null;
-  }
-
-  private void
-  poll() {
-    int events = 0;
-
-    if (readable != null) events |= IPC.READABLE;
-    if (writable != null) events |= IPC.WRITABLE;
-
-    poll(handle, events);
+    return writable != null;
   }
 
   public void
   readable(PollCallback callback) {
     readable = callback;
 
-    poll();
+    readable(handle, readable == null);
+  }
+
+  public boolean
+  writable() {
+    if (writable != null) writable.apply();
+
+    return writable != null;
   }
 
   public void
   writable(PollCallback callback) {
     writable = callback;
 
-    poll();
+    writable(handle, writable == null);
   }
 
   public ByteBuffer
   read() {
-    ByteBuffer message = message();
-    ByteBuffer buffer = read(handle, message);
+    ByteBuffer buffer = read(handle);
 
     if (buffer == null) {
-      release(message);
-
       return null;
     }
 
@@ -95,25 +85,18 @@ public class IPC implements Closeable {
     copy.put(buffer);
     copy.flip();
 
-    release(message);
-
     return copy;
   }
 
   public String
   read(Charset charset) {
-    ByteBuffer message = message();
-    ByteBuffer buffer = read(handle, message);
+    ByteBuffer buffer = read(handle);
 
     if (buffer == null) {
-      release(message);
-
       return null;
     }
 
     String result = charset.decode(buffer).toString();
-
-    release(message);
 
     return result;
   }
@@ -125,7 +108,6 @@ public class IPC implements Closeable {
 
   public boolean
   write(ByteBuffer data) {
-    ByteBuffer message = message();
     ByteBuffer buffer;
 
     if (data.isDirect()) {
@@ -136,11 +118,7 @@ public class IPC implements Closeable {
       buffer.flip();
     }
 
-    boolean sent = write(handle, message, buffer, buffer.limit());
-
-    release(message);
-
-    return sent;
+    return write(handle, buffer, buffer.limit());
   }
 
   public boolean

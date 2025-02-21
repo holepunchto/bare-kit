@@ -50,7 +50,8 @@ struct bare_worklet_s {
   uv_mutex_t lock;
   uv_async_t signal;
 
-  utf8_t endpoint[1024];
+  uv_file incoming;
+  uv_file outgoing;
 
   js_threadsafe_function_t *push;
 

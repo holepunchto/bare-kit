@@ -27,25 +27,37 @@ main() {
 
       ipc.writable = nil;
 
-      NSString *data = [ipc read:NSUTF8StringEncoding];
+      ipc.readable = ^(BareIPC *ipc) {
+        NSString *data = [ipc read:NSUTF8StringEncoding];
 
-      if (data != nil) {
+        if (data == nil) return;
+
+        ipc.readable = nil;
+
         NSLog(@"%@", data);
 
-        exit(0);
-      } else {
-        ipc.readable = ^(BareIPC *ipc) {
-          NSString *data = [ipc read:NSUTF8StringEncoding];
+        ipc.writable = ^(BareIPC *ipc) {
+          BOOL sent = [ipc write:@"Hello back again!" encoding:NSUTF8StringEncoding];
 
-          if (data == nil) return;
+          if (sent == NO) return;
 
-          ipc.readable = nil;
+          ipc.writable = nil;
 
-          NSLog(@"%@", data);
+          ipc.readable = ^(BareIPC *ipc) {
+            NSString *data = [ipc read:NSUTF8StringEncoding];
 
-          exit(0);
+            if (data == nil) return;
+
+            ipc.readable = nil;
+
+            NSLog(@"%@", data);
+
+            [ipc close];
+
+            exit(0);
+          };
         };
-      }
+      };
     };
   };
 

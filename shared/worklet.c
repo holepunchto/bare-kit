@@ -260,11 +260,23 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_named_property(env, module, "exports", &exports);
   assert(err == 0);
 
-  js_value_t *endpoint;
-  err = js_get_named_property(env, exports, "endpoint", &endpoint);
+  js_value_t *port;
+  err = js_get_named_property(env, exports, "port", &port);
   assert(err == 0);
 
-  err = js_get_value_string_utf8(env, endpoint, worklet->endpoint, sizeof(worklet->endpoint), NULL);
+  js_value_t *incoming;
+  err = js_get_named_property(env, port, "incoming", &incoming);
+  assert(err == 0);
+
+  err = js_get_value_int32(env, incoming, &(worklet->incoming));
+  assert(err == 0);
+
+  js_value_t *outgoing;
+  ;
+  err = js_get_named_property(env, port, "outgoing", &outgoing);
+  assert(err == 0);
+
+  err = js_get_value_int32(env, outgoing, &(worklet->outgoing));
   assert(err == 0);
 
   js_value_t *push;

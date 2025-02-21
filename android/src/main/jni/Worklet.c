@@ -123,17 +123,18 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
   free(worklet);
 }
 
-JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_Worklet_endpoint(JNIEnv *env, jobject self, jobject handle) {
-  int err;
-
+JNIEXPORT jint JNICALL
+Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  jobject endpoint = (*env)->NewStringUTF(env, (const char *) worklet->endpoint);
+  return worklet->incoming;
+}
 
-  if ((*env)->ExceptionCheck(env)) return NULL;
+JNIEXPORT jint JNICALL
+Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  return endpoint;
+  return worklet->outgoing;
 }
 
 static void
