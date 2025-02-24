@@ -6,7 +6,7 @@ find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
 find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
 find_package(cmake-npm REQUIRED PATHS node_modules/cmake-npm)
 
-project(bare_kit LANGUAGES C CXX VERSION 1.2.1)
+project(bare_kit LANGUAGES C CXX VERSION 1.2.2)
 
 include(overrides.cmake)
 
