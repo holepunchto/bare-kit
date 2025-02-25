@@ -86,7 +86,7 @@ exports.start = function start(filename, source, assets) {
   if (url === null) url = pathToFileURL(filename)
 
   if (source === null) source = protocol.read(url)
-  else source = Buffer.from(source)
+  else source = Buffer.concat([Buffer.from(source)])
 
   if (assets && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
@@ -152,4 +152,4 @@ function urlToPath(url) {
   return decodeURIComponent(url.pathname)
 }
 
-function noop() { }
+function noop() {}
