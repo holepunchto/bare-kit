@@ -266,6 +266,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 @end
 
 @implementation BareIPC {
+  bool _closed;
   bare_ipc_t _ipc;
   dispatch_queue_t _queue;
   dispatch_source_t _reader;
@@ -278,6 +279,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   if (self) {
     int err;
 
+    _closed = false;
+
     err = bare_ipc_init(&_ipc, worklet->_worklet.incoming, worklet->_worklet.outgoing);
     assert(err == 0);
 
@@ -288,12 +291,16 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
     _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, _ipc.outgoing, 0, _queue);
 
     dispatch_source_set_event_handler(_reader, ^{
+      if (_closed) return;
+
       @autoreleasepool {
         _readable(self);
       }
     });
 
     dispatch_source_set_event_handler(_writer, ^{
+      if (_closed) return;
+
       @autoreleasepool {
         _writable(self);
       }
@@ -312,26 +319,31 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 }
 
 - (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
+  if (_closed) return;
+
   if (readable == nil) {
+    if (_readable != nil) dispatch_suspend(_reader);
+
     _readable = nil;
-
-    dispatch_suspend(_reader);
   } else {
-    _readable = [readable copy];
+    if (_readable == nil) dispatch_resume(_reader);
 
-    dispatch_resume(_reader);
+    _readable = [readable copy];
   }
 }
 
 - (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
+  if (_closed) return;
+
   if (writable == nil) {
+    if (_writable != nil) dispatch_suspend(_writer);
+
     _writable = nil;
 
-    dispatch_suspend(_writer);
   } else {
-    _writable = [writable copy];
+    if (_writable == nil) dispatch_resume(_writer);
 
-    dispatch_resume(_writer);
+    _writable = [writable copy];
   }
 }
 
@@ -378,6 +390,12 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 }
 
 - (void)close {
+  _closed = true;
+
+  if (_readable == nil) dispatch_resume(_reader);
+
+  if (_writable == nil) dispatch_resume(_writer);
+
   dispatch_source_cancel(_reader);
 
   dispatch_source_cancel(_writer);
