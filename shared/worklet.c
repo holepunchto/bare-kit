@@ -221,6 +221,13 @@ bare_worklet__on_signal(uv_async_t *handle) {
 }
 
 static void
+bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
+  bare_worklet_t *worklet = finalize_hint;
+
+  if (worklet->finalize) worklet->finalize(worklet, worklet->source, worklet->finalize_hint);
+}
+
+static void
 bare_worklet__on_thread(void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
 
@@ -299,7 +306,7 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   if (worklet->source) {
-    err = js_create_external_arraybuffer(env, worklet->source->base, worklet->source->len, NULL, NULL, &args[1]);
+    err = js_create_external_arraybuffer(env, worklet->source->base, worklet->source->len, bare_worklet__on_finalize, worklet, &args[1]);
     assert(err == 0);
   } else {
     err = js_get_null(env, &args[1]);
@@ -315,11 +322,6 @@ bare_worklet__on_thread(void *opaque) {
   }
 
   js_call_function(env, module, start, 3, args, NULL);
-
-  if (worklet->source) {
-    err = js_detach_arraybuffer(env, args[1]);
-    assert(err == 0);
-  }
 
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
@@ -347,11 +349,13 @@ bare_worklet__on_thread(void *opaque) {
 }
 
 int
-bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]) {
+bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, bare_worklet_finalize_cb finalize, void *finalize_hint, int argc, const char *argv[]) {
   int err;
 
   worklet->filename = filename;
   worklet->source = source;
+  worklet->finalize = finalize;
+  worklet->finalize_hint = finalize_hint;
   worklet->argc = argc;
   worklet->argv = argv;
 

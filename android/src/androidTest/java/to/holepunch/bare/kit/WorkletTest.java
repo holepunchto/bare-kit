@@ -62,6 +62,9 @@ public class WorkletTest {
                 Log.v("BareKit", data3);
 
                 ipc.close();
+
+                worklet.terminate();
+
                 latch.countDown();
               });
             }
@@ -71,6 +74,7 @@ public class WorkletTest {
     });
 
     latch.await();
+
     thread.quit();
   }
 
@@ -122,6 +126,9 @@ public class WorkletTest {
 
           ipc.readable(null);
           ipc.close();
+
+          worklet.terminate();
+
           latch.countDown();
         }
       });
@@ -145,6 +152,7 @@ public class WorkletTest {
     });
 
     latch.await();
+
     thread.quit();
   }
 }

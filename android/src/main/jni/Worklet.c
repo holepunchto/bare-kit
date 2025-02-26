@@ -6,6 +6,8 @@
 
 typedef struct {
   bare_worklet_t handle;
+
+  JavaVM *vm;
 } bare_worklet_context_t;
 
 typedef struct {
@@ -25,6 +27,8 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   bare_worklet_context_t *context = malloc(sizeof(bare_worklet_context_t));
 
   context->handle.data = (void *) context;
+
+  (*env)->GetJavaVM(env, &context->vm);
 
   bare_worklet_options_t options;
 
@@ -46,6 +50,24 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_worklet_context_t));
 }
 
+static void
+bare_worklet__on_finalize(bare_worklet_t *worklet, const uv_buf_t *source, void *finalize_hint) {
+  int err;
+
+  bare_worklet_context_t *context = (bare_worklet_context_t *) worklet->data;
+
+  JNIEnv *env;
+
+  err = (*context->vm)->AttachCurrentThread(context->vm, &env, NULL);
+  assert(err == 0);
+
+  jobject ref = finalize_hint;
+
+  (*env)->DeleteGlobalRef(env, ref);
+
+  (*context->vm)->DetachCurrentThread(context->vm);
+}
+
 JNIEXPORT void JNICALL
 Java_to_holepunch_bare_kit_Worklet_start(JNIEnv *env, jobject self, jobject handle, jstring jfilename, jobject jsource, jint jlen, jobjectArray jarguments) {
   int err;
@@ -65,16 +87,18 @@ Java_to_holepunch_bare_kit_Worklet_start(JNIEnv *env, jobject self, jobject hand
   }
 
   if ((*env)->IsSameObject(env, jsource, NULL)) {
-    err = bare_worklet_start(worklet, filename, NULL, argc, argv);
+    err = bare_worklet_start(worklet, filename, NULL, NULL, NULL, argc, argv);
     assert(err == 0);
   } else {
+    jobject ref = (*env)->NewGlobalRef(env, jsource);
+
     char *base = (*env)->GetDirectBufferAddress(env, jsource);
 
     int len = (int) jlen;
 
     uv_buf_t source = uv_buf_init(base, len);
 
-    err = bare_worklet_start(worklet, filename, &source, argc, argv);
+    err = bare_worklet_start(worklet, filename, &source, bare_worklet__on_finalize, ref, argc, argv);
     assert(err == 0);
   }
 

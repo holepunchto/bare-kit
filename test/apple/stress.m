@@ -33,11 +33,15 @@ main() {
 
       [ipc close];
 
+      [worklet terminate];
+
       exit(0);
     } else {
       NSLog(@"%lu messages missing", i - messages.count);
 
       [ipc close];
+
+      [worklet terminate];
 
       exit(1);
     }

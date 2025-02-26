@@ -13,7 +13,7 @@ main() {
   e = bare_worklet_init(&worklet, &options);
   assert(e == 0);
 
-  e = bare_worklet_start(&worklet, "test/shared/fixtures/assets.bundle", NULL, 0, NULL);
+  e = bare_worklet_start(&worklet, "test/shared/fixtures/assets.bundle", NULL, NULL, NULL, 0, NULL);
   assert(e == 0);
 
   e = bare_worklet_terminate(&worklet);

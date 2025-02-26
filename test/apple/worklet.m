@@ -54,6 +54,8 @@ main() {
 
             [ipc close];
 
+            [worklet terminate];
+
             exit(0);
           };
         };
