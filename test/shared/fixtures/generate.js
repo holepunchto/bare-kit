@@ -6,7 +6,13 @@ const bundle = new Bundle()
   .write(
     '/foo.js',
     "console.log(require.asset('./bar.txt'), require.asset('./dir/baz.txt'))\n",
-    { main: true }
+    {
+      main: true,
+      imports: {
+        './bar.txt': '/bar.txt',
+        './dir/baz.txt': '/dir/baz.txt'
+      }
+    }
   )
   .write('/bar.txt', 'hello world\n', { asset: true })
   .write('/dir/baz.txt', 'hello world\n', { asset: true })
