@@ -14,6 +14,7 @@ typedef struct bare_worklet_s bare_worklet_t;
 typedef struct bare_worklet_options_s bare_worklet_options_t;
 typedef struct bare_worklet_push_s bare_worklet_push_t;
 
+typedef void (*bare_worklet_finalize_cb)(bare_worklet_t *, const uv_buf_t *source, void *finalize_hint);
 typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
 
 struct bare_worklet_options_s {
@@ -41,6 +42,9 @@ struct bare_worklet_s {
 
   const char *filename;
   const uv_buf_t *source;
+
+  bare_worklet_finalize_cb finalize;
+  void *finalize_hint;
 
   int argc;
   const char **argv;
@@ -82,7 +86,7 @@ void
 bare_worklet_destroy(bare_worklet_t *worklet);
 
 int
-bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]);
+bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, bare_worklet_finalize_cb finalize, void *finalize_hint, int argc, const char *argv[]);
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger);

@@ -81,7 +81,7 @@ exports.start = async function start(filename, source, assets) {
   if (url === null) url = pathToFileURL(filename)
 
   if (source === null) source = Module.protocol.read(url)
-  else source = Buffer.concat([Buffer.from(source)])
+  else source = Buffer.from(source)
 
   if (assets !== null && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
