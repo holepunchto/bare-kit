@@ -1,4 +1,3 @@
-/* global Bare */
 const path = require('bare-path')
 const fs = require('bare-fs')
 const crypto = require('bare-crypto')
@@ -11,8 +10,8 @@ const { startsWithWindowsDriveLetter } = require('bare-module-resolve')
 const { SystemLog } = require('bare-logger')
 const Console = require('bare-console')
 const IPC = require('bare-ipc')
+const unpack = require('bare-unpack')
 
-const isWindows = Bare.platform === 'win32'
 const ports = IPC.open()
 
 global.console = new Console(new SystemLog())
@@ -56,8 +55,8 @@ exports.push = function push(payload, reply) {
   }
 }
 
-exports.start = function start(filename, source, assets) {
-  if (assets) {
+exports.start = async function start(filename, source, assets) {
+  if (assets !== null) {
     let url
 
     if (startsWithWindowsDriveLetter(assets)) {
@@ -69,11 +68,7 @@ exports.start = function start(filename, source, assets) {
     if (url === null) url = pathToFileURL(assets)
 
     assets = fileURLToPath(url)
-  } else {
-    assets = null
   }
-
-  const protocol = Module.protocol.extend({ asset })
 
   let url
 
@@ -85,71 +80,40 @@ exports.start = function start(filename, source, assets) {
 
   if (url === null) url = pathToFileURL(filename)
 
-  if (source === null) source = protocol.read(url)
+  if (source === null) source = Module.protocol.read(url)
   else source = Buffer.from(source)
 
-  if (assets && path.extname(url.href) === '.bundle') {
+  if (assets !== null && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
 
-    if (bundle.id === null || bundle.assets.length === 0) assets = null
-    else {
+    if (bundle.id !== null && bundle.assets.length > 0) {
       const id = crypto.createHash('blake2b256').update(bundle.id).digest('hex')
 
       const root = path.join(assets, id)
 
-      if (fs.existsSync(root)) assets = root
-      else {
-        const tmp = path.join(assets, 'tmp')
+      const tmp = fs.existsSync(root) ? null : path.join(assets, 'tmp')
 
+      if (tmp !== null) {
         fs.rmSync(tmp, { recursive: true, force: true })
-
         fs.mkdirSync(tmp, { recursive: true })
+      }
 
-        for (const asset of bundle.assets) {
-          const target = path.join(tmp, asset)
+      source = await unpack(bundle, { files: false, assets: true }, (key) => {
+        if (tmp !== null) {
+          const target = path.join(tmp, key)
 
           fs.mkdirSync(path.dirname(target), { recursive: true })
-
-          fs.writeFileSync(target, bundle.read(asset))
+          fs.writeFileSync(target, bundle.read(key))
         }
 
-        fs.renameSync(tmp, root)
+        return pathToFileURL(path.join(root, key)).href
+      })
 
-        assets = root
-      }
+      if (tmp !== null) fs.renameSync(tmp, root)
     }
   }
 
-  const root = urlToPath(url)
-
-  return Module.load(url, source, { protocol })
-
-  function asset(context, url) {
-    if (assets)
-      url = pathToFileURL(
-        path.join(assets, path.relative(root, urlToPath(url)))
-      )
-
-    return url
-  }
-}
-
-function urlToPath(url) {
-  if (url.protocol === 'file:') return fileURLToPath(url)
-
-  if (isWindows) {
-    if (/%2f|%5c/i.test(url.pathname)) {
-      throw new Error(
-        'The URL path must not include encoded \\ or / characters'
-      )
-    }
-  } else {
-    if (/%2f/i.test(url.pathname)) {
-      throw new Error('The URL path must not include encoded / characters')
-    }
-  }
-
-  return decodeURIComponent(url.pathname)
+  return Module.load(url, source)
 }
 
 function noop() {}
