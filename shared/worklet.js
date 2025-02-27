@@ -56,7 +56,7 @@ exports.push = function push(payload, reply) {
 }
 
 exports.start = async function start(filename, source, assets) {
-  if (assets) {
+  if (assets !== null) {
     let url
 
     if (startsWithWindowsDriveLetter(assets)) {
@@ -68,8 +68,6 @@ exports.start = async function start(filename, source, assets) {
     if (url === null) url = pathToFileURL(assets)
 
     assets = fileURLToPath(url)
-  } else {
-    assets = null
   }
 
   let url
@@ -85,7 +83,7 @@ exports.start = async function start(filename, source, assets) {
   if (source === null) source = Module.protocol.read(url)
   else source = Buffer.concat([Buffer.from(source)])
 
-  if (assets && path.extname(url.href) === '.bundle') {
+  if (assets !== null && path.extname(url.href) === '.bundle') {
     const bundle = Bundle.from(source)
 
     if (bundle.id !== null && bundle.assets.length > 0) {
