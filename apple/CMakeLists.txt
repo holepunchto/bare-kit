@@ -50,3 +50,11 @@ target_link_libraries(
   PUBLIC
     bare_worklet
 )
+
+if(IOS)
+  target_link_libraries(
+    bare_kit
+    PUBLIC
+      "-framework UIKit"
+  )
+endif()

@@ -26,6 +26,7 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   int err;
 
   worklet->bare = NULL;
+  worklet->idle = NULL;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
 
@@ -68,19 +69,19 @@ bare_worklet_optimize_for_memory(bool enabled) {
   return 0;
 }
 
-static uv_async_t bare_worklet__platform_signal;
+static uv_once_t bare_worklet__platform_guard = UV_ONCE_INIT;
+static uv_thread_t bare_worklet__platform_thread;
+static uv_async_t bare_worklet__platform_shutdown;
+static uv_sem_t bare_worklet__platform_ready;
+static js_platform_t *bare_worklet__platform;
 
 static void
-bare_worklet__on_platform_signal(uv_async_t *handle) {
+bare_worklet__on_platform_shutdown(uv_async_t *handle) {
   uv_close((uv_handle_t *) handle, NULL);
 }
 
-static js_platform_t *bare_worklet__platform;
-
-static uv_sem_t bare_worklet__platform_ready;
-
 static void
-bare_worklet__on_platform(void *opaque) {
+bare_worklet__on_platform_thread(void *opaque) {
   int err;
 
   int argc = 0;
@@ -92,7 +93,7 @@ bare_worklet__on_platform(void *opaque) {
   err = uv_loop_init(&loop);
   assert(err == 0);
 
-  err = uv_async_init(&loop, &bare_worklet__platform_signal, bare_worklet__on_platform_signal);
+  err = uv_async_init(&loop, &bare_worklet__platform_shutdown, bare_worklet__on_platform_shutdown);
   assert(err == 0);
 
   err = js_create_platform(&loop, &bare_worklet__platform_options, &bare_worklet__platform);
@@ -113,10 +114,6 @@ bare_worklet__on_platform(void *opaque) {
   assert(err == 0);
 }
 
-static uv_once_t bare_worklet__platform_guard = UV_ONCE_INIT;
-
-static uv_thread_t bare_worklet__platform_thread;
-
 static void
 bare_worklet__on_platform_init(void) {
   int err;
@@ -124,7 +121,7 @@ bare_worklet__on_platform_init(void) {
   err = uv_sem_init(&bare_worklet__platform_ready, 0);
   assert(err == 0);
 
-  err = uv_thread_create(&bare_worklet__platform_thread, bare_worklet__on_platform, NULL);
+  err = uv_thread_create(&bare_worklet__platform_thread, bare_worklet__on_platform_thread, NULL);
   assert(err == 0);
 
   uv_sem_wait(&bare_worklet__platform_ready);
@@ -228,6 +225,31 @@ bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
 }
 
 static void
+bare_worklet__on_suspend(bare_t *bare, int linger, void *data) {
+  bare_worklet_t *worklet = data;
+
+  uv_unref((uv_handle_t *) &worklet->signal);
+}
+
+static void
+bare_worklet__on_idle(bare_t *bare, void *data) {
+  bare_worklet_t *worklet = data;
+
+  uv_mutex_lock(&worklet->lock);
+
+  if (worklet->idle) worklet->idle(worklet);
+
+  uv_mutex_unlock(&worklet->lock);
+}
+
+static void
+bare_worklet__on_resume(bare_t *bare, void *data) {
+  bare_worklet_t *worklet = data;
+
+  uv_ref((uv_handle_t *) &worklet->signal);
+}
+
+static void
 bare_worklet__on_thread(void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
 
@@ -249,6 +271,15 @@ bare_worklet__on_thread(void *opaque) {
 
   js_env_t *env;
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &worklet->bare);
+  assert(err == 0);
+
+  err = bare_on_suspend(worklet->bare, bare_worklet__on_suspend, worklet);
+  assert(err == 0);
+
+  err = bare_on_idle(worklet->bare, bare_worklet__on_idle, worklet);
+  assert(err == 0);
+
+  err = bare_on_resume(worklet->bare, bare_worklet__on_resume, worklet);
   assert(err == 0);
 
   bare_t *bare = worklet->bare;
@@ -368,10 +399,12 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 }
 
 int
-bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
+bare_worklet_suspend(bare_worklet_t *worklet, int linger, bare_worklet_idle_cb cb) {
   int err;
 
   uv_mutex_lock(&worklet->lock);
+
+  worklet->idle = cb;
 
   if (worklet->bare == NULL) err = -1;
   else {

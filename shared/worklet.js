@@ -12,15 +12,19 @@ const Console = require('bare-console')
 const IPC = require('bare-ipc')
 const unpack = require('bare-unpack')
 
+global.console = new Console(new SystemLog())
+
 const ports = IPC.open()
 
-global.console = new Console(new SystemLog())
+const ipc = new IPC(ports[0])
+
+Bare.on('suspend', (linger) => ipc.unref()).on('resume', () => ipc.ref())
 
 class BareKit extends EventEmitter {
   constructor() {
     super()
 
-    this.IPC = new IPC(ports[0])
+    this.IPC = ipc
   }
 
   [Symbol.for('bare.inspect')]() {
