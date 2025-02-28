@@ -257,7 +257,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
     NSTimeInterval remaining = UIApplication.sharedApplication.backgroundTimeRemaining;
 
-    if (remaining == DBL_MAX) return linger;
+    if (remaining == DBL_MAX) remaining = 30.0;
 
     remaining *= 1000;
 
