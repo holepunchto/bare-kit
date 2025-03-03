@@ -1,6 +1,7 @@
 list(APPEND tests
   worklet
   stress
+  push
 )
 
 foreach(test IN LISTS tests)
