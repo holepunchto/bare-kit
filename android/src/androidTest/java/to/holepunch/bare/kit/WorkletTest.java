@@ -155,4 +155,40 @@ public class WorkletTest {
 
     thread.quit();
   }
+
+  @Test
+  public void
+  Push() throws InterruptedException {
+    HandlerThread thread = new HandlerThread("Push");
+    thread.start();
+
+    Handler handler = new Handler(thread.getLooper());
+
+    CountDownLatch latch = new CountDownLatch(1);
+
+    handler.post(() -> {
+      Looper looper = Looper.myLooper();
+
+      Worklet worklet = new Worklet(null);
+      worklet.start(
+        "/app.js",
+        "BareKit.on('push', (json, reply) => {console.log(json.toString()); reply(null, 'Hello, world!')})",
+        StandardCharsets.UTF_8, null);
+
+      worklet.push("Push message", StandardCharsets.UTF_8, looper, (reply, exception) -> {
+        if (reply == null) return;
+
+        Log.v("BareKit", reply.toString());
+
+        worklet.terminate();
+
+        latch.countDown();
+      });
+
+    });
+
+    latch.await();
+
+    thread.quit();
+  }
 }
