@@ -8,8 +8,6 @@ find_package(cmake-npm REQUIRED PATHS node_modules/cmake-npm)
 
 project(bare_kit LANGUAGES C CXX VERSION 1.2.5)
 
-include(overrides.cmake)
-
 install_node_modules()
 
 if(APPLE)
