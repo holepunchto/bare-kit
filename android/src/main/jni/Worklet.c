@@ -119,7 +119,7 @@ Java_to_holepunch_bare_kit_Worklet_suspend(JNIEnv *env, jobject self, jobject ha
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  err = bare_worklet_suspend(worklet, linger);
+  err = bare_worklet_suspend(worklet, linger, NULL);
   assert(err == 0);
 }
 
