@@ -7,6 +7,8 @@ find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
 
 project(bare_kit LANGUAGES C CXX VERSION 1.2.5)
 
+include(overrides.cmake)
+
 if(APPLE)
   enable_language(OBJC)
 endif()
