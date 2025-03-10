@@ -113,9 +113,100 @@ This table describes the properties you can pass for iOS:
 | `threadIdentifier`        | `string`               | Groups notifications under a thread      |
 | `categoryIdentifier`      | `string`               | Defines notification actions             |
 
-## Android
+### Android
 
-Todo
+#### Setup
+
+On Android, you should create a [service](https://developer.android.com/develop/background-work/services) that extends [`FirebaseMessagingService`](https://firebase.google.com/docs/reference/android/com/google/firebase/messaging/FirebaseMessagingService).
+
+We maintain a [template](https://github.com/holepunchto/bare-android) to generate the service automatically.
+
+#### Creating the notification service
+
+**Start the worklet**
+
+```kt
+import to.holepunch.bare.kit.Worklet
+import to.holepunch.bare.kit.MessagingService as BaseMessagingService
+
+class MessagingService : BaseMessagingService(Worklet.Options()) {
+  private var notificationManager: NotificationManager? = null
+
+  override fun onCreate() {
+    super.onCreate()
+
+    try {
+      this.start("push.js", assets.open("push.js"), null)
+    } catch (e: Exception) {
+      throw RuntimeException(e)
+    }
+  }
+}
+```
+
+**Passing arguments and configuration**
+
+```kt
+import to.holepunch.bare.kit.Worklet
+import to.holepunch.bare.kit.MessagingService as BaseMessagingService
+
+class MessagingService : BaseMessagingService(Worklet.Options()) {
+  private var notificationManager: NotificationManager? = null
+
+  override fun onCreate() {
+    super.onCreate()
+
+    try {
+      val arguments = ["foo", "bar"]
+      val options = Options()
+        .memoryLimit(1024 * 1024 * 24 /* 24 MiB */)
+        .assets("path/to/assets")
+
+      this.start("push.js", assets.open("push.js"), arguments, options)
+    } catch (e: Exception) {
+      throw RuntimeException(e)
+    }
+  }
+}
+```
+
+> [!TIP]
+> For more information on the BareKit Java/Kotlin interface, see <https://github.com/holepunchto/bare-kit/blob/main/android/src/main/java/to/holepunch/bare/kit/MessagingService.java>.
+
+#### Android notification payload
+
+Unlike iOS, Android is much less restrictive in handling notifications. This is why, on Android, the `MessagingService` class provides a hook function called `onWorkletReply(reply: JSONObject)`.
+
+```kt
+  override fun onWorkletReply(reply: JSONObject) {
+    try {
+      notificationManager!!.notify(
+        1,
+        Notification.Builder(this, CHANNEL_ID)
+          .setSmallIcon(drawable.ic_dialog_info)
+          .setContentTitle(reply.optString("myTitle", "Default title"))
+          .setContentText(reply.optString("mybody", "Default description"))
+          .setAutoCancel(true)
+          .build()
+      )
+    } catch (e: Exception) {
+      throw RuntimeException(e)
+    }
+  }
+```
+
+The fields sent in the `reply` function are entirely determined by what you implement in the `onWorkletReply` method.
+
+```js
+BareKit.on('push', (payload, reply) => {
+  const notification = {
+    myTitle: 'Hello',
+    myBody: 'This is a test notification'
+  }
+
+  reply(null, JSON.stringify(notification))
+})
+```
 
 ## License
 
