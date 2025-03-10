@@ -154,11 +154,8 @@ class MessagingService : BaseMessagingService(Worklet.Options()) {
 
     try {
       val arguments = ["foo", "bar"]
-      val options = Options()
-        .memoryLimit(1024 * 1024 * 24 /* 24 MiB */)
-        .assets("path/to/assets")
 
-      this.start("push.js", assets.open("push.js"), arguments, options)
+      this.start("push.js", assets.open("push.js"), arguments)
     } catch (e: Exception) {
       throw RuntimeException(e)
     }
