@@ -201,7 +201,7 @@ public class Worklet implements Closeable {
 
   public void
   push(ByteBuffer payload, PushCallback<ByteBuffer> callback) {
-    push(payload, Looper.getMainLooper(), callback);
+    push(payload, Looper.myLooper(), callback);
   }
 
   public void
@@ -213,7 +213,7 @@ public class Worklet implements Closeable {
 
   public void
   push(String payload, Charset charset, PushCallback<String> callback) {
-    push(payload, charset, Looper.getMainLooper(), callback);
+    push(payload, charset, Looper.myLooper(), callback);
   }
 
   public void
@@ -223,7 +223,7 @@ public class Worklet implements Closeable {
 
   public void
   push(String payload, String charset, PushCallback<String> callback) {
-    push(payload, charset, Looper.getMainLooper(), callback);
+    push(payload, charset, Looper.myLooper(), callback);
   }
 
   public void
