@@ -4,45 +4,39 @@ Bare for native application development. The kit provides a web worker-like API 
 
 [^1]: This term was chosen to avoid ambiguity with worker threads as implemented by <https://github.com/holepunchto/bare-worker>.
 
-## Push Notifications
+## Notifications
 
-`BareKit` provides two native classes to handle push notifications on **iOS** and **Android**. In both cases, you must provide a **JavaScript file** called a **worklet** (as defined below).
-
-To handle push notifications, add a listener to the `push` event emitted by `BareKit`:
+Bare Kit provides two native classes for implementing push notification support on iOS and Android. In both cases, you must provide an entry point to the notification worklet responsible for handling incoming push notifications. To handle push notifications, add a listener for the `push` event emitted on the `BareKit` namespace:
 
 ```js
 BareKit.on('push', (payload, reply) => {
-  console.log('📩 Received a notification:', payload.toString())
-
+  console.log('📩 Received a notification: %s', payload)
 
   let err = null
-  const enrichedPayload = {}
+  let data
 
-  reply(err, JSON.stringify(enrichedPayload))
+  reply(err, data)
 })
 ```
 
-* `payload`: Contains the notification content as a serializable object. The content varies depending on the platform.
-* `reply`: A function that takes three arguments:
-	* `error`: A JavaScript Error object.
-	*	`buffer`: A JavaScript Buffer or String containing the modified notification payload.
-	*	`encoding`: A JavaScript String representing the encoding of the buffer (e.g., "utf8").
+- `payload`: Contains the notification content as a serializable object. The content varies depending on the platform.
+- `reply`: A function that takes three arguments:
+  - `error`: An `Error` object in case of an error, otherwise `null`.
+  - `payload`: A `Buffer` or string containing the data to pass back to the native code.
+  - `encoding`: The encoding of the payload string, defaults to `utf8`.
 
-Since the notification content structure (`buffer`) differs by platform, we’ll detail the differences below.
+Since the notification content structure (the `payload` argument of the `reply()` callback) differs by platform, we’ll detail the differences below.
 
 ### iOS
 
-#### 📌 Setup
+#### Setup
 
-On **iOS**, you must create a **Notification Service Extension** containing a class that extends `BareKit.NotificationService`.
+On iOS you must create an [app extension](https://developer.apple.com/app-extensions/) with a class that extends the `BareKit.NotificationService` base implementation. If using Xcode, follow the guide [Modifying Content in Newly Delivered Notifications](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications). We also maintain a template to generate the extension automatically in <https://github.com/holepunchto/bare-ios>.
 
-Using Xcode? [Modifying Content in Newly Delivered Notifications](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications)
+#### Creating the notification service
 
-Using XcodeGen? We maintain a XcodeGen template to generate the extension automatically: GitHub: [bare-ios](https://github.com/holepunchto/bare-ios)
+**Basic example**
 
-#### 🛠 Creating the NotificationService Class
-
-🔹 Basic Example (Swift)
 ```swift
 import BareKit
 
@@ -53,19 +47,20 @@ class NotificationService: BareKit.NotificationService {
 }
 ```
 
-*	`push` is the name of the worklet file.
-*	`js` is the file extension.
+- `push` is the name of the worklet entry point.
+- `js` is the file extension.
 
-🔹 Passing Arguments & Configuration
+**Passing arguments and configuration**
 
 ```swift
 import BareKit
 
 class NotificationService: BareKit.NotificationService {
   override init() {
-    let args = ["foo", "bar"]
-    let conf = Worklet.Configuration()
-    super.init(resource: "push", ofType: "js", arguments: args, configuration: conf)
+    let arguments = ["foo", "bar"]
+    let configuration = Worklet.Configuration()
+
+    super.init(resource: "push", ofType: "js", arguments: arguments, configuration: configuration)
   }
 }
 ```
@@ -73,49 +68,50 @@ class NotificationService: BareKit.NotificationService {
 In the worklet, you can access `arguments` like this:
 
 ```js
-const foo = Bare.argv[0] // foo
-const bar = Bare.argv[1] // bar
+const foo = Bare.argv[0]
+const bar = Bare.argv[1]
 ```
+
 The configuration object allows you to customize the behavior of the worklet by setting:
-*	`memoryLimit`: Maximum memory allowed for the worklet (in bytes, e.g., 1024 * 1024 * 24 for 24 MiB).
-*	`assets`: Path to asset files that the worklet can access.
 
-> 📖 More about BareKit types on Github: [bare-kit-swift](https://github.com/holepunchto/bare-kit-swift/blob/main/Sources/BareKit/BareKit.swift)
+- `memoryLimit`: The heap memory limit of the worklet in bytes, e.g. `10 * 1024 * 1024` for 10 MiB.
+- `assets`: Path to where bundled assets of the worklet entry point may be written. Must be provided if the worklet entry point uses assets.
 
-#### 🔔 iOS Notification Payload
+> [!TIP]  
+> For more information on the available Swift types, see <https://github.com/holepunchto/bare-kit-swift>.
 
-iOS **restricts** what can be modified inside a **Notification Service Extension**. BareKit provides an encapsulated handler for creating and displaying notifications, so you only need to call `reply` with the expected arguments.
+#### iOS notification payload
+
+iOS limits what can be modified inside a notification service extension. Bare Kit provides an encapsulated handler for creating and displaying notifications, so you only need to call `reply` with the notification description encoded as a JSON object.
 
 ```js
 BareKit.on('push', (payload, reply) => {
   const notification = {
-    title: "Hello",
-    subtitle: "Hello from a worklet",
-    body: "This is a test notification"
+    title: 'Hello',
+    subtitle: 'Hello from a worklet',
+    body: 'This is a test notification'
   }
 
-  reply(err, JSON.stringify(notification))
+  reply(null, JSON.stringify(notification))
 })
 ```
 
-This list details all the properties you can pass for iOS:
+This table describes the properties you can pass for iOS:
 
-| Parameter                 | Type                    | Description |
-|---------------------------|-------------------------|-------------|
-| `title`                   | `string`                | The title of the notification |
-| `subtitle`                | `string`                | Subtitle of the notification |
-| `body`                    | `string`                | Main content text of the notification |
-| `userInfo`                | `object`                | Additional data payload for the app |
-| `badge`                   | `number`                | Badge count on the app icon |
-| `targetContentIdentifier` | `string`                | Identifier for deep linking or targeting |
-| `sound.type`              | `"default" \| "named"`  | Type of notification sound |
-| `sound.name`              | `string`                | Sound file name (if `type` is `"named"`) |
-| `sound.critical`          | `boolean`               | Whether the sound is critical |
-| `sound.volume`            | `number`                | Volume level (0.0 - 1.0) |
-| `threadIdentifier`        | `string`                | Groups notifications under a thread |
-| `categoryIdentifier`      | `string`                | Defines notification actions |
-
-This is more or less the list of properties you can pass to an iOS notification.
+| Property                  | Type                   | Description                              |
+| ------------------------- | ---------------------- | ---------------------------------------- |
+| `title`                   | `string`               | The title of the notification            |
+| `subtitle`                | `string`               | Subtitle of the notification             |
+| `body`                    | `string`               | Main content text of the notification    |
+| `userInfo`                | `object`               | Additional data payload for the app      |
+| `badge`                   | `number`               | Badge count on the app icon              |
+| `targetContentIdentifier` | `string`               | Identifier for deep linking or targeting |
+| `sound.type`              | `"default" \| "named"` | Type of notification sound               |
+| `sound.name`              | `string`               | Sound file name (if `type` is `"named"`) |
+| `sound.critical`          | `boolean`              | Whether the sound is critical            |
+| `sound.volume`            | `number`               | Volume level (0.0 - 1.0)                 |
+| `threadIdentifier`        | `string`               | Groups notifications under a thread      |
+| `categoryIdentifier`      | `string`               | Defines notification actions             |
 
 ## Android
 
