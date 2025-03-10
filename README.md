@@ -130,8 +130,6 @@ import to.holepunch.bare.kit.Worklet
 import to.holepunch.bare.kit.MessagingService as BaseMessagingService
 
 class MessagingService : BaseMessagingService(Worklet.Options()) {
-  private var notificationManager: NotificationManager? = null
-
   override fun onCreate() {
     super.onCreate()
 
@@ -151,8 +149,6 @@ import to.holepunch.bare.kit.Worklet
 import to.holepunch.bare.kit.MessagingService as BaseMessagingService
 
 class MessagingService : BaseMessagingService(Worklet.Options()) {
-  private var notificationManager: NotificationManager? = null
-
   override fun onCreate() {
     super.onCreate()
 
