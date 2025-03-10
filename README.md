@@ -171,7 +171,7 @@ class MessagingService : BaseMessagingService(Worklet.Options()) {
 ```
 
 > [!TIP]
-> For more information on the BareKit Java/Kotlin interface, see <https://github.com/holepunchto/bare-kit/blob/main/android/src/main/java/to/holepunch/bare/kit/MessagingService.java>.
+> For more information on the Java/Kotlin interface, see [MessagingService.java](https://github.com/holepunchto/bare-kit/blob/main/android/src/main/java/to/holepunch/bare/kit/MessagingService.java>).
 
 #### Android notification payload
 
