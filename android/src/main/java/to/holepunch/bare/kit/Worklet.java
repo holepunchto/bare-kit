@@ -265,7 +265,7 @@ public class Worklet implements Closeable {
 
   public String
   push(String payload, Charset charset, long timeout, TimeUnit unit) throws InterruptedException {
-    String reply = push(ByteBuffer.wrap(payload.getBytes(charset)), timeout, unit);
+    ByteBuffer reply = push(ByteBuffer.wrap(payload.getBytes(charset)), timeout, unit);
 
     if (reply == null) return null;
 
