@@ -265,7 +265,11 @@ public class Worklet implements Closeable {
 
   public String
   push(String payload, Charset charset, long timeout, TimeUnit unit) throws InterruptedException {
-    return charset.decode(push(ByteBuffer.wrap(payload.getBytes(charset)), timeout, unit)).toString();
+    String reply = push(ByteBuffer.wrap(payload.getBytes(charset)), timeout, unit);
+
+    if (reply == null) return null;
+
+    return charset.decode(reply).toString();
   }
 
   public void
