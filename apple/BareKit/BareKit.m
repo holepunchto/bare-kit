@@ -656,11 +656,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
     _worklet = nil;
 
-    void (^contentHandler)(UNNotificationContent *_Nonnull) = _contentHandler;
-
-    _contentHandler = nil;
-
-    if (contentHandler) contentHandler(content);
+    if (_contentHandler) _contentHandler(content);
   }
 }
 
