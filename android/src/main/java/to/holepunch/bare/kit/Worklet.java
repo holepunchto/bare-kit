@@ -6,10 +6,14 @@ import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.InterruptedException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Worklet implements Closeable {
   static {
@@ -175,13 +179,41 @@ public class Worklet implements Closeable {
 
         handler.post(() -> callback.apply(buffer, null));
       } else if (error != null) {
-        Throwable exception = new Error(error);
+        Error exception = new Error(error);
 
         handler.post(() -> callback.apply(null, exception));
       } else {
         handler.post(() -> callback.apply(null, null));
       }
     });
+  }
+
+  private ByteBuffer
+  push(ByteBuffer payload, int len, long timeout, TimeUnit unit) throws InterruptedException {
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    final AtomicReference<ByteBuffer> result = new AtomicReference<>();
+    final AtomicReference<Error> exception = new AtomicReference<>();
+
+    push(handle, payload, len, (reply, error) -> {
+      if (reply != null) {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(reply.limit());
+        buffer.put(reply);
+        buffer.flip();
+
+        result.set(buffer);
+      } else if (error != null) {
+        exception.set(new Error(error));
+      }
+
+      latch.countDown();
+    });
+
+    latch.await(timeout, unit);
+
+    if (exception.get() != null) throw exception.get();
+
+    return result.get();
   }
 
   public void
@@ -204,6 +236,21 @@ public class Worklet implements Closeable {
     push(payload, Looper.myLooper(), callback);
   }
 
+  public ByteBuffer
+  push(ByteBuffer payload, long timeout, TimeUnit unit) throws InterruptedException {
+    ByteBuffer buffer;
+
+    if (payload.isDirect()) {
+      buffer = payload;
+    } else {
+      buffer = ByteBuffer.allocateDirect(payload.limit());
+      buffer.put(payload);
+      buffer.flip();
+    }
+
+    return push(buffer, buffer.limit(), timeout, unit);
+  }
+
   public void
   push(String payload, Charset charset, Looper looper, PushCallback<String> callback) {
     push(ByteBuffer.wrap(payload.getBytes(charset)), (reply, error) -> {
@@ -216,6 +263,11 @@ public class Worklet implements Closeable {
     push(payload, charset, Looper.myLooper(), callback);
   }
 
+  public String
+  push(String payload, Charset charset, long timeout, TimeUnit unit) throws InterruptedException {
+    return charset.decode(push(ByteBuffer.wrap(payload.getBytes(charset)), timeout, unit)).toString();
+  }
+
   public void
   push(String payload, String charset, Looper looper, PushCallback<String> callback) {
     push(payload, Charset.forName(charset), callback);
@@ -224,6 +276,11 @@ public class Worklet implements Closeable {
   public void
   push(String payload, String charset, PushCallback<String> callback) {
     push(payload, charset, Looper.myLooper(), callback);
+  }
+
+  public String
+  push(String payload, String charset, long timeout, TimeUnit unit) throws InterruptedException {
+    return push(payload, Charset.forName(charset), timeout, unit);
   }
 
   public void
