@@ -114,7 +114,7 @@ public abstract class MessagingService extends FirebaseMessagingService {
 
     String reply;
     try {
-      reply = worklet.push(json.toString(), StandardCharsets.UTF_8, 20L, TimeUnit.SECONDS);
+      reply = worklet.push(json.toString(), StandardCharsets.UTF_8, 15L, TimeUnit.SECONDS);
     } catch (InterruptedException err) {
       return;
     }
