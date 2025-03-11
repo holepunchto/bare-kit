@@ -649,9 +649,13 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 }
 
 - (void)complete:(UNNotificationContent *_Nonnull)content {
-  [_worklet terminate];
-
   @synchronized(self) {
+    if (_worklet == nil) return;
+
+    [_worklet terminate];
+
+    _worklet = nil;
+
     void (^contentHandler)(UNNotificationContent *_Nonnull) = _contentHandler;
 
     _contentHandler = nil;
