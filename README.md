@@ -31,7 +31,7 @@ Since the notification content structure (the `payload` argument of the `reply()
 
 #### Setup
 
-On iOS you must create an [app extension](https://developer.apple.com/app-extensions/) with a class that extends the `BareKit.NotificationService` base implementation. If using Xcode, follow the guide [Modifying Content in Newly Delivered Notifications](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications). We also maintain a template to generate the extension automatically in <https://github.com/holepunchto/bare-ios>.
+On iOS you must create an [app extension](https://developer.apple.com/app-extensions/) with a class that extends the `BareKit.NotificationService` base implementation. If using Xcode, follow the guide [Modifying Content in Newly Delivered Notifications](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications). We also maintain a template at <https://github.com/holepunchto/bare-ios> to generate the extension automatically.
 
 #### Creating the notification service
 
@@ -78,7 +78,7 @@ The configuration object allows you to customize the behavior of the worklet by 
 - `assets`: Path to where bundled assets of the worklet entry point may be written. Must be provided if the worklet entry point uses assets.
 
 > [!TIP]  
-> For more information on the available Swift types, see <https://github.com/holepunchto/bare-kit-swift>.
+> For more information on the Swift interface, see [`BareKit.swift`](https://github.com/holepunchto/bare-kit-swift/blob/main/Sources/BareKit/BareKit.swift).
 
 #### iOS notification payload
 
@@ -117,9 +117,7 @@ This table describes the properties you can pass for iOS:
 
 #### Setup
 
-On Android, you should create a [service](https://developer.android.com/develop/background-work/services) that extends [`FirebaseMessagingService`](https://firebase.google.com/docs/reference/android/com/google/firebase/messaging/FirebaseMessagingService).
-
-We maintain a [template](https://github.com/holepunchto/bare-android) to generate the service automatically.
+On Android you must create a [service](https://developer.android.com/develop/background-work/services) that extends the `MessagingService` base implementation. We maintain a template at <https://github.com/holepunchto/bare-android> to generate the service automatically.
 
 #### Creating the notification service
 
@@ -163,32 +161,32 @@ class MessagingService : BaseMessagingService(Worklet.Options()) {
 }
 ```
 
-> [!TIP]
-> For more information on the Java/Kotlin interface, see [MessagingService.java](https://github.com/holepunchto/bare-kit/blob/main/android/src/main/java/to/holepunch/bare/kit/MessagingService.java>).
+> [!TIP]  
+> For more information on the Java/Kotlin interface, see [`MessagingService.java`](https://github.com/holepunchto/bare-kit/blob/main/android/src/main/java/to/holepunch/bare/kit/MessagingService.java>).
 
 #### Android notification payload
 
-Unlike iOS, Android is much less restrictive in handling notifications. This is why, on Android, the `MessagingService` class provides a hook function called `onWorkletReply(reply: JSONObject)`.
+Unlike iOS, Android is much less restrictive in handling notifications. This is why, on Android, the `MessagingService` class provides the method `onWorkletReply(reply: JSONObject)` to handle the reply from the `push` listener:
 
 ```kt
-  override fun onWorkletReply(reply: JSONObject) {
-    try {
-      notificationManager!!.notify(
-        1,
-        Notification.Builder(this, CHANNEL_ID)
-          .setSmallIcon(drawable.ic_dialog_info)
-          .setContentTitle(reply.optString("myTitle", "Default title"))
-          .setContentText(reply.optString("mybody", "Default description"))
-          .setAutoCancel(true)
-          .build()
-      )
-    } catch (e: Exception) {
-      throw RuntimeException(e)
-    }
+override fun onWorkletReply(reply: JSONObject) {
+  try {
+    notificationManager!!.notify(
+      1,
+      Notification.Builder(this, CHANNEL_ID)
+        .setSmallIcon(drawable.ic_dialog_info)
+        .setContentTitle(reply.optString("myTitle", "Default title"))
+        .setContentText(reply.optString("mybody", "Default description"))
+        .setAutoCancel(true)
+        .build()
+    )
+  } catch (e: Exception) {
+    throw RuntimeException(e)
   }
+}
 ```
 
-The fields sent in the `reply` function are entirely determined by what you implement in the `onWorkletReply` method.
+The properties provided in the `reply` object are entirely determined by what you implement in the `push` listener:
 
 ```js
 BareKit.on('push', (payload, reply) => {
