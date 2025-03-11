@@ -4,9 +4,11 @@ import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.InterruptedException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -110,18 +112,23 @@ public abstract class MessagingService extends FirebaseMessagingService {
       return;
     }
 
-    worklet.push(json.toString(), StandardCharsets.UTF_8, (reply, exception) -> {
-      if (reply == null) return;
+    String reply;
+    try {
+      reply = worklet.push(json.toString(), StandardCharsets.UTF_8, 15L, TimeUnit.SECONDS);
+    } catch (InterruptedException err) {
+      return;
+    }
 
-      JSONObject data;
-      try {
-        data = new JSONObject(reply);
-      } catch (JSONException err) {
-        return;
-      }
+    if (reply == null) return;
 
-      onWorkletReply(data);
-    });
+    JSONObject data;
+    try {
+      data = new JSONObject(reply);
+    } catch (JSONException err) {
+      return;
+    }
+
+    onWorkletReply(data);
   }
 
   @Override
