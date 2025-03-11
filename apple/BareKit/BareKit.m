@@ -506,6 +506,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
 @implementation BareNotificationService {
   BareWorklet *_worklet;
+  void (^_contentHandler)(UNNotificationContent *_Nonnull);
 }
 
 - (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options {
@@ -513,6 +514,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
   if (self) {
     _delegate = self;
+    _contentHandler = nil;
 
     [BareWorklet optimizeForMemory:YES];
 
@@ -646,8 +648,22 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   [_worklet start:name ofType:type inDirectory:subpath inBundle:bundle arguments:arguments];
 }
 
+- (void)complete:(UNNotificationContent *_Nonnull)content {
+  @synchronized(self) {
+    if (_worklet == nil) return;
+
+    [_worklet terminate];
+
+    _worklet = nil;
+
+    if (_contentHandler) _contentHandler(content);
+  }
+}
+
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
                    withContentHandler:(void (^)(UNNotificationContent *_Nonnull))contentHandler {
+  _contentHandler = contentHandler;
+
   NSError *error;
 
   NSData *json = [NSJSONSerialization dataWithJSONObject:request.content.userInfo options:0 error:&error];
@@ -668,12 +684,12 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
           }
         }
 
-        contentHandler(content);
+        [self complete:content];
       }];
 }
 
 - (void)serviceExtensionTimeWillExpire {
-  [_worklet suspend];
+  [self complete:[[UNNotificationContent alloc] init]];
 }
 
 - (UNNotificationContent *_Nonnull)workletDidReply:(NSDictionary *_Nonnull)reply {
