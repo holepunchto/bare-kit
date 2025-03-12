@@ -656,7 +656,11 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
     _worklet = nil;
 
-    if (_contentHandler) _contentHandler(content);
+    if (_contentHandler) {
+      _contentHandler(content);
+
+      [_contentHandler release];
+    }
   }
 }
 
