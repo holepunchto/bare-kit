@@ -662,7 +662,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request
                    withContentHandler:(void (^)(UNNotificationContent *_Nonnull))contentHandler {
-  _contentHandler = contentHandler;
+  _contentHandler = [contentHandler copy];
 
   NSError *error;
 
