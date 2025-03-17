@@ -14,6 +14,7 @@ if(APPLE)
 endif()
 
 fetch_package("github:holepunchto/bare@1.16.2")
+fetch_package("github:holepunchto/librlimit")
 
 add_subdirectory(shared)
 

@@ -31,6 +31,7 @@ target_link_libraries(
     $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
   PUBLIC
     log_static
+    rlimit_static
 )
 
 link_bare_modules(bare_worklet WORKING_DIRECTORY ..)
