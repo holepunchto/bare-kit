@@ -388,7 +388,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
     _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, _ipc.outgoing, 0, _queue);
 
     dispatch_source_set_event_handler(_reader, ^{
-      if (_closed) return;
+      if (_closed || _readable == nil) return;
 
       @autoreleasepool {
         _readable(self);
@@ -396,7 +396,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
     });
 
     dispatch_source_set_event_handler(_writer, ^{
-      if (_closed) return;
+      if (_closed || _writable == nil) return;
 
       @autoreleasepool {
         _writable(self);
