@@ -32,6 +32,7 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
   worklet->bare = NULL;
   worklet->idle = NULL;
+  worklet->thread = 0;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
 
@@ -43,9 +44,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   err = uv_sem_init(&worklet->ready, 0);
   assert(err == 0);
 
-  err = uv_mutex_init(&worklet->lock);
-  assert(err == 0);
-
   return 0;
 }
 
@@ -53,12 +51,14 @@ void
 bare_worklet_destroy(bare_worklet_t *worklet) {
   int err;
 
-  err = uv_thread_join(&worklet->thread);
-  assert(err == 0);
+  uv_sem_post(&worklet->ready);
+
+  if (worklet->thread != 0) {
+    err = uv_thread_join(&worklet->thread);
+    assert(err == 0);
+  }
 
   uv_sem_destroy(&worklet->ready);
-
-  uv_mutex_destroy(&worklet->lock);
 
   free((char *) worklet->options.assets);
 }
@@ -218,11 +218,6 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
 }
 
 static void
-bare_worklet__on_signal(uv_async_t *handle) {
-  uv_close((uv_handle_t *) handle, NULL);
-}
-
-static void
 bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
   bare_worklet_t *worklet = finalize_hint;
 
@@ -230,28 +225,10 @@ bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
 }
 
 static void
-bare_worklet__on_suspend(bare_t *bare, int linger, void *data) {
-  bare_worklet_t *worklet = data;
-
-  uv_unref((uv_handle_t *) &worklet->signal);
-}
-
-static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
   bare_worklet_t *worklet = data;
 
-  uv_mutex_lock(&worklet->lock);
-
   if (worklet->idle) worklet->idle(worklet);
-
-  uv_mutex_unlock(&worklet->lock);
-}
-
-static void
-bare_worklet__on_resume(bare_t *bare, void *data) {
-  bare_worklet_t *worklet = data;
-
-  uv_ref((uv_handle_t *) &worklet->signal);
 }
 
 static void
@@ -266,9 +243,6 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_init(&loop);
   assert(err == 0);
 
-  err = uv_async_init(&loop, &worklet->signal, bare_worklet__on_signal);
-  assert(err == 0);
-
   bare_options_t options = {
     .version = 0,
     .memory_limit = worklet->options.memory_limit,
@@ -278,13 +252,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &worklet->bare);
   assert(err == 0);
 
-  err = bare_on_suspend(worklet->bare, bare_worklet__on_suspend, worklet);
-  assert(err == 0);
-
   err = bare_on_idle(worklet->bare, bare_worklet__on_idle, worklet);
-  assert(err == 0);
-
-  err = bare_on_resume(worklet->bare, bare_worklet__on_resume, worklet);
   assert(err == 0);
 
   bare_t *bare = worklet->bare;
@@ -315,7 +283,6 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   js_value_t *outgoing;
-  ;
   err = js_get_named_property(env, port, "outgoing", &outgoing);
   assert(err == 0);
 
@@ -367,11 +334,9 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare);
   assert(err == 0);
 
-  uv_mutex_lock(&worklet->lock);
+  uv_sem_wait(&worklet->ready);
 
   worklet->bare = NULL;
-
-  uv_mutex_unlock(&worklet->lock);
 
   err = js_release_threadsafe_function(worklet->push, js_threadsafe_function_release);
   assert(err == 0);
@@ -405,55 +370,19 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger, bare_worklet_idle_cb cb) {
-  int err;
-
-  uv_mutex_lock(&worklet->lock);
-
   worklet->idle = cb;
 
-  if (worklet->bare == NULL) err = -1;
-  else {
-    err = bare_suspend(worklet->bare, linger);
-  }
-
-  uv_mutex_unlock(&worklet->lock);
-
-  return err;
+  return bare_suspend(worklet->bare, linger);
 }
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
-  int err;
-
-  uv_mutex_lock(&worklet->lock);
-
-  if (worklet->bare == NULL) err = -1;
-  else {
-    err = bare_resume(worklet->bare);
-  }
-
-  uv_mutex_unlock(&worklet->lock);
-
-  return err;
+  return bare_resume(worklet->bare);
 }
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
-  int err;
-
-  uv_mutex_lock(&worklet->lock);
-
-  if (worklet->bare == NULL) err = -1;
-  else {
-    err = uv_async_send(&worklet->signal);
-    assert(err == 0);
-
-    err = bare_terminate(worklet->bare);
-  }
-
-  uv_mutex_unlock(&worklet->lock);
-
-  return err;
+  return bare_terminate(worklet->bare);
 }
 
 int
@@ -464,14 +393,5 @@ bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_bu
   req->payload = *payload;
   req->cb = cb;
 
-  uv_mutex_lock(&worklet->lock);
-
-  if (worklet->bare == NULL) err = -1;
-  else {
-    err = js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
-  }
-
-  uv_mutex_unlock(&worklet->lock);
-
-  return err;
+  return js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
 }

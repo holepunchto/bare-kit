@@ -1,5 +1,8 @@
 list(APPEND tests
   worklet-assets
+  worklet-destroy-before-start
+  worklet-suspend-resume
+  worklet-terminate-after-suspend
 )
 
 execute_process(
