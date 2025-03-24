@@ -38,7 +38,7 @@ jobs:
           node-version: 20
       - run: npm install -g bare-make
       - run: npm install
-      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }}
+      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols ${{ matrix.flags }}
       - run: bare-make build
       - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
       - uses: actions/upload-artifact@v4
