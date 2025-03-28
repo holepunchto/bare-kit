@@ -69,6 +69,16 @@ static js_platform_options_t bare_worklet__platform_options = {
 
 int
 bare_worklet_optimize_for_memory(bool enabled) {
+  int err;
+
+  if (enabled) {
+    err = uv_os_setenv("UV_THREADPOOL_SIZE", "1");
+  } else {
+    err = uv_os_setenv("UV_THREADPOOL_SIZE", "4");
+  }
+
+  assert(err == 0);
+
   bare_worklet__platform_options.optimize_for_memory = enabled;
 
   return 0;
