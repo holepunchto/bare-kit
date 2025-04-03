@@ -251,9 +251,10 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
     if (app == nil) return linger;
 
-    _suspending = [app beginBackgroundTaskWithExpirationHandler:^{
-      [self endSuspensionTask];
-    }];
+    _suspending = [app beginBackgroundTaskWithName:@"Suspending Bare"
+                                 expirationHandler:^{
+                                   [self endSuspensionTask];
+                                 }];
 
     NSTimeInterval remaining = UIApplication.sharedApplication.backgroundTimeRemaining;
 
