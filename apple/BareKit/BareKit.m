@@ -262,7 +262,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
     remaining *= 1000;
 
-    if (linger <= 0) return remaining;
+    if (linger < 0) return remaining;
 
     return MIN(linger, remaining);
   }
@@ -295,7 +295,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 #endif
 
 - (void)suspend {
-  [self suspendWithLinger:0];
+  [self suspendWithLinger:-1];
 }
 
 - (void)suspendWithLinger:(int)linger {
