@@ -147,11 +147,13 @@ public class Worklet implements Closeable {
 
   public void
   suspend() {
-    suspend(handle, 0);
+    suspend(0);
   }
 
   public void
   suspend(int linger) {
+    if (linger <= 0) linger = 30000;
+
     suspend(handle, linger);
   }
 
