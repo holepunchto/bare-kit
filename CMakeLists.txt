@@ -13,7 +13,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.17.5")
+fetch_package("github:holepunchto/bare@1.17.6")
 
 add_subdirectory(shared)
 
