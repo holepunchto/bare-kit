@@ -98,37 +98,45 @@ public abstract class MessagingService extends FirebaseMessagingService {
   onDestroy() {
     super.onDestroy();
 
-    worklet.terminate();
+    synchronized (this) {
+      worklet.terminate();
+
+      worklet = null;
+    }
   }
 
   @Override
   public void
   onMessageReceived(RemoteMessage message) {
-    JSONObject json = new JSONObject();
+    synchronized (this) {
+      if (worklet == null) return;
 
-    try {
-      json.put("data", new JSONObject(message.getData()));
-    } catch (JSONException err) {
-      return;
+      JSONObject json = new JSONObject();
+
+      try {
+        json.put("data", new JSONObject(message.getData()));
+      } catch (JSONException err) {
+        return;
+      }
+
+      String reply;
+      try {
+        reply = worklet.push(json.toString(), StandardCharsets.UTF_8, 15L, TimeUnit.SECONDS);
+      } catch (InterruptedException err) {
+        return;
+      }
+
+      if (reply == null) return;
+
+      JSONObject data;
+      try {
+        data = new JSONObject(reply);
+      } catch (JSONException err) {
+        return;
+      }
+
+      onWorkletReply(data);
     }
-
-    String reply;
-    try {
-      reply = worklet.push(json.toString(), StandardCharsets.UTF_8, 15L, TimeUnit.SECONDS);
-    } catch (InterruptedException err) {
-      return;
-    }
-
-    if (reply == null) return;
-
-    JSONObject data;
-    try {
-      data = new JSONObject(reply);
-    } catch (JSONException err) {
-      return;
-    }
-
-    onWorkletReply(data);
   }
 
   @Override
