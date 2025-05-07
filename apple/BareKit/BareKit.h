@@ -82,12 +82,12 @@
 
 - (NSData *_Nullable)read;
 
-- (NSString *_Nullable)read:(NSStringEncoding)encoding;
+- (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
 
-- (BOOL)write:(NSData *_Nonnull)data;
+- (NSInteger)write:(NSData *_Nonnull)data;
 
-- (BOOL)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding;
+- (void)write:(NSData *_Nonnull)data
+   completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
 
 - (void)close;
 

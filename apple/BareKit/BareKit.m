@@ -446,10 +446,11 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 }
 
 - (NSData *_Nullable)read {
+  int err;
+
   void *data;
   size_t len;
-
-  int err = bare_ipc_read(&_ipc, &data, &len);
+  err = bare_ipc_read(&_ipc, &data, &len);
   assert(err == 0 || err == bare_ipc_would_block);
 
   if (err == bare_ipc_would_block) {
@@ -459,32 +460,61 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   return [[NSData alloc] initWithBytes:data length:len];
 }
 
-- (NSString *_Nullable)read:(NSStringEncoding)encoding {
-  void *data;
-  size_t len;
+- (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
+  NSData *data = [self read];
 
-  int err = bare_ipc_read(&_ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
+  if (data) {
+    completion(data, nil);
+  } else {
+    self.readable = ^(BareIPC *ipc) {
+      NSData *data = [self read];
 
-  if (err == bare_ipc_would_block) {
-    return nil;
+      if (data) {
+        self.readable = nil;
+
+        completion(data, nil);
+      }
+    };
   }
-
-  return [[NSString alloc] initWithBytes:data length:len encoding:encoding];
 }
 
-- (BOOL)write:(NSData *_Nonnull)data {
+- (NSInteger)write:(NSData *_Nonnull)data {
   int err;
-
   err = bare_ipc_write(&_ipc, data.bytes, data.length);
-  assert(err == 0 || err == bare_ipc_would_block);
+  assert(err >= 0 || err == bare_ipc_would_block);
 
-  return err == 0;
+  return err;
 }
 
-- (BOOL)write:(NSString *_Nonnull)data
-     encoding:(NSStringEncoding)encoding {
-  return [self write:[data dataUsingEncoding:encoding]];
+- (void)write:(NSData *_Nonnull)data
+   completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
+  __block NSData *remaining = data;
+
+  NSInteger written = [self write:remaining];
+
+  if (written == data.length) {
+    completion(nil);
+  } else {
+    remaining = [data subdataWithRange:NSMakeRange(written, remaining.length - written)];
+
+    self.writable = ^(BareIPC *ipc) {
+      NSInteger written = [self write:remaining];
+
+      if (written == remaining.length) {
+        [remaining release];
+
+        self.writable = nil;
+
+        completion(nil);
+      } else {
+        NSData *data = [remaining subdataWithRange:NSMakeRange(written, remaining.length - written)];
+
+        [remaining release];
+
+        remaining = [data retain];
+      }
+    };
+  }
 }
 
 - (void)close {
