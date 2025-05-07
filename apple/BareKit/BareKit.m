@@ -483,6 +483,10 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   err = bare_ipc_write(&_ipc, data.bytes, data.length);
   assert(err >= 0 || err == bare_ipc_would_block);
 
+  if (err == bare_ipc_would_block) {
+    return 0;
+  }
+
   return err;
 }
 
