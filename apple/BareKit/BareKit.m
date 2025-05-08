@@ -497,9 +497,11 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   if (written == data.length) {
     completion(nil);
   } else {
-    __block NSData *remaining = data;
+    data = [data subdataWithRange:NSMakeRange(written, data.length - written)];
 
-    remaining = [data subdataWithRange:NSMakeRange(written, remaining.length - written)];
+    [data retain];
+
+    __block NSData *remaining = data;
 
     self.writable = ^(BareIPC *ipc) {
       NSInteger written = [self write:remaining];
