@@ -3,7 +3,6 @@ package to.holepunch.bare.kit;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import to.holepunch.bare.kit.Worklet;
 
