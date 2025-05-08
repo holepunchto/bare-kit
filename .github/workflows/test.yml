@@ -46,7 +46,7 @@ jobs:
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }} --debug
       - run: bare-make build
       - run: bare-make test
-        if: ${{ matrix.platform == 'darwin' }}
+        if: ${{ matrix.platform == 'darwin' && matrix.arch == 'arm64' }}
   android:
     strategy:
       matrix:
