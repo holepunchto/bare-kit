@@ -513,9 +513,10 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
       } else {
         NSData *data = [remaining subdataWithRange:NSMakeRange(written, remaining.length - written)];
 
+        [data retain];
         [remaining release];
 
-        remaining = [data retain];
+        remaining = data;
       }
     };
   }
