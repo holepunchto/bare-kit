@@ -41,5 +41,5 @@ bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len) {
     return (errno == EAGAIN || errno == EWOULDBLOCK) ? bare_ipc_would_block : bare_ipc_error;
   }
 
-  return 0;
+  return res;
 }

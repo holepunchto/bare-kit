@@ -3,6 +3,7 @@ package to.holepunch.bare.kit;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.concurrent.atomic.AtomicReference;
 import to.holepunch.bare.kit.Worklet;
 
 public class IPC implements Closeable {
@@ -10,6 +11,18 @@ public class IPC implements Closeable {
   public interface PollCallback {
     void
     apply();
+  }
+
+  @FunctionalInterface
+  public interface ReadCallback {
+    void
+    apply(ByteBuffer data, Throwable exception);
+  }
+
+  @FunctionalInterface
+  public interface WriteCallback {
+    void
+    apply(Throwable exception);
   }
 
   private ByteBuffer handle;
@@ -36,7 +49,7 @@ public class IPC implements Closeable {
   private native ByteBuffer
   read(ByteBuffer handle);
 
-  private native boolean
+  private native int
   write(ByteBuffer handle, ByteBuffer data, int len);
 
   private native void
@@ -45,9 +58,16 @@ public class IPC implements Closeable {
   private native void
   writable(ByteBuffer handle, boolean reset);
 
-  public boolean
+  private boolean
   readable() {
     if (readable != null) readable.apply();
+
+    return readable != null;
+  }
+
+  private boolean
+  writable() {
+    if (writable != null) writable.apply();
 
     return writable != null;
   }
@@ -57,13 +77,6 @@ public class IPC implements Closeable {
     readable = callback;
 
     readable(handle, readable == null);
-  }
-
-  public boolean
-  writable() {
-    if (writable != null) writable.apply();
-
-    return writable != null;
   }
 
   public void
@@ -88,25 +101,26 @@ public class IPC implements Closeable {
     return copy;
   }
 
-  public String
-  read(Charset charset) {
-    ByteBuffer buffer = read(handle);
+  public void
+  read(ReadCallback callback) {
+    ByteBuffer data1 = read();
 
-    if (buffer == null) {
-      return null;
+    if (data1 != null) {
+      callback.apply(data1, null);
+    } else {
+      readable(() -> {
+        ByteBuffer data2 = read();
+
+        if (data2 != null) {
+          readable(null);
+
+          callback.apply(data2, null);
+        }
+      });
     }
-
-    String result = charset.decode(buffer).toString();
-
-    return result;
   }
 
-  public String
-  read(String charset) {
-    return read(Charset.forName(charset));
-  }
-
-  public boolean
+  public int
   write(ByteBuffer data) {
     ByteBuffer buffer;
 
@@ -121,14 +135,43 @@ public class IPC implements Closeable {
     return write(handle, buffer, buffer.limit());
   }
 
-  public boolean
-  write(String data, Charset charset) {
-    return write(ByteBuffer.wrap(data.getBytes(charset)));
-  }
+  public void
+  write(ByteBuffer data, WriteCallback callback) {
+    ByteBuffer buffer;
 
-  public boolean
-  write(String data, String charset) {
-    return write(data, Charset.forName(charset));
+    if (data.isDirect()) {
+      buffer = data.slice();
+    } else {
+      buffer = ByteBuffer.allocateDirect(data.limit());
+      buffer.put(data);
+      buffer.flip();
+    }
+
+    int written1 = write(buffer);
+
+    if (written1 == buffer.limit()) {
+      callback.apply(null);
+    } else {
+      buffer.position(written1);
+
+      final AtomicReference<ByteBuffer> remaining = new AtomicReference<>(buffer.slice());
+
+      writable(() -> {
+        ByteBuffer slice = remaining.get();
+
+        int written2 = write(slice);
+
+        if (written2 == slice.limit()) {
+          writable(null);
+
+          callback.apply(null);
+        } else {
+          slice.position(written2);
+
+          remaining.set(slice.slice());
+        }
+      });
+    }
   }
 
   public void

@@ -1,7 +1,7 @@
 list(APPEND tests
-  worklet
-  stress
-  push
+  worklet-ipc
+  worklet-ipc-large-write
+  worklet-push
 )
 
 foreach(test IN LISTS tests)

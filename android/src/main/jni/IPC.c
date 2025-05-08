@@ -60,7 +60,6 @@ Java_to_holepunch_bare_kit_IPC_read(JNIEnv *env, jobject self, jobject handle) {
 
   void *data;
   size_t len;
-
   err = bare_ipc_read(ipc, &data, &len);
   assert(err == 0 || err == bare_ipc_would_block);
 
@@ -71,7 +70,7 @@ Java_to_holepunch_bare_kit_IPC_read(JNIEnv *env, jobject self, jobject handle) {
   return (*env)->NewDirectByteBuffer(env, data, len);
 }
 
-JNIEXPORT jboolean JNICALL
+JNIEXPORT jint JNICALL
 Java_to_holepunch_bare_kit_IPC_write(JNIEnv *env, jobject self, jobject handle, jobject jsource, jint jlen) {
   int err;
 
@@ -79,15 +78,14 @@ Java_to_holepunch_bare_kit_IPC_write(JNIEnv *env, jobject self, jobject handle, 
 
   void *data = (*env)->GetDirectBufferAddress(env, jsource);
   int len = (int) jlen;
-
   err = bare_ipc_write(ipc, data, len);
-  assert(err == 0 || err == bare_ipc_would_block);
+  assert(err >= 0 || err == bare_ipc_would_block);
 
   if (err == bare_ipc_would_block) {
-    return false;
+    return 0;
   }
 
-  return true;
+  return err;
 }
 
 static int
