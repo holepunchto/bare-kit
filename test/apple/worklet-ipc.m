@@ -12,14 +12,12 @@ main() {
   BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
 
   [ipc read:^(NSData *_Nullable data, NSError *_Nullable error) {
-    NSLog(@"error=%@ data=%@", error, data);
+    NSLog(@"%@", data);
 
     [ipc write:[@"Hello back!" dataUsingEncoding:NSUTF8StringEncoding]
       completion:^(NSError *_Nullable error) {
-        NSLog(@"error=%@", error);
-
         [ipc read:^(NSData *_Nullable data, NSError *_Nullable error) {
-          NSLog(@"error=%@ data=%@", error, data);
+          NSLog(@"%@", data);
 
           exit(0);
         }];
