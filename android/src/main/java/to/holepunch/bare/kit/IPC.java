@@ -104,18 +104,18 @@ public class IPC implements Closeable {
 
   public void
   read(ReadCallback callback) {
-    final AtomicReference<ByteBuffer> data = new AtomicReference<>(read());
+    ByteBuffer data1 = read();
 
-    if (data.get() != null) {
-      callback.apply(data.get(), null);
+    if (data1 != null) {
+      callback.apply(data1, null);
     } else {
       readable(() -> {
-        data.set(read());
+        ByteBuffer data2 = read();
 
-        if (data.get() != null) {
+        if (data2 != null) {
           readable(null);
 
-          callback.apply(data.get(), null);
+          callback.apply(data2, null);
         }
       });
     }
