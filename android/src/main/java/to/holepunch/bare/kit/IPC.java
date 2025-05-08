@@ -141,33 +141,35 @@ public class IPC implements Closeable {
     ByteBuffer buffer;
 
     if (data.isDirect()) {
-      buffer = data;
+      buffer = data.slice();
     } else {
       buffer = ByteBuffer.allocateDirect(data.limit());
       buffer.put(data);
       buffer.flip();
     }
 
-    final AtomicReference<ByteBuffer> remaining = new AtomicReference<>(buffer);
+    int written1 = write(buffer);
 
-    final AtomicInteger written = new AtomicInteger(write(remaining.get()));
-
-    if (written.get() == remaining.get().limit()) {
+    if (written1 == buffer.limit()) {
       callback.apply(null);
     } else {
-      remaining.get().position(written.get());
-      remaining.set(remaining.get().slice());
+      buffer.position(written1);
+
+      final AtomicReference<ByteBuffer> remaining = new AtomicReference<>(buffer.slice());
 
       writable(() -> {
-        written.set(write(remaining.get()));
+        ByteBuffer slice = remaining.get();
 
-        if (written.get() == remaining.get().limit()) {
+        int written2 = write(slice);
+
+        if (written2 == slice.limit()) {
           writable(null);
 
           callback.apply(null);
         } else {
-          remaining.get().position(written.get());
-          remaining.set(remaining.get().slice());
+          slice.position(written2);
+
+          remaining.set(slice.slice());
         }
       });
     }
