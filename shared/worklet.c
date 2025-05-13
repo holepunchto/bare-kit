@@ -3,6 +3,7 @@
 #include <js.h>
 #include <log.h>
 #include <rlimit.h>
+#include <signal.h>
 #include <stddef.h>
 #include <string.h>
 #include <utf.h>
@@ -16,6 +17,10 @@ static uv_once_t bare_worklet__init_guard = UV_ONCE_INIT;
 static void
 bare_worklet__on_init(void) {
   int err;
+
+#ifdef SIGPIPE
+  signal(SIGPIPE, SIG_IGN);
+#endif
 
   err = log_open("bare", 0);
   assert(err == 0);
