@@ -64,7 +64,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
       error = [NSError
         errorWithDomain:@"to.holepunch.bare.kit"
                    code:-1
-               userInfo:@{NSLocalizedDescriptionKey : @"Push error"}];
+               userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithUTF8String:err]}];
 
     } else {
       error = nil;

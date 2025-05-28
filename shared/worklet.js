@@ -50,10 +50,14 @@ exports.push = function push(payload, reply) {
   }
 
   function replyOnce(err, payload, encoding) {
-    reply(
-      err,
-      typeof payload === 'string' ? Buffer.from(payload, encoding) : payload
-    )
+    if (err) {
+      reply(String(err), null)
+    } else {
+      reply(
+        null,
+        typeof payload === 'string' ? Buffer.from(payload, encoding) : payload
+      )
+    }
 
     reply = noop
   }

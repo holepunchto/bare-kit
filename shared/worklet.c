@@ -165,7 +165,7 @@ bare_worklet__on_push_reply(js_env_t *env, js_callback_info_t *info) {
   char *error;
 
   bool has_error;
-  err = js_is_error(env, argv[0], &has_error);
+  err = js_is_string(env, argv[0], &has_error);
   assert(err == 0);
 
   if (has_error) {
