@@ -37,7 +37,6 @@ The configuration is then passed to the BareWorklet, which represents the runnin
 
 Available actions on a worklet include:
 • start: starts the worklet
-• push: (add description)
 • suspend: suspends the execution of the worklet
 • suspendWithLinger: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
 • resume: resumes a suspended worklet
