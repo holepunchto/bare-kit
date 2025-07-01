@@ -36,11 +36,11 @@ You can create a `BareWorkletConfiguration` to optionally set the memory limit o
 The configuration is then passed to the `BareWorklet`, which represents the running worklet instance.
 
 Available actions on a worklet include:
-• start: starts the worklet
-• suspend: suspends the execution of the worklet
-• suspendWithLinger: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
-• resume: resumes a suspended worklet
-• terminate: terminates the worklet
+- `[worklet start]`: starts the worklet
+- `[worklet suspend]`: suspends the execution of the worklet
+- `[worklet suspendWithLinger]`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
+- `[worklet resume]`: resumes a suspended worklet
+- `[worklet terminate]`: terminates the worklet
 
 > For a full API reference, see the [header file](./apple/BareKit/BareKit.h).
 
