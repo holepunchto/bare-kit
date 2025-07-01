@@ -4,6 +4,47 @@ Bare for native application development. The kit provides a web worker-like API 
 
 [^1]: This term was chosen to avoid ambiguity with worker threads as implemented by <https://github.com/holepunchto/bare-worker>.
 
+## Worklet
+
+In this section, we will learn how to create a worklet both iOS and Android.
+
+### iOS
+
+This is a basic example of how to create a worklet in Objective-C:
+
+```objc
+#import <BareKit/BareKit.h>
+#import <Foundation/Foundation.h>
+
+int
+main() {
+  BareWorkletConfiguration *options = [BareWorkletConfiguration defaultWorkletConfiguration];
+  options.memoryLimit = 1024 * 1024 * 24; // 24 MiB
+
+  BareWorklet *worklet = [[BareWorklet alloc] initWithConfiguration:options];
+
+  NSString *source = @"console.log('hello from the worklet')";
+
+  [worklet start:@"/app.js" source:[source dataUsingEncoding:NSUTF8StringEncoding] arguments:@[]];
+
+  [[NSRunLoop currentRunLoop] run];
+}
+```
+
+You can create a `BareWorkletConfiguration` to optionally set the memory limit or attach assets. This step is optional.
+
+The configuration is then passed to the `BareWorklet`, which represents the running worklet instance.
+
+Available actions on a worklet include:
+- `[worklet start]`: starts the worklet
+- `[worklet suspend]`: suspends the execution of the worklet
+- `[worklet suspendWithLinger]`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
+- `[worklet resume]`: resumes a suspended worklet
+- `[worklet terminate]`: terminates the worklet
+
+> [!TIP]
+> For a full API reference, see [`apple/BareKit/BareKit.h`](apple/BareKit/BareKit.h).
+
 ## Notifications
 
 Bare Kit provides two native classes for implementing push notification support on iOS and Android. In both cases, you must provide an entry point to the notification worklet responsible for handling incoming push notifications. To handle push notifications, add a listener for the `push` event emitted on the `BareKit` namespace:
