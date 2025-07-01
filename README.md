@@ -42,7 +42,8 @@ Available actions on a worklet include:
 - `[worklet resume]`: resumes a suspended worklet
 - `[worklet terminate]`: terminates the worklet
 
-> For a full API reference, see the [header file](./apple/BareKit/BareKit.h).
+> [!TIP]
+> For a full API reference, see [`apple/BareKit/BareKit.h`](apple/BareKit/BareKit.h).
 
 ## Notifications
 
