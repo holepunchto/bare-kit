@@ -6,11 +6,11 @@ Bare for native application development. The kit provides a web worker-like API 
 
 ## Worklet
 
-In this section, we will learn how to create a worklet both `iOS` and `android`.
+In this section, we will learn how to create a worklet both iOS and Android.
 
 ### iOS
 
-This is a basic example about how to create a worklet in Objective-C:
+This is a basic example of how to create a worklet in Objective-C:
 
 ```objc
 #import <BareKit/BareKit.h>
@@ -31,9 +31,9 @@ main() {
 }
 ```
 
-You can create a BareWorkletConfiguration to optionally set the memoryLimit or attach assets. This step is optional.
+You can create a `BareWorkletConfiguration` to optionally set the memory limit or attach assets. This step is optional.
 
-The configuration is then passed to the BareWorklet, which represents the running worklet instance.
+The configuration is then passed to the `BareWorklet`, which represents the running worklet instance.
 
 Available actions on a worklet include:
 • start: starts the worklet
