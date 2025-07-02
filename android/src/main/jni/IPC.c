@@ -20,8 +20,10 @@ typedef struct {
 } bare_ipc_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jint incoming, jint outgoing) {
+Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jobject handle) {
   int err;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   bare_ipc_context_t *context = malloc(sizeof(bare_ipc_context_t));
 
@@ -31,7 +33,7 @@ Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jint incoming, ji
   context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, self));
   context->self = (*env)->NewGlobalRef(env, self);
 
-  err = bare_ipc_init(&context->ipc, (int) incoming, (int) outgoing);
+  err = bare_ipc_init(&context->ipc, worklet);
   assert(err == 0);
 
   err = bare_ipc_poll_init(&context->poll, &context->ipc);

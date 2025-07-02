@@ -7,6 +7,8 @@ extern "C" {
 
 #include <stddef.h>
 
+#include "worklet.h"
+
 #define BARE_IPC_READ_BUFFER_SIZE 64 * 1024
 
 typedef struct bare_ipc_s bare_ipc_t;
@@ -34,7 +36,7 @@ int
 bare_ipc_alloc(bare_ipc_t **result);
 
 int
-bare_ipc_init(bare_ipc_t *ipc, int incoming, int outgoing);
+bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet);
 
 void
 bare_ipc_destroy(bare_ipc_t *ipc);

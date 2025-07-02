@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <utf.h>
 #include <uv.h>
 
@@ -76,6 +77,9 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   }
 
   uv_sem_destroy(&worklet->ready);
+
+  close(worklet->incoming);
+  close(worklet->outgoing);
 
   free((char *) worklet->options.assets);
 }

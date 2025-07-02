@@ -390,7 +390,7 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   if (self) {
     int err;
 
-    err = bare_ipc_init(&_ipc, worklet->_worklet.incoming, worklet->_worklet.outgoing);
+    err = bare_ipc_init(&_ipc, &worklet->_worklet);
     assert(err == 0);
 
     err = bare_ipc_poll_init(&_poll, &_ipc);

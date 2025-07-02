@@ -18,9 +18,9 @@ bare_ipc_alloc(bare_ipc_t **result) {
 }
 
 int
-bare_ipc_init(bare_ipc_t *ipc, int incoming, int outgoing) {
-  ipc->incoming = incoming;
-  ipc->outgoing = outgoing;
+bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
+  ipc->incoming = dup(worklet->incoming);
+  ipc->outgoing = dup(worklet->outgoing);
 
   return 0;
 }

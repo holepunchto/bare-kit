@@ -147,20 +147,6 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
   free(worklet);
 }
 
-JNIEXPORT jint JNICALL
-Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  return worklet->incoming;
-}
-
-JNIEXPORT jint JNICALL
-Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  return worklet->outgoing;
-}
-
 static void
 bare_worklet__on_push(bare_worklet_push_t *req, const char *error, const uv_buf_t *reply) {
   int err;
