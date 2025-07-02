@@ -81,10 +81,19 @@ int
 bare_worklet_optimize_for_memory(bool enabled);
 
 int
+bare_worklet_alloc(bare_worklet_t **result);
+
+int
 bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options);
 
 void
 bare_worklet_destroy(bare_worklet_t *worklet);
+
+void *
+bare_worklet_get_data(bare_worklet_t *worklet);
+
+void
+bare_worklet_set_data(bare_worklet_t *worklet, void *data);
 
 int
 bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, bare_worklet_finalize_cb finalize, void *finalize_hint, int argc, const char *argv[]);
@@ -100,6 +109,12 @@ bare_worklet_terminate(bare_worklet_t *worklet);
 
 int
 bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb);
+
+void *
+bare_worklet_push_get_data(bare_worklet_push_t *req);
+
+void
+bare_worklet_push_set_data(bare_worklet_push_t *req, void *data);
 
 #ifdef __cplusplus
 }

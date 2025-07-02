@@ -25,6 +25,30 @@ target_sources(
     worklet.h
 )
 
+if(APPLE)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      apple/ipc.h
+      apple/ipc.m
+  )
+endif()
+
+if(ANDROID)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      android/ipc.h
+      android/ipc.c
+  )
+
+  target_link_libraries(
+    bare_worklet
+    PRIVATE
+      android
+  )
+endif()
+
 target_link_libraries(
   bare_worklet
   PUBLIC

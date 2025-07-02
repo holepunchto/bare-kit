@@ -5,6 +5,7 @@
 #include <rlimit.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <utf.h>
 #include <uv.h>
@@ -27,6 +28,17 @@ bare_worklet__on_init(void) {
 
   err = rlimit_set(rlimit_open_files, rlimit_infer);
   assert(err == 0);
+}
+
+int
+bare_worklet_alloc(bare_worklet_t **result) {
+  bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
+
+  if (worklet == NULL) return -1;
+
+  *result = worklet;
+
+  return 0;
 }
 
 int
@@ -66,6 +78,16 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   uv_sem_destroy(&worklet->ready);
 
   free((char *) worklet->options.assets);
+}
+
+void *
+bare_worklet_get_data(bare_worklet_t *worklet) {
+  return worklet->data;
+}
+
+void
+bare_worklet_set_data(bare_worklet_t *worklet, void *data) {
+  worklet->data = data;
 }
 
 static js_platform_options_t bare_worklet__platform_options = {
@@ -403,4 +425,14 @@ bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_bu
   req->cb = cb;
 
   return js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
+}
+
+void *
+bare_worklet_push_get_data(bare_worklet_push_t *req) {
+  return req->data;
+}
+
+void
+bare_worklet_push_set_data(bare_worklet_push_t *req, void *data) {
+  req->data = data;
 }

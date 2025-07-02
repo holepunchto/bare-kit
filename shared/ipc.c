@@ -1,9 +1,21 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "ipc.h"
+
+int
+bare_ipc_alloc(bare_ipc_t **result) {
+  bare_ipc_t *ipc = malloc(sizeof(bare_ipc_t));
+
+  if (ipc == NULL) return -1;
+
+  *result = ipc;
+
+  return 0;
+}
 
 int
 bare_ipc_init(bare_ipc_t *ipc, int incoming, int outgoing) {
@@ -17,6 +29,16 @@ void
 bare_ipc_destroy(bare_ipc_t *ipc) {
   close(ipc->incoming);
   close(ipc->outgoing);
+}
+
+int
+bare_ipc_get_incoming(bare_ipc_t *ipc) {
+  return ipc->incoming;
+}
+
+int
+bare_ipc_get_outgoing(bare_ipc_t *ipc) {
+  return ipc->outgoing;
 }
 
 int

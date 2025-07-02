@@ -12,6 +12,7 @@
 
 #import "BareKit.h"
 
+#import "../../shared/apple/ipc.h"
 #import "../../shared/ipc.h"
 #import "../../shared/worklet.h"
 
@@ -363,12 +364,24 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
 @end
 
+@interface BareIPC ()
+
+- (void)poll:(int)events;
+
+@end
+
+static void
+bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
+  @autoreleasepool {
+    BareIPC *ipc = (__bridge BareIPC *) poll->data;
+
+    [ipc poll:events];
+  }
+}
+
 @implementation BareIPC {
-  bool _closed;
   bare_ipc_t _ipc;
-  dispatch_queue_t _queue;
-  dispatch_source_t _reader;
-  dispatch_source_t _writer;
+  bare_ipc_poll_t _poll;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
@@ -377,72 +390,59 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   if (self) {
     int err;
 
-    _closed = false;
-
     err = bare_ipc_init(&_ipc, worklet->_worklet.incoming, worklet->_worklet.outgoing);
     assert(err == 0);
 
-    _queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
+    err = bare_ipc_poll_init(&_poll, &_ipc);
+    assert(err == 0);
 
-    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, _ipc.incoming, 0, _queue);
-
-    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, _ipc.outgoing, 0, _queue);
-
-    dispatch_source_set_event_handler(_reader, ^{
-      if (_closed || _readable == nil) return;
-
-      @autoreleasepool {
-        _readable(self);
-      }
-    });
-
-    dispatch_source_set_event_handler(_writer, ^{
-      if (_closed || _writable == nil) return;
-
-      @autoreleasepool {
-        _writable(self);
-      }
-    });
-
-    dispatch_source_set_cancel_handler(_reader, ^{
-      dispatch_release(_reader);
-    });
-
-    dispatch_source_set_cancel_handler(_writer, ^{
-      dispatch_release(_writer);
-    });
+    _poll.data = (__bridge void *) self;
   }
 
   return self;
 }
 
 - (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
-  if (_closed) return;
-
   if (readable == nil) {
-    if (_readable != nil) dispatch_suspend(_reader);
-
     _readable = nil;
   } else {
-    if (_readable == nil) dispatch_resume(_reader);
-
     _readable = [readable copy];
   }
+
+  [self update];
 }
 
 - (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
-  if (_closed) return;
-
   if (writable == nil) {
-    if (_writable != nil) dispatch_suspend(_writer);
-
     _writable = nil;
 
   } else {
-    if (_writable == nil) dispatch_resume(_writer);
-
     _writable = [writable copy];
   }
+
+  [self update];
+}
+
+- (void)update {
+  int events = 0;
+
+  if (_readable) events |= bare_ipc_readable;
+  if (_writable) events |= bare_ipc_writable;
+
+  int err;
+
+  if (events) {
+    err = bare_ipc_poll_start(&_poll, events, bare_ipc__on_poll);
+    assert(err == 0);
+  } else {
+    err = bare_ipc_poll_stop(&_poll);
+    assert(err == 0);
+  }
+}
+
+- (void)poll:(int)events {
+  if (events & bare_ipc_readable) _readable(self);
+  if (events & bare_ipc_writable) _writable(self);
 }
 
 - (NSData *_Nullable)read {
@@ -525,18 +525,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 }
 
 - (void)close {
-  _closed = true;
-
-  if (_readable == nil) dispatch_resume(_reader);
-
-  if (_writable == nil) dispatch_resume(_writer);
-
-  dispatch_source_cancel(_reader);
-
-  dispatch_source_cancel(_writer);
-
-  dispatch_release(_queue);
-
+  bare_ipc_poll_destroy(&_poll);
   bare_ipc_destroy(&_ipc);
 }
 

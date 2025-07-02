@@ -1,0 +1,22 @@
+#ifndef BARE_KIT_ANDROID_IPC_H
+#define BARE_KIT_ANDROID_IPC_H
+
+#include <android/looper.h>
+#include <stdbool.h>
+
+#include "../ipc.h"
+
+struct bare_ipc_poll_s {
+  bare_ipc_t *ipc;
+
+  ALooper *looper;
+
+  bool polling;
+  int events;
+
+  bare_ipc_poll_cb cb;
+
+  void *data;
+};
+
+#endif // BARE_KIT_ANDROID_IPC_H
