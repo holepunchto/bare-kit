@@ -60,9 +60,10 @@ if(ANDROID)
   target_sources(
     bare_worklet
     PRIVATE
-      android/ipc.h
       android/ipc.c
+      android/ipc.h
       android/suspension.c
+      android/suspension.h
   )
 
   target_link_libraries(
