@@ -9,32 +9,33 @@
 #include "../../../../shared/worklet.h"
 
 typedef struct {
-  bare_ipc_t handle;
+  bare_ipc_t ipc;
+  bare_ipc_poll_t poll;
 
   JNIEnv *env;
-  ALooper *looper;
-
-  int incoming;
-  int outgoing;
 
   jclass class;
   jobject self;
 } bare_ipc_context_t;
 
 JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jint jincoming, jint joutgoing) {
+Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jobject handle) {
   int err;
+
+  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
   bare_ipc_context_t *context = malloc(sizeof(bare_ipc_context_t));
 
+  context->poll.data = (void *) context;
+
   context->env = env;
-  context->looper = ALooper_forThread();
   context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, self));
   context->self = (*env)->NewGlobalRef(env, self);
-  context->incoming = (int) jincoming;
-  context->outgoing = (int) joutgoing;
 
-  err = bare_ipc_init(&context->handle, context->incoming, context->outgoing);
+  err = bare_ipc_init(&context->ipc, worklet);
+  assert(err == 0);
+
+  err = bare_ipc_poll_init(&context->poll, &context->ipc);
   assert(err == 0);
 
   return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_ipc_context_t));
@@ -44,7 +45,8 @@ JNIEXPORT void JNICALL
 Java_to_holepunch_bare_kit_IPC_destroy(JNIEnv *env, jobject self, jobject handle) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  bare_ipc_destroy(&context->handle);
+  bare_ipc_poll_destroy(&context->poll);
+  bare_ipc_destroy(&context->ipc);
 
   (*env)->DeleteGlobalRef(env, context->class);
   (*env)->DeleteGlobalRef(env, context->self);
@@ -88,54 +90,41 @@ Java_to_holepunch_bare_kit_IPC_write(JNIEnv *env, jobject self, jobject handle, 
   return err;
 }
 
-static int
-bare_ipc__on_readable(int fd, int events, void *data) {
-  bare_ipc_context_t *context = (bare_ipc_context_t *) data;
+static void
+bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
+  bare_ipc_context_t *context = (bare_ipc_context_t *) poll->data;
 
   JNIEnv *env = context->env;
 
-  jmethodID readable = (*env)->GetMethodID(env, context->class, "readable", "()Z");
+  if (events & bare_ipc_readable) {
+    jmethodID readable = (*env)->GetMethodID(env, context->class, "readable", "()V");
 
-  return (*env)->CallBooleanMethod(env, context->self, readable);
+    (*env)->CallVoidMethod(env, context->self, readable);
+  }
+
+  if (events & bare_ipc_writable) {
+    jmethodID writable = (*env)->GetMethodID(env, context->class, "writable", "()V");
+
+    (*env)->CallVoidMethod(env, context->self, writable);
+  }
 }
 
 JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_readable(JNIEnv *env, jobject self, jobject handle, jboolean reset) {
+Java_to_holepunch_bare_kit_IPC_update(JNIEnv *env, jobject self, jobject handle, jboolean readable, jboolean writable) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  int events = 0;
+
+  if (readable) events |= bare_ipc_readable;
+  if (writable) events |= bare_ipc_writable;
 
   int err;
 
-  if (reset) {
-    err = ALooper_removeFd(context->looper, context->incoming);
+  if (events) {
+    err = bare_ipc_poll_start(&context->poll, events, bare_ipc__on_poll);
+    assert(err == 0);
   } else {
-    err = ALooper_addFd(context->looper, context->incoming, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_INPUT, bare_ipc__on_readable, (void *) context);
+    err = bare_ipc_poll_stop(&context->poll);
+    assert(err == 0);
   }
-
-  assert(err == 1);
-}
-
-static int
-bare_ipc__on_writable(int fd, int events, void *data) {
-  bare_ipc_context_t *context = (bare_ipc_context_t *) data;
-
-  JNIEnv *env = context->env;
-
-  jmethodID writable = (*env)->GetMethodID(env, context->class, "writable", "()Z");
-
-  return (*env)->CallBooleanMethod(env, context->self, writable);
-}
-
-JNIEXPORT void JNICALL
-Java_to_holepunch_bare_kit_IPC_writable(JNIEnv *env, jobject self, jobject handle, jboolean reset) {
-  bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  int err;
-
-  if (reset) {
-    err = ALooper_removeFd(context->looper, context->outgoing);
-  } else {
-    err = ALooper_addFd(context->looper, context->outgoing, ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_OUTPUT, bare_ipc__on_writable, (void *) context);
-  }
-
-  assert(err == 1);
 }

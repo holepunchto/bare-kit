@@ -25,20 +25,17 @@ public class IPC implements Closeable {
     apply(Throwable exception);
   }
 
-  private ByteBuffer handle;
+  ByteBuffer handle;
+
   private PollCallback readable;
   private PollCallback writable;
 
-  private IPC(int incoming, int outgoing) {
-    handle = init(incoming, outgoing);
-  }
-
   public IPC(Worklet worklet) {
-    this(worklet.incoming, worklet.outgoing);
+    handle = init(worklet.handle);
   }
 
   private native ByteBuffer
-  init(int incoming, int outgoing);
+  init(ByteBuffer handle);
 
   private native void
   destroy(ByteBuffer handle);
@@ -53,37 +50,35 @@ public class IPC implements Closeable {
   write(ByteBuffer handle, ByteBuffer data, int len);
 
   private native void
-  readable(ByteBuffer handle, boolean reset);
+  update(ByteBuffer handle, boolean readable, boolean writable);
 
-  private native void
-  writable(ByteBuffer handle, boolean reset);
-
-  private boolean
-  readable() {
-    if (readable != null) readable.apply();
-
-    return readable != null;
+  private void
+  update() {
+    update(handle, readable != null, writable != null);
   }
 
-  private boolean
+  private void
+  readable() {
+    if (readable != null) readable.apply();
+  }
+
+  private void
   writable() {
     if (writable != null) writable.apply();
-
-    return writable != null;
   }
 
   public void
   readable(PollCallback callback) {
     readable = callback;
 
-    readable(handle, readable == null);
+    update();
   }
 
   public void
   writable(PollCallback callback) {
     writable = callback;
 
-    writable(handle, writable == null);
+    update();
   }
 
   public ByteBuffer

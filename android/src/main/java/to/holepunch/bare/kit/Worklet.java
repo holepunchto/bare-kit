@@ -49,9 +49,7 @@ public class Worklet implements Closeable {
     }
   }
 
-  private ByteBuffer handle;
-  int incoming;
-  int outgoing;
+  ByteBuffer handle;
 
   public Worklet(Options options) {
     if (options == null) options = new Options();
@@ -74,21 +72,12 @@ public class Worklet implements Closeable {
   private native void
   terminate(ByteBuffer handle);
 
-  private native int
-  incoming(ByteBuffer handle);
-
-  private native int
-  outgoing(ByteBuffer handle);
-
   private native void
   push(ByteBuffer handle, ByteBuffer payload, int len, NativePushCallback callback);
 
   private void
   start(String filename, ByteBuffer source, int len, String[] arguments) {
     start(handle, filename, source, len, arguments);
-
-    incoming = incoming(handle);
-    outgoing = outgoing(handle);
   }
 
   public void

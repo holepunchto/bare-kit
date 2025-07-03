@@ -5,13 +5,13 @@
 #include "../../../../shared/worklet.h"
 
 typedef struct {
-  bare_worklet_t handle;
+  bare_worklet_t worklet;
 
   JavaVM *vm;
 } bare_worklet_context_t;
 
 typedef struct {
-  bare_worklet_push_t handle;
+  bare_worklet_push_t req;
 
   JavaVM *vm;
 
@@ -26,7 +26,7 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
 
   bare_worklet_context_t *context = malloc(sizeof(bare_worklet_context_t));
 
-  context->handle.data = (void *) context;
+  context->worklet.data = (void *) context;
 
   (*env)->GetJavaVM(env, &context->vm);
 
@@ -40,7 +40,7 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
     options.assets = (*env)->GetStringUTFChars(env, jassets, NULL);
   }
 
-  err = bare_worklet_init(&context->handle, &options);
+  err = bare_worklet_init(&context->worklet, &options);
   assert(err == 0);
 
   if (options.assets) {
@@ -119,7 +119,7 @@ Java_to_holepunch_bare_kit_Worklet_suspend(JNIEnv *env, jobject self, jobject ha
 
   bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  err = bare_worklet_suspend(worklet, linger, NULL);
+  err = bare_worklet_suspend(worklet, linger);
   assert(err == 0);
 }
 
@@ -145,20 +145,6 @@ Java_to_holepunch_bare_kit_Worklet_terminate(JNIEnv *env, jobject self, jobject 
   bare_worklet_destroy(worklet);
 
   free(worklet);
-}
-
-JNIEXPORT jint JNICALL
-Java_to_holepunch_bare_kit_Worklet_incoming(JNIEnv *env, jobject self, jobject handle) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  return worklet->incoming;
-}
-
-JNIEXPORT jint JNICALL
-Java_to_holepunch_bare_kit_Worklet_outgoing(JNIEnv *env, jobject self, jobject handle) {
-  bare_worklet_t *worklet = (bare_worklet_t *) (*env)->GetDirectBufferAddress(env, handle);
-
-  return worklet->outgoing;
 }
 
 static void
@@ -215,7 +201,7 @@ Java_to_holepunch_bare_kit_Worklet_push(JNIEnv *env, jobject self, jobject handl
 
   bare_worklet_push_context_t *context = malloc(sizeof(bare_worklet_push_context_t));
 
-  context->handle.data = (void *) context;
+  context->req.data = (void *) context;
 
   (*env)->GetJavaVM(env, &context->vm);
 
@@ -223,6 +209,6 @@ Java_to_holepunch_bare_kit_Worklet_push(JNIEnv *env, jobject self, jobject handl
   context->payload = (*env)->NewGlobalRef(env, jpayload);
   context->callback = (*env)->NewGlobalRef(env, jcallback);
 
-  err = bare_worklet_push(worklet, &context->handle, &payload, bare_worklet__on_push);
+  err = bare_worklet_push(worklet, &context->req, &payload, bare_worklet__on_push);
   assert(err == 0);
 }

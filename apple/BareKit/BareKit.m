@@ -1,10 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
 
-#if TARGET_OS_IOS
-#import <UIKit/UIKit.h>
-#endif
-
 #import <assert.h>
 #import <string.h>
 #import <utf.h>
@@ -105,13 +101,6 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 @end
 
-@interface BareWorklet ()
-
-- (int)beginSuspensionTask:(int)linger;
-- (void)endSuspensionTask;
-
-@end
-
 static void
 bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *finalize_hint) {
   CFTypeRef ref = (__bridge CFTypeRef) finalize_hint;
@@ -119,22 +108,9 @@ bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *
   CFRelease(ref);
 }
 
-static void
-bare_worklet__on_idle(bare_worklet_t *handle) {
-  @autoreleasepool {
-    BareWorklet *worklet = (__bridge BareWorklet *) handle->data;
-
-    [worklet endSuspensionTask];
-  }
-}
-
 @implementation BareWorklet {
 @public
   bare_worklet_t _worklet;
-
-#if TARGET_OS_IOS
-  UIBackgroundTaskIdentifier _suspending;
-#endif
 }
 
 + (void)optimizeForMemory:(BOOL)enabled {
@@ -162,10 +138,6 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
     assert(err == 0);
 
     _worklet.data = (__bridge void *) self;
-
-#if TARGET_OS_IOS
-    _suspending = UIBackgroundTaskInvalid;
-#endif
   }
 
   return self;
@@ -187,7 +159,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   }
 
   if (source == nil) {
-    err = bare_worklet_start(&_worklet, _filename, NULL, NULL, NULL, argc, argv);
+    err = bare_worklet_start(&_worklet, _filename, nil, nil, nil, argc, argv);
     assert(err == 0);
   } else {
     CFTypeRef ref = (__bridge CFTypeRef) source;
@@ -241,82 +213,23 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
 }
 
-#if TARGET_OS_IOS
-
-- (int)beginSuspensionTask:(int)linger {
-  @synchronized(self) {
-    if (_suspending != UIBackgroundTaskInvalid) [self endSuspensionTask];
-
-    UIApplication *app = [UIApplication sharedApplication];
-
-    if (app == nil) return linger;
-
-    _suspending = [app beginBackgroundTaskWithName:@"Suspending Bare"
-                                 expirationHandler:^{
-                                   [self endSuspensionTask];
-                                 }];
-
-    NSTimeInterval remaining = UIApplication.sharedApplication.backgroundTimeRemaining;
-
-    if (remaining == DBL_MAX) remaining = 30.0;
-
-    remaining *= 1000;
-
-    if (linger < 0) return remaining;
-
-    return MIN(linger, remaining);
-  }
-}
-
-- (void)endSuspensionTask {
-  @synchronized(self) {
-    if (_suspending == UIBackgroundTaskInvalid) return;
-
-    UIApplication *app = [UIApplication sharedApplication];
-
-    if (app == nil) return;
-
-    [app endBackgroundTask:_suspending];
-
-    _suspending = UIBackgroundTaskInvalid;
-  }
-}
-
-#else
-
-- (int)beginSuspensionTask:(int)linger {
-  return linger;
-}
-
-- (void)endSuspensionTask {
-  ;
-}
-
-#endif
-
 - (void)suspend {
   [self suspendWithLinger:-1];
 }
 
 - (void)suspendWithLinger:(int)linger {
-  linger = [self beginSuspensionTask:linger];
-
   int err;
-  err = bare_worklet_suspend(&_worklet, linger, bare_worklet__on_idle);
+  err = bare_worklet_suspend(&_worklet, linger);
   assert(err == 0);
 }
 
 - (void)resume {
-  [self endSuspensionTask];
-
   int err;
   err = bare_worklet_resume(&_worklet);
   assert(err == 0);
 }
 
 - (void)terminate {
-  [self endSuspensionTask];
-
   int err;
   err = bare_worklet_terminate(&_worklet);
   assert(err == 0);
@@ -363,12 +276,24 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 
 @end
 
+@interface BareIPC ()
+
+- (void)poll:(int)events;
+
+@end
+
+static void
+bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
+  @autoreleasepool {
+    BareIPC *ipc = (__bridge BareIPC *) poll->data;
+
+    [ipc poll:events];
+  }
+}
+
 @implementation BareIPC {
-  bool _closed;
   bare_ipc_t _ipc;
-  dispatch_queue_t _queue;
-  dispatch_source_t _reader;
-  dispatch_source_t _writer;
+  bare_ipc_poll_t _poll;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
@@ -377,72 +302,59 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   if (self) {
     int err;
 
-    _closed = false;
-
-    err = bare_ipc_init(&_ipc, worklet->_worklet.incoming, worklet->_worklet.outgoing);
+    err = bare_ipc_init(&_ipc, &worklet->_worklet);
     assert(err == 0);
 
-    _queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
+    err = bare_ipc_poll_init(&_poll, &_ipc);
+    assert(err == 0);
 
-    _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, _ipc.incoming, 0, _queue);
-
-    _writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, _ipc.outgoing, 0, _queue);
-
-    dispatch_source_set_event_handler(_reader, ^{
-      if (_closed || _readable == nil) return;
-
-      @autoreleasepool {
-        _readable(self);
-      }
-    });
-
-    dispatch_source_set_event_handler(_writer, ^{
-      if (_closed || _writable == nil) return;
-
-      @autoreleasepool {
-        _writable(self);
-      }
-    });
-
-    dispatch_source_set_cancel_handler(_reader, ^{
-      dispatch_release(_reader);
-    });
-
-    dispatch_source_set_cancel_handler(_writer, ^{
-      dispatch_release(_writer);
-    });
+    _poll.data = (__bridge void *) self;
   }
 
   return self;
 }
 
 - (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
-  if (_closed) return;
-
   if (readable == nil) {
-    if (_readable != nil) dispatch_suspend(_reader);
-
     _readable = nil;
   } else {
-    if (_readable == nil) dispatch_resume(_reader);
-
     _readable = [readable copy];
   }
+
+  [self update];
 }
 
 - (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
-  if (_closed) return;
-
   if (writable == nil) {
-    if (_writable != nil) dispatch_suspend(_writer);
-
     _writable = nil;
 
   } else {
-    if (_writable == nil) dispatch_resume(_writer);
-
     _writable = [writable copy];
   }
+
+  [self update];
+}
+
+- (void)update {
+  int events = 0;
+
+  if (_readable) events |= bare_ipc_readable;
+  if (_writable) events |= bare_ipc_writable;
+
+  int err;
+
+  if (events) {
+    err = bare_ipc_poll_start(&_poll, events, bare_ipc__on_poll);
+    assert(err == 0);
+  } else {
+    err = bare_ipc_poll_stop(&_poll);
+    assert(err == 0);
+  }
+}
+
+- (void)poll:(int)events {
+  if (events & bare_ipc_readable) _readable(self);
+  if (events & bare_ipc_writable) _writable(self);
 }
 
 - (NSData *_Nullable)read {
@@ -525,18 +437,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
 }
 
 - (void)close {
-  _closed = true;
-
-  if (_readable == nil) dispatch_resume(_reader);
-
-  if (_writable == nil) dispatch_resume(_writer);
-
-  dispatch_source_cancel(_reader);
-
-  dispatch_source_cancel(_writer);
-
-  dispatch_release(_queue);
-
+  bare_ipc_poll_destroy(&_poll);
   bare_ipc_destroy(&_ipc);
 }
 
