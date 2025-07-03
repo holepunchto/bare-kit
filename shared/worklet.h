@@ -42,7 +42,7 @@ struct bare_worklet_s {
   bare_worklet_options_t options;
 
   const char *filename;
-  const uv_buf_t *source;
+  uv_buf_t source;
 
   bare_worklet_finalize_cb finalize;
   void *finalize_hint;

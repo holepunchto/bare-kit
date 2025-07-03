@@ -256,7 +256,7 @@ static void
 bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
   bare_worklet_t *worklet = finalize_hint;
 
-  if (worklet->finalize) worklet->finalize(worklet, worklet->source, worklet->finalize_hint);
+  if (worklet->finalize) worklet->finalize(worklet, &worklet->source, worklet->finalize_hint);
 }
 
 static void
@@ -389,7 +389,7 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
   int err;
 
   worklet->filename = filename;
-  worklet->source = source;
+  worklet->source = *source;
   worklet->finalize = finalize;
   worklet->finalize_hint = finalize_hint;
   worklet->argc = argc;
