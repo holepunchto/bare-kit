@@ -5,7 +5,6 @@
 
 #include <android/looper.h>
 
-#include "../../../../shared/android/ipc.h"
 #include "../../../../shared/ipc.h"
 #include "../../../../shared/worklet.h"
 

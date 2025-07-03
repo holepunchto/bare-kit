@@ -1,10 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
 
-#if TARGET_OS_IOS
-#import <UIKit/UIKit.h>
-#endif
-
 #import <assert.h>
 #import <string.h>
 #import <utf.h>
@@ -12,7 +8,6 @@
 
 #import "BareKit.h"
 
-#import "../../shared/apple/ipc.h"
 #import "../../shared/ipc.h"
 #import "../../shared/worklet.h"
 
@@ -106,13 +101,6 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 @end
 
-@interface BareWorklet ()
-
-- (int)beginSuspensionTask:(int)linger;
-- (void)endSuspensionTask;
-
-@end
-
 static void
 bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *finalize_hint) {
   CFTypeRef ref = (__bridge CFTypeRef) finalize_hint;
@@ -120,22 +108,9 @@ bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *
   CFRelease(ref);
 }
 
-static void
-bare_worklet__on_idle(bare_worklet_t *handle) {
-  @autoreleasepool {
-    BareWorklet *worklet = (__bridge BareWorklet *) handle->data;
-
-    [worklet endSuspensionTask];
-  }
-}
-
 @implementation BareWorklet {
 @public
   bare_worklet_t _worklet;
-
-#if TARGET_OS_IOS
-  UIBackgroundTaskIdentifier _suspending;
-#endif
 }
 
 + (void)optimizeForMemory:(BOOL)enabled {
@@ -163,10 +138,6 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
     assert(err == 0);
 
     _worklet.data = (__bridge void *) self;
-
-#if TARGET_OS_IOS
-    _suspending = UIBackgroundTaskInvalid;
-#endif
   }
 
   return self;
@@ -188,7 +159,7 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   }
 
   if (source == nil) {
-    err = bare_worklet_start(&_worklet, _filename, NULL, NULL, NULL, argc, argv);
+    err = bare_worklet_start(&_worklet, _filename, nil, nil, nil, argc, argv);
     assert(err == 0);
   } else {
     CFTypeRef ref = (__bridge CFTypeRef) source;
@@ -242,82 +213,23 @@ bare_worklet__on_idle(bare_worklet_t *handle) {
   [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
 }
 
-#if TARGET_OS_IOS
-
-- (int)beginSuspensionTask:(int)linger {
-  @synchronized(self) {
-    if (_suspending != UIBackgroundTaskInvalid) [self endSuspensionTask];
-
-    UIApplication *app = [UIApplication sharedApplication];
-
-    if (app == nil) return linger;
-
-    _suspending = [app beginBackgroundTaskWithName:@"Suspending Bare"
-                                 expirationHandler:^{
-                                   [self endSuspensionTask];
-                                 }];
-
-    NSTimeInterval remaining = UIApplication.sharedApplication.backgroundTimeRemaining;
-
-    if (remaining == DBL_MAX) remaining = 30.0;
-
-    remaining *= 1000;
-
-    if (linger < 0) return remaining;
-
-    return MIN(linger, remaining);
-  }
-}
-
-- (void)endSuspensionTask {
-  @synchronized(self) {
-    if (_suspending == UIBackgroundTaskInvalid) return;
-
-    UIApplication *app = [UIApplication sharedApplication];
-
-    if (app == nil) return;
-
-    [app endBackgroundTask:_suspending];
-
-    _suspending = UIBackgroundTaskInvalid;
-  }
-}
-
-#else
-
-- (int)beginSuspensionTask:(int)linger {
-  return linger;
-}
-
-- (void)endSuspensionTask {
-  ;
-}
-
-#endif
-
 - (void)suspend {
   [self suspendWithLinger:-1];
 }
 
 - (void)suspendWithLinger:(int)linger {
-  linger = [self beginSuspensionTask:linger];
-
   int err;
-  err = bare_worklet_suspend(&_worklet, linger, bare_worklet__on_idle);
+  err = bare_worklet_suspend(&_worklet, linger, nil);
   assert(err == 0);
 }
 
 - (void)resume {
-  [self endSuspensionTask];
-
   int err;
   err = bare_worklet_resume(&_worklet);
   assert(err == 0);
 }
 
 - (void)terminate {
-  [self endSuspensionTask];
-
   int err;
   err = bare_worklet_terminate(&_worklet);
   assert(err == 0);

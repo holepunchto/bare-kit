@@ -32,6 +32,14 @@ enum {
   bare_ipc_error = -2,
 };
 
+#if defined(BARE_KIT_DARWIN) || defined(BARE_KIT_IOS)
+#include "apple/ipc.h"
+#endif
+
+#if defined(BARE_KIT_ANDROID)
+#include "android/ipc.h"
+#endif
+
 int
 bare_ipc_alloc(bare_ipc_t **result);
 

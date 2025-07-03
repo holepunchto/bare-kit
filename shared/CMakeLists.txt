@@ -31,7 +31,29 @@ if(APPLE)
     PRIVATE
       apple/ipc.h
       apple/ipc.m
+      apple/suspension.h
+      apple/suspension.m
   )
+
+  if(IOS)
+    target_link_libraries(
+      bare_worklet
+      PUBLIC
+        "-framework UIKit"
+    )
+
+    target_compile_definitions(
+      bare_worklet
+      PUBLIC
+        BARE_KIT_IOS
+    )
+  else()
+    target_compile_definitions(
+      bare_worklet
+      PUBLIC
+        BARE_KIT_DARWIN
+    )
+  endif()
 endif()
 
 if(ANDROID)
@@ -40,12 +62,19 @@ if(ANDROID)
     PRIVATE
       android/ipc.h
       android/ipc.c
+      android/suspension.c
   )
 
   target_link_libraries(
     bare_worklet
     PRIVATE
       android
+  )
+
+  target_compile_definitions(
+    bare_worklet
+    PUBLIC
+      BARE_KIT_ANDROID
   )
 endif()
 

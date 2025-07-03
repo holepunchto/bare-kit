@@ -10,6 +10,8 @@ extern "C" {
 #include <utf.h>
 #include <uv.h>
 
+#include "suspension.h"
+
 typedef struct bare_worklet_s bare_worklet_t;
 typedef struct bare_worklet_options_s bare_worklet_options_t;
 typedef struct bare_worklet_push_s bare_worklet_push_t;
@@ -40,6 +42,8 @@ struct bare_worklet_s {
   bare_t *bare;
 
   bare_worklet_options_t options;
+
+  bare_suspension_t suspension;
 
   const char *filename;
 

@@ -11,6 +11,7 @@
 #include <utf.h>
 #include <uv.h>
 
+#include "suspension.h"
 #include "worklet.bundle.h"
 #include "worklet.h"
 
@@ -58,6 +59,9 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
     worklet->options.memory_limit = options->memory_limit;
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
+
+  err = bare_suspension_init(&worklet->suspension);
+  assert(err == 0);
 
   err = uv_sem_init(&worklet->ready, 0);
   assert(err == 0);
@@ -261,7 +265,12 @@ bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
 
 static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
+  int err;
+
   bare_worklet_t *worklet = data;
+
+  err = bare_suspension_end(&worklet->suspension);
+  assert(err == 0);
 
   if (worklet->idle) worklet->idle(worklet);
 }
@@ -418,6 +427,11 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger, bare_worklet_idle_cb cb) {
+  int err;
+
+  linger = bare_suspension_start(&worklet->suspension, linger);
+  assert(linger >= 0);
+
   worklet->idle = cb;
 
   return bare_suspend(worklet->bare, linger);
@@ -425,18 +439,26 @@ bare_worklet_suspend(bare_worklet_t *worklet, int linger, bare_worklet_idle_cb c
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
+  int err;
+
+  err = bare_suspension_end(&worklet->suspension);
+  assert(err == 0);
+
   return bare_resume(worklet->bare);
 }
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
+  int err;
+
+  err = bare_suspension_end(&worklet->suspension);
+  assert(err == 0);
+
   return bare_terminate(worklet->bare);
 }
 
 int
 bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb) {
-  int err;
-
   req->worklet = worklet;
   req->payload = *payload;
   req->cb = cb;
