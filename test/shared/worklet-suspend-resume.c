@@ -17,7 +17,7 @@ main() {
   e = bare_worklet_start(&worklet, "app.js", &source, NULL, NULL, 0, NULL);
   assert(e == 0);
 
-  e = bare_worklet_suspend(&worklet, 0, NULL);
+  e = bare_worklet_suspend(&worklet, 0);
   assert(e == 0);
 
   uv_sleep(100); // Let suspension flush

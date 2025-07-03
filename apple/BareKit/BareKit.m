@@ -219,7 +219,7 @@ bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *
 
 - (void)suspendWithLinger:(int)linger {
   int err;
-  err = bare_worklet_suspend(&_worklet, linger, nil);
+  err = bare_worklet_suspend(&_worklet, linger);
   assert(err == 0);
 }
 

@@ -50,7 +50,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   int err;
 
   worklet->bare = NULL;
-  worklet->idle = NULL;
   worklet->thread = 0;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
@@ -271,8 +270,6 @@ bare_worklet__on_idle(bare_t *bare, void *data) {
 
   err = bare_suspension_end(&worklet->suspension);
   assert(err == 0);
-
-  if (worklet->idle) worklet->idle(worklet);
 }
 
 static void
@@ -426,13 +423,11 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 }
 
 int
-bare_worklet_suspend(bare_worklet_t *worklet, int linger, bare_worklet_idle_cb cb) {
+bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
   int err;
 
   linger = bare_suspension_start(&worklet->suspension, linger);
   assert(linger >= 0);
-
-  worklet->idle = cb;
 
   return bare_suspend(worklet->bare, linger);
 }
