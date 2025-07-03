@@ -42,8 +42,17 @@ struct bare_worklet_s {
   bare_worklet_options_t options;
 
   const char *filename;
-  uv_buf_t source;
-  bool has_source;
+
+  struct {
+    enum {
+      bare_worklet_source_none = 0,
+      bare_worklet_source_buffer = 1,
+    } type;
+
+    union {
+      uv_buf_t buffer;
+    };
+  } source;
 
   bare_worklet_finalize_cb finalize;
   void *finalize_hint;
