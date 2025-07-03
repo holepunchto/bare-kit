@@ -15,7 +15,6 @@ struct bare_ipc_poll_s {
 
   ALooper *looper;
 
-  bool polling;
   int events;
 
   bare_ipc_poll_cb cb;
