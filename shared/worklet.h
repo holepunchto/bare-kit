@@ -43,6 +43,7 @@ struct bare_worklet_s {
 
   const char *filename;
   uv_buf_t source;
+  bool has_source;
 
   bare_worklet_finalize_cb finalize;
   void *finalize_hint;

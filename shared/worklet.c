@@ -343,8 +343,8 @@ bare_worklet__on_thread(void *opaque) {
   err = js_create_string_utf8(env, (const utf8_t *) worklet->filename, -1, &args[0]);
   assert(err == 0);
 
-  if (worklet->source) {
-    err = js_create_external_arraybuffer(env, worklet->source->base, worklet->source->len, bare_worklet__on_finalize, worklet, &args[1]);
+  if (worklet->has_source) {
+    err = js_create_external_arraybuffer(env, worklet->source.base, worklet->source.len, bare_worklet__on_finalize, worklet, &args[1]);
     assert(err == 0);
   } else {
     err = js_get_null(env, &args[1]);
@@ -389,7 +389,8 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
   int err;
 
   worklet->filename = filename;
-  worklet->source = *source;
+  if (source) worklet->source = *source;
+  worklet->has_source = source != NULL;
   worklet->finalize = finalize;
   worklet->finalize_hint = finalize_hint;
   worklet->argc = argc;
