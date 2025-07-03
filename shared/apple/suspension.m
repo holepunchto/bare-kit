@@ -6,7 +6,9 @@
 
 int
 bare_suspension_init(bare_suspension_t *suspension) {
+#if defined(BARE_KIT_IOS)
   atomic_init(&suspension->task, UIBackgroundTaskInvalid);
+#endif
 
   return 0;
 }
