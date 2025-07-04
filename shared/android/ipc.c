@@ -18,7 +18,8 @@ bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
 int
 bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
   poll->ipc = ipc;
-
+  poll->events = 0;
+  poll->cb = NULL;
   poll->looper = ALooper_forThread();
 
   return 0;
@@ -85,8 +86,8 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
     }
   }
 
-  poll->cb = cb;
   poll->events = events;
+  poll->cb = cb;
 
   return 0;
 }
@@ -105,8 +106,8 @@ bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
     assert(err == 1);
   }
 
-  poll->cb = NULL;
   poll->events = 0;
+  poll->cb = NULL;
 
   return 0;
 }
