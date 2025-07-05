@@ -3,6 +3,8 @@
 
 #import "ipc.h"
 
+static const void *const bare_ipc_poll_queue = &bare_ipc_poll_queue;
+
 int
 bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
   bare_ipc_poll_t *poll = malloc(sizeof(bare_ipc_poll_t));
@@ -16,36 +18,49 @@ bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
 
 int
 bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
+  dispatch_queue_t queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
+
+  dispatch_queue_set_specific(queue, bare_ipc_poll_queue, (void *) bare_ipc_poll_queue, NULL);
+
+  dispatch_source_t reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, ipc->incoming, 0, queue);
+
+  dispatch_source_t writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, ipc->outgoing, 0, queue);
+
+  dispatch_source_set_cancel_handler(reader, ^{
+    dispatch_release(reader);
+  });
+
+  dispatch_source_set_cancel_handler(writer, ^{
+    dispatch_release(writer);
+  });
+
+  dispatch_source_set_event_handler(reader, ^{
+    bare_ipc_poll_cb cb = atomic_load(&poll->cb);
+
+    if (cb == NULL) return;
+
+    @autoreleasepool {
+      cb(poll, bare_ipc_readable);
+    }
+  });
+
+  dispatch_source_set_event_handler(writer, ^{
+    bare_ipc_poll_cb cb = atomic_load(&poll->cb);
+
+    if (cb == NULL) return;
+
+    @autoreleasepool {
+      cb(poll, bare_ipc_writable);
+    }
+  });
+
   poll->ipc = ipc;
+  poll->events = 0;
+  poll->queue = queue;
+  poll->reader = reader;
+  poll->writer = writer;
 
-  poll->queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
-
-  poll->reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, ipc->incoming, 0, poll->queue);
-  poll->writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, ipc->outgoing, 0, poll->queue);
-
-  dispatch_source_set_event_handler(poll->reader, ^{
-    if ((poll->events & bare_ipc_readable) == 0) return;
-
-    @autoreleasepool {
-      poll->cb(poll, bare_ipc_readable);
-    }
-  });
-
-  dispatch_source_set_event_handler(poll->writer, ^{
-    if ((poll->events & bare_ipc_writable) == 0) return;
-
-    @autoreleasepool {
-      poll->cb(poll, bare_ipc_writable);
-    }
-  });
-
-  dispatch_source_set_cancel_handler(poll->reader, ^{
-    dispatch_release(poll->reader);
-  });
-
-  dispatch_source_set_cancel_handler(poll->writer, ^{
-    dispatch_release(poll->writer);
-  });
+  atomic_init(&poll->cb, NULL);
 
   return 0;
 }
@@ -56,8 +71,21 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
   err = bare_ipc_poll_stop(poll);
   assert(err == 0);
 
+  dispatch_resume(poll->reader);
   dispatch_source_cancel(poll->reader);
+
+  dispatch_resume(poll->writer);
   dispatch_source_cancel(poll->writer);
+
+  if (dispatch_get_specific(bare_ipc_poll_queue) == NULL) {
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+
+    dispatch_async(poll->queue, ^{
+      dispatch_semaphore_signal(done);
+    });
+
+    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+  }
 
   dispatch_release(poll->queue);
 }
@@ -93,8 +121,9 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
     if ((poll->events & bare_ipc_writable) == 0) dispatch_resume(poll->writer);
   }
 
-  poll->cb = cb;
   poll->events = events;
+
+  atomic_store(&poll->cb, cb);
 
   return 0;
 }
@@ -104,8 +133,9 @@ bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
   if ((poll->events & bare_ipc_readable) != 0) dispatch_suspend(poll->reader);
   if ((poll->events & bare_ipc_writable) != 0) dispatch_suspend(poll->writer);
 
-  poll->cb = NULL;
   poll->events = 0;
+
+  atomic_store(&poll->cb, NULL);
 
   return 0;
 }

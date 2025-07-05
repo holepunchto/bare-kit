@@ -5,8 +5,10 @@
 extern "C" {
 #endif
 
-#include <dispatch/dispatch.h>
+#include <stdatomic.h>
 #include <stdbool.h>
+
+#include <dispatch/dispatch.h>
 
 #include "../ipc.h"
 
@@ -19,7 +21,7 @@ struct bare_ipc_poll_s {
 
   int events;
 
-  bare_ipc_poll_cb cb;
+  _Atomic bare_ipc_poll_cb cb;
 
   void *data;
 };
