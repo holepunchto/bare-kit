@@ -45,6 +45,38 @@ Available actions on a worklet include:
 > [!TIP]
 > For a full API reference, see [`apple/BareKit/BareKit.h`](apple/BareKit/BareKit.h).
 
+### Android
+
+This is a basic example of how to create a worklet in Java:
+
+```java
+import to.holepunch.bare.kit.Worklet;
+import java.nio.charset.StandardCharsets;
+
+Worklet.Options options = new Worklet.Options()
+  .memoryLimit(24 * 1024 * 1024); // 24 MiB
+
+Worklet worklet = new Worklet(options);
+
+String source = "console.log('hello from the worklet')";
+
+worklet.start("/app.js", source, StandardCharsets.UTF_8, null);
+```
+
+You can create a `Worklet.Options` to optionally set the memory limit or attach assets. This step is optional.
+
+The configuration is then passed to the `Worklet`, which represents the running worklet instance.
+
+Available actions on a worklet include:
+- `worklet.start()`: starts the worklet
+- `worklet.suspend()`: suspends the execution of the worklet
+- `worklet.suspend(linger)`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
+- `worklet.resume()`: resumes a suspended worklet
+- `worklet.terminate()`: terminates the worklet
+
+> [!TIP]
+> For a full API reference, see [`android/src/main/java/to/holepunch/bare/kit/Worklet.java`](android/src/main/java/to/holepunch/bare/kit/Worklet.java).
+
 ## Notifications
 
 Bare Kit provides two native classes for implementing push notification support on iOS and Android. In both cases, you must provide an entry point to the notification worklet responsible for handling incoming push notifications. To handle push notifications, add a listener for the `push` event emitted on the `BareKit` namespace:
