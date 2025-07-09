@@ -36,6 +36,7 @@ You can create a `BareWorkletConfiguration` to optionally set the memory limit o
 The configuration is then passed to the `BareWorklet`, which represents the running worklet instance.
 
 Available actions on a worklet include:
+
 - `[worklet start]`: starts the worklet
 - `[worklet suspend]`: suspends the execution of the worklet
 - `[worklet suspendWithLinger]`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
@@ -68,6 +69,7 @@ You can create a `Worklet.Options` to optionally set the memory limit or attach 
 The configuration is then passed to the `Worklet`, which represents the running worklet instance.
 
 Available actions on a worklet include:
+
 - `worklet.start()`: starts the worklet
 - `worklet.suspend()`: suspends the execution of the worklet
 - `worklet.suspend(linger)`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
