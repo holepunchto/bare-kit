@@ -132,6 +132,10 @@ main() {
 }
 ```
 
+> [!NOTE]
+> On iOS, IPC callbacks run on a dedicated queue, so callers must be mindful of synchronization when accessing shared resources from these callbacks.
+```
+
 #### Async IPC
 
 The `BareIPC` class provides these methods for async IPC:
