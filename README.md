@@ -83,6 +83,9 @@ Available actions on a worklet include:
 
 Bare Kit provides an IPC (Inter-Process Communication) abstraction that allows communication between the main application and worklets. The IPC interface provides both synchronous and asynchronous read/write operations with callback-based event handling.
 
+> [!IMPORTANT]
+> IPC operations are **non-blocking** regardless of whether you use synchronous or asynchronous APIs. They may return partial results (e.g., writing fewer bytes than requested) and require polling to complete the operation.
+
 ### iOS
 
 #### Polling IPC
