@@ -7,7 +7,7 @@ bare_suspension_init(bare_suspension_t *suspension) {
 
 int
 bare_suspension_start(bare_suspension_t *result, int linger) {
-  return linger < 0 ? 0 : linger;
+  return linger < 0 ? 30000 : linger;
 }
 
 int
