@@ -39,7 +39,7 @@ bare_suspension_start(bare_suspension_t *suspension, int linger) {
 
   return linger;
 #else
-  return linger < 0 ? 0 : linger;
+  return linger < 0 ? 30000 : linger;
 #endif
 }
 
