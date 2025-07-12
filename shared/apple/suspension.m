@@ -18,7 +18,7 @@ bare_suspension_start(bare_suspension_t *suspension, int linger) {
 #if defined(BARE_KIT_IOS)
   UIApplication *app = [UIApplication sharedApplication];
 
-  if (app == nil) return linger < 0 ? 0 : linger;
+  if (app == nil) return linger < 0 ? 30000 : linger;
 
   UIBackgroundTaskIdentifier next = [app beginBackgroundTaskWithName:@"Suspending Bare"
                                                    expirationHandler:^{
