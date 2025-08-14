@@ -23,7 +23,7 @@
     "bare-fs": "^4.0.1",
     "bare-ipc": "^1.0.1",
     "bare-logger": "^1.0.0",
-    "bare-module": "^4.3.0",
+    "bare-module": "^5.0.0",
     "bare-module-resolve": "^1.6.2",
     "bare-path": "^3.0.0",
     "bare-unpack": "^1.0.2",
