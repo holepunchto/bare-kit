@@ -308,7 +308,7 @@ BareKit.on('push', (payload, reply) => {
 })
 ```
 
-- `payload`: Contains the notification content as a serializable object. The content varies depending on the platform.
+- `payload`: Contains the notification content as a serializable object. The content varies depending on the platform. The payload will be detached once the `push` handler has run after which accessing its contents will throw.
 - `reply`: A function that takes three arguments:
   - `error`: An `Error` object in case of an error, otherwise `null`.
   - `payload`: A `Buffer` or string containing the data to pass back to the native code.
