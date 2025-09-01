@@ -51,7 +51,7 @@ static int
 bare_ipc__on_poll(int fd, int events, void *data) {
   bare_ipc_poll_t *poll = data;
 
-  poll->cb(poll, (events & ALOOPER_EVENT_INPUT ? bare_ipc_readable : 0) | (events & ALOOPER_EVENT_OUTPUT ? bare_ipc_writable : 0));
+  if (poll->cb) poll->cb(poll, (events & ALOOPER_EVENT_INPUT ? bare_ipc_readable : 0) | (events & ALOOPER_EVENT_OUTPUT ? bare_ipc_writable : 0));
 
   return 1; // Don't deregister the file descriptor
 }
@@ -94,17 +94,9 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
 int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
-  int err;
+  ALooper_removeFd(poll->looper, poll->ipc->incoming);
 
-  if ((poll->events & bare_ipc_readable) != 0) {
-    err = ALooper_removeFd(poll->looper, poll->ipc->incoming);
-    assert(err == 1);
-  }
-
-  if ((poll->events & bare_ipc_writable) != 0) {
-    err = ALooper_removeFd(poll->looper, poll->ipc->outgoing);
-    assert(err == 1);
-  }
+  ALooper_removeFd(poll->looper, poll->ipc->outgoing);
 
   poll->events = 0;
   poll->cb = NULL;
