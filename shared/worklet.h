@@ -116,6 +116,9 @@ int
 bare_worklet_resume(bare_worklet_t *worklet);
 
 int
+bare_worklet_wakeup(bare_worklet_t *worklet, int deadline);
+
+int
 bare_worklet_terminate(bare_worklet_t *worklet);
 
 int

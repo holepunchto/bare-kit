@@ -443,6 +443,16 @@ bare_worklet_resume(bare_worklet_t *worklet) {
 }
 
 int
+bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
+  int err;
+
+  deadline = bare_suspension_start(&worklet->suspension, deadline);
+  assert(deadline >= 0);
+
+  return bare_wakeup(worklet->bare, deadline);
+}
+
+int
 bare_worklet_terminate(bare_worklet_t *worklet) {
   int err;
 

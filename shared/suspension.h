@@ -19,7 +19,7 @@ int
 bare_suspension_init(bare_suspension_t *suspension);
 
 int
-bare_suspension_start(bare_suspension_t *suspension, int linger);
+bare_suspension_start(bare_suspension_t *suspension, int timeout);
 
 int
 bare_suspension_end(bare_suspension_t *suspension);

@@ -14,7 +14,7 @@ bare_suspension_init(bare_suspension_t *suspension) {
 }
 
 int
-bare_suspension_start(bare_suspension_t *suspension, int linger) {
+bare_suspension_start(bare_suspension_t *suspension, int timeout) {
 #if defined(BARE_KIT_IOS)
   UIApplication *app = [UIApplication sharedApplication];
 
@@ -39,7 +39,7 @@ bare_suspension_start(bare_suspension_t *suspension, int linger) {
 
   return linger;
 #else
-  return linger < 0 ? 30000 : linger;
+  return timeout < 0 ? 30000 : timeout;
 #endif
 }
 
