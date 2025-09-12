@@ -22,6 +22,8 @@ bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
   poll->cb = NULL;
   poll->looper = ALooper_forThread();
 
+  ALooper_acquire(poll->looper);
+
   return 0;
 }
 
@@ -30,6 +32,8 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
   int err;
   err = bare_ipc_poll_stop(poll);
   assert(err == 0);
+
+  ALooper_release(poll->looper);
 }
 
 void *
