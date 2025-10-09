@@ -379,7 +379,7 @@ bare_worklet__on_thread(void *opaque) {
 
   uv_sem_post(&worklet->ready);
 
-  err = bare_run(bare);
+  err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
   uv_sem_wait(&worklet->ready);
@@ -390,7 +390,7 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   int exit_code;
-  err = bare_teardown(bare, &exit_code);
+  err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);
   assert(err == 0);
 
   err = uv_loop_close(&loop);
