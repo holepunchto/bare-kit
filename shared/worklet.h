@@ -65,7 +65,7 @@ struct bare_worklet_s {
 
   uv_thread_t thread;
   uv_barrier_t ready;
-  uv_barrier_t *finished;
+  uv_sem_t *finished;
 
   uv_file incoming;
   uv_file outgoing;

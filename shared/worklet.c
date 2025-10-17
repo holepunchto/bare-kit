@@ -69,7 +69,7 @@ void
 bare_worklet_destroy(bare_worklet_t *worklet) {
   int err;
 
-  if (worklet->thread != 0) uv_barrier_wait(worklet->finished);
+  if (worklet->thread != 0) uv_sem_post(worklet->finished);
 
   close(worklet->incoming);
   close(worklet->outgoing);
@@ -274,19 +274,21 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_init(&loop);
   assert(err == 0);
 
+  bare_t *bare;
+
   bare_options_t options = {
     .version = 0,
     .memory_limit = worklet->options.memory_limit,
   };
 
   js_env_t *env;
-  err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &worklet->bare);
+  err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
   err = bare_on_idle(worklet->bare, bare_worklet__on_idle, worklet);
   assert(err == 0);
 
-  bare_t *bare = worklet->bare;
+  worklet->bare = bare;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -320,15 +322,18 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_value_int32(env, outgoing, &worklet->outgoing);
   assert(err == 0);
 
-  js_value_t *push;
-  err = js_get_named_property(env, exports, "push", &push);
+  js_value_t *fn;
+  err = js_get_named_property(env, exports, "push", &fn);
   assert(err == 0);
 
-  err = js_create_threadsafe_function(env, push, 64, 1, NULL, NULL, (void *) worklet, bare_worklet__on_push, &worklet->push);
+  js_threadsafe_function_t *push;
+  err = js_create_threadsafe_function(env, fn, 64, 1, NULL, NULL, (void *) worklet, bare_worklet__on_push, &push);
   assert(err == 0);
 
-  err = js_unref_threadsafe_function(env, worklet->push);
+  err = js_unref_threadsafe_function(env, push);
   assert(err == 0);
+
+  worklet->push = push;
 
   js_value_t *start;
   err = js_get_named_property(env, exports, "start", &start);
@@ -367,8 +372,8 @@ bare_worklet__on_thread(void *opaque) {
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
 
-  uv_barrier_t finished;
-  err = uv_barrier_init(&finished, 2);
+  uv_sem_t finished;
+  err = uv_sem_init(&finished, 0);
   assert(err == 0);
 
   worklet->finished = &finished;
@@ -378,12 +383,12 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
-  err = js_release_threadsafe_function(worklet->push, js_threadsafe_function_release);
+  err = js_release_threadsafe_function(push, js_threadsafe_function_release);
   assert(err == 0);
 
-  uv_barrier_wait(&finished);
+  uv_sem_wait(&finished);
 
-  uv_barrier_destroy(&finished);
+  uv_sem_destroy(&finished);
 
   int exit_code;
   err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);
