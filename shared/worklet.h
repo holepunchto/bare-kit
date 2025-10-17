@@ -64,7 +64,8 @@ struct bare_worklet_s {
   const char **argv;
 
   uv_thread_t thread;
-  uv_sem_t ready;
+  uv_barrier_t ready;
+  uv_barrier_t *finished;
 
   uv_file incoming;
   uv_file outgoing;
