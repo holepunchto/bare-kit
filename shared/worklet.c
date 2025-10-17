@@ -69,7 +69,7 @@ void
 bare_worklet_destroy(bare_worklet_t *worklet) {
   int err;
 
-  if (worklet->thread != 0) uv_sem_post(worklet->finished);
+  if (worklet->thread != 0) uv_barrier_wait(worklet->finished);
 
   close(worklet->incoming);
   close(worklet->outgoing);
@@ -285,7 +285,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
-  err = bare_on_idle(worklet->bare, bare_worklet__on_idle, worklet);
+  err = bare_on_idle(bare, bare_worklet__on_idle, worklet);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -372,8 +372,8 @@ bare_worklet__on_thread(void *opaque) {
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
 
-  uv_sem_t finished;
-  err = uv_sem_init(&finished, 0);
+  uv_barrier_t finished;
+  err = uv_barrier_init(&finished, 2);
   assert(err == 0);
 
   worklet->finished = &finished;
@@ -383,12 +383,12 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
+  uv_barrier_wait(&finished);
+
+  uv_barrier_destroy(&finished);
+
   err = js_release_threadsafe_function(push, js_threadsafe_function_release);
   assert(err == 0);
-
-  uv_sem_wait(&finished);
-
-  uv_sem_destroy(&finished);
 
   int exit_code;
   err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);
