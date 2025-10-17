@@ -49,8 +49,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
   int err;
 
-  worklet->bare = NULL;
-  worklet->suspension = NULL;
   worklet->thread = 0;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
