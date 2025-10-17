@@ -50,6 +50,7 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   int err;
 
   worklet->bare = NULL;
+  worklet->suspension = NULL;
   worklet->thread = 0;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
@@ -59,9 +60,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
 
-  err = bare_suspension_init(&worklet->suspension);
-  assert(err == 0);
-
   return 0;
 }
 
@@ -69,7 +67,7 @@ void
 bare_worklet_destroy(bare_worklet_t *worklet) {
   int err;
 
-  if (worklet->thread != 0) uv_barrier_wait(worklet->finished);
+  if (worklet->thread != 0) uv_sem_post(worklet->finished);
 
   close(worklet->incoming);
   close(worklet->outgoing);
@@ -256,9 +254,9 @@ static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
   int err;
 
-  bare_worklet_t *worklet = data;
+  bare_suspension_t *suspension = data;
 
-  err = bare_suspension_end(&worklet->suspension);
+  err = bare_suspension_end(suspension);
   assert(err == 0);
 }
 
@@ -269,6 +267,12 @@ bare_worklet__on_thread(void *opaque) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
+
+  bare_suspension_t suspension;
+  err = bare_suspension_init(&suspension);
+  assert(err == 0);
+
+  worklet->suspension = &suspension;
 
   uv_loop_t loop;
   err = uv_loop_init(&loop);
@@ -285,7 +289,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
-  err = bare_on_idle(bare, bare_worklet__on_idle, worklet);
+  err = bare_on_idle(bare, bare_worklet__on_idle, &suspension);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -372,8 +376,8 @@ bare_worklet__on_thread(void *opaque) {
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
 
-  uv_barrier_t finished;
-  err = uv_barrier_init(&finished, 2);
+  uv_sem_t finished;
+  err = uv_sem_init(&finished, 0);
   assert(err == 0);
 
   worklet->finished = &finished;
@@ -383,9 +387,9 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
-  uv_barrier_wait(&finished);
+  uv_sem_wait(&finished);
 
-  uv_barrier_destroy(&finished);
+  uv_sem_destroy(&finished);
 
   err = js_release_threadsafe_function(push, js_threadsafe_function_release);
   assert(err == 0);
@@ -439,7 +443,7 @@ int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
   int err;
 
-  linger = bare_suspension_start(&worklet->suspension, linger);
+  linger = bare_suspension_start(worklet->suspension, linger);
   assert(linger >= 0);
 
   return bare_suspend(worklet->bare, linger);
@@ -449,7 +453,7 @@ int
 bare_worklet_resume(bare_worklet_t *worklet) {
   int err;
 
-  err = bare_suspension_end(&worklet->suspension);
+  err = bare_suspension_end(worklet->suspension);
   assert(err == 0);
 
   return bare_resume(worklet->bare);
@@ -459,7 +463,7 @@ int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
   int err;
 
-  deadline = bare_suspension_start(&worklet->suspension, deadline);
+  deadline = bare_suspension_start(worklet->suspension, deadline);
   assert(deadline >= 0);
 
   return bare_wakeup(worklet->bare, deadline);
@@ -469,7 +473,7 @@ int
 bare_worklet_terminate(bare_worklet_t *worklet) {
   int err;
 
-  err = bare_suspension_end(&worklet->suspension);
+  err = bare_suspension_end(worklet->suspension);
   assert(err == 0);
 
   return bare_terminate(worklet->bare);
