@@ -25,6 +25,10 @@ if(ANDROID)
   add_subdirectory(android)
 endif()
 
+if(LINUX)
+  add_subdirectory(linux)
+endif()
+
 if(PROJECT_IS_TOP_LEVEL)
   enable_testing()
 
