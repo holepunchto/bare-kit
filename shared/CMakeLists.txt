@@ -79,6 +79,24 @@ if(ANDROID)
   )
 endif()
 
+if(LINUX)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      linux/ipc.c
+      linux/ipc.h
+      linux/suspension.c
+      linux/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_worklet
+    PUBLIC
+      BARE_KIT_LINUX
+  )
+endif()
+
+
 target_link_libraries(
   bare_worklet
   PUBLIC
