@@ -42,7 +42,7 @@ struct bare_worklet_s {
 
   bare_worklet_options_t options;
 
-  bare_suspension_t suspension;
+  bare_suspension_t *suspension;
 
   const char *filename;
 
@@ -64,7 +64,8 @@ struct bare_worklet_s {
   const char **argv;
 
   uv_thread_t thread;
-  uv_sem_t ready;
+  uv_barrier_t ready;
+  uv_sem_t *finished;
 
   uv_file incoming;
   uv_file outgoing;
