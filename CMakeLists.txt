@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 4.0)
 
 find_package(cmake-bare REQUIRED PATHS node_modules/cmake-bare)
 find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
@@ -23,6 +23,10 @@ endif()
 
 if(ANDROID)
   add_subdirectory(android)
+endif()
+
+if(LINUX)
+  add_subdirectory(linux)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL)
