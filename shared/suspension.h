@@ -15,6 +15,10 @@ typedef struct bare_suspension_s bare_suspension_t;
 #include "android/suspension.h"
 #endif
 
+#if defined(BARE_KIT_LINUX)
+#include "linux/suspension.h"
+#endif
+
 int
 bare_suspension_init(bare_suspension_t *suspension);
 

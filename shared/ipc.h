@@ -40,6 +40,10 @@ enum {
 #include "android/ipc.h"
 #endif
 
+#if defined(BARE_KIT_LINUX)
+#include "linux/ipc.h"
+#endif
+
 int
 bare_ipc_alloc(bare_ipc_t **result);
 
