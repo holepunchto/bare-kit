@@ -19,3 +19,9 @@ target_include_directories(
   INTERFACE
     $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
 )
+
+target_link_options(
+  bare_kit
+  PUBLIC
+    "-Wl,-z,now" # Use eager binding
+)
