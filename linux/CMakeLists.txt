@@ -10,6 +10,12 @@ set_target_properties(
 
 target_link_libraries(
   bare_kit
-  PUBLIC
+  PRIVATE
     bare_worklet
+)
+
+target_include_directories(
+  bare_kit
+  INTERFACE
+    $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
 )
