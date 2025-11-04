@@ -6,7 +6,6 @@ extern "C" {
 #endif
 
 #include <pthread.h>
-#include <stdbool.h>
 #include <sys/epoll.h>
 
 #include "../ipc.h"

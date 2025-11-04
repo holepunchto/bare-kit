@@ -96,7 +96,6 @@ if(LINUX)
   )
 endif()
 
-
 target_link_libraries(
   bare_worklet
   PUBLIC
