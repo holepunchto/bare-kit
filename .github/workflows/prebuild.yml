@@ -124,5 +124,4 @@ jobs:
           path: |
             prebuilds/ios/BareKit.xcframework
             prebuilds/android/bare-kit
-            prebuilds/linux
           retention-days: 5
