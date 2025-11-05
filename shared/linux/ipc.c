@@ -7,10 +7,10 @@
 
 #include "ipc.h"
 
-enum EVENT {
-  CLOSE = 0,
-  INCOMING,
-  OUTGOING,
+enum {
+  bare_ipc_poll_close,
+  bare_ipc_poll_incoming,
+  bare_ipc_poll_outging,
 };
 
 void *
@@ -29,18 +29,18 @@ bare_ipc_poll__poller(void *data) {
     for (int i = 0; i < n; i++) {
       struct epoll_event event = events[i];
 
-      if (event.data.fd == CLOSE) {
+      if (event.data.fd == bare_ipc_poll_close) {
         close(poll->fd.poll);
         close(poll->fd.close);
 
         pthread_exit(0);
       }
 
-      if (event.data.fd == INCOMING && (event.events & EPOLLIN) != 0) {
+      if (event.data.fd == bare_ipc_poll_incoming && (event.events & EPOLLIN) != 0) {
         flags |= bare_ipc_readable;
       }
 
-      if (event.data.fd == OUTGOING && (event.events & EPOLLOUT) != 0) {
+      if (event.data.fd == bare_ipc_poll_outging && (event.events & EPOLLOUT) != 0) {
         flags |= bare_ipc_writable;
       }
     }
@@ -72,7 +72,7 @@ bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
 
   struct epoll_event signal = {
     .events = EPOLLIN,
-    .data.fd = CLOSE,
+    .data.fd = bare_ipc_poll_close,
   };
 
   err = epoll_ctl(poll->fd.poll, EPOLL_CTL_ADD, poll->fd.close, &signal);
@@ -118,7 +118,7 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
   struct epoll_event incoming = {
     .events = EPOLLIN,
-    .data.fd = INCOMING,
+    .data.fd = bare_ipc_poll_incoming,
   };
 
   if ((events & bare_ipc_readable) == 0) {
@@ -135,7 +135,7 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
   struct epoll_event outgoing = {
     .events = EPOLLOUT,
-    .data.fd = OUTGOING,
+    .data.fd = bare_ipc_poll_outging,
   };
 
   if ((events & bare_ipc_writable) == 0) {
