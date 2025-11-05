@@ -93,6 +93,9 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
 
   ssize_t written = write(poll->fd.close, (const void *) &signal, 8);
   assert(written == 8);
+
+  err = pthread_join(poll->thread, NULL);
+  assert(err == 0);
 }
 
 void *
