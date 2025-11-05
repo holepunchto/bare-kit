@@ -5,10 +5,17 @@
 extern "C" {
 #endif
 
+#include <pthread.h>
+#include <sys/epoll.h>
+
 #include "../ipc.h"
 
 struct bare_ipc_poll_s {
   bare_ipc_t *ipc;
+
+  int epoll_fd;
+  int close_fd;
+  pthread_t thread;
 
   int events;
 
