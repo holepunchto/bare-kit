@@ -73,11 +73,41 @@ jobs:
         with:
           name: ${{ matrix.platform }}
           path: android/build/outputs/aar/*-release.aar
+  linux:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+          - os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build/_drive
+          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g bare-make
+      - run: npm install
+      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
+      - run: bare-make build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}
+          path: build/linux/*.so
   merge:
     runs-on: macos-latest
     needs:
       - apple
       - android
+      - linux
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,4 +124,5 @@ jobs:
           path: |
             prebuilds/ios/BareKit.xcframework
             prebuilds/android/bare-kit
+            prebuilds/linux
           retention-days: 5
