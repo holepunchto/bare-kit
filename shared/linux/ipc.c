@@ -14,17 +14,15 @@ enum EVENT {
 };
 
 void *
-bare_ipc_poll__wait(void *data) {
+bare_ipc_poll__poller(void *data) {
   bare_ipc_poll_t *poll = (bare_ipc_poll_t *) data;
 
   while (true) {
     struct epoll_event events[4];
-    int n = epoll_wait(poll->epoll_fd, events, 4, -1);
+    int n = epoll_wait(poll->fd.poll, events, 4, -1);
     assert(n >= 0 || errno == EINTR);
 
-    if (errno == EINTR) {
-      continue;
-    }
+    if (errno == EINTR) continue;
 
     int flags = 0;
 
@@ -32,8 +30,9 @@ bare_ipc_poll__wait(void *data) {
       struct epoll_event event = events[i];
 
       if (event.data.fd == CLOSE) {
-        close(poll->close_fd);
-        close(poll->epoll_fd);
+        close(poll->fd.poll);
+        close(poll->fd.close);
+
         pthread_exit(0);
       }
 
@@ -46,9 +45,7 @@ bare_ipc_poll__wait(void *data) {
       }
     }
 
-    if (poll->cb != NULL) {
-      poll->cb(poll, flags);
-    }
+    if (poll->cb) poll->cb(poll, flags);
   }
 }
 
@@ -65,19 +62,23 @@ bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
 
 int
 bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
+  int err;
+
   poll->ipc = ipc;
-  poll->epoll_fd = epoll_create(3);
-  poll->close_fd = eventfd(0, 0);
+  poll->fd.poll = epoll_create(3);
+  poll->fd.close = eventfd(0, 0);
   poll->events = 0;
   poll->cb = NULL;
 
-  struct epoll_event signal;
-  signal.events = EPOLLIN;
-  signal.data.fd = CLOSE;
-  int err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_ADD, poll->close_fd, &signal);
+  struct epoll_event signal = {
+    .events = EPOLLIN,
+    .data.fd = CLOSE,
+  };
+
+  err = epoll_ctl(poll->fd.poll, EPOLL_CTL_ADD, poll->fd.close, &signal);
   assert(err == 0);
 
-  pthread_create(&poll->thread, NULL, &bare_ipc_poll__wait, (void *) poll);
+  pthread_create(&poll->thread, NULL, &bare_ipc_poll__poller, (void *) poll);
 
   return 0;
 }
@@ -89,7 +90,9 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
   assert(err == 0);
 
   uint64_t signal = 1;
-  ssize_t e = write(poll->close_fd, (const void *) &signal, 8);
+
+  ssize_t written = write(poll->fd.close, (const void *) &signal, 8);
+  assert(written == 8);
 }
 
 void *
@@ -113,34 +116,36 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
   int err;
 
-  struct epoll_event incoming;
-  incoming.events = EPOLLIN;
-  incoming.data.fd = INCOMING;
+  struct epoll_event incoming = {
+    .events = EPOLLIN,
+    .data.fd = INCOMING,
+  };
 
   if ((events & bare_ipc_readable) == 0) {
     if ((poll->events & bare_ipc_readable) != 0) {
-      err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_DEL, poll->ipc->incoming, &incoming);
+      err = epoll_ctl(poll->fd.poll, EPOLL_CTL_DEL, poll->ipc->incoming, &incoming);
       assert(err == 0);
     }
   } else {
     if ((poll->events & bare_ipc_readable) == 0) {
-      err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_ADD, poll->ipc->incoming, &incoming);
+      err = epoll_ctl(poll->fd.poll, EPOLL_CTL_ADD, poll->ipc->incoming, &incoming);
       assert(err == 0);
     }
   }
 
-  struct epoll_event outgoing;
-  outgoing.events = EPOLLOUT;
-  outgoing.data.fd = OUTGOING;
+  struct epoll_event outgoing = {
+    .events = EPOLLOUT,
+    .data.fd = OUTGOING,
+  };
 
   if ((events & bare_ipc_writable) == 0) {
     if ((poll->events & bare_ipc_writable) != 0) {
-      err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_DEL, poll->ipc->outgoing, &outgoing);
+      err = epoll_ctl(poll->fd.poll, EPOLL_CTL_DEL, poll->ipc->outgoing, &outgoing);
       assert(err == 0);
     }
   } else {
     if ((poll->events & bare_ipc_writable) == 0) {
-      err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_ADD, poll->ipc->outgoing, &outgoing);
+      err = epoll_ctl(poll->fd.poll, EPOLL_CTL_ADD, poll->ipc->outgoing, &outgoing);
       assert(err == 0);
     }
   }
@@ -155,14 +160,18 @@ int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
   int err;
 
-  struct epoll_event incoming;
-  incoming.events = EPOLLIN;
-  err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_DEL, poll->ipc->incoming, &incoming);
+  struct epoll_event incoming = {
+    .events = EPOLLIN,
+  };
+
+  err = epoll_ctl(poll->fd.poll, EPOLL_CTL_DEL, poll->ipc->incoming, &incoming);
   assert(err == 0 || errno == ENOENT);
 
-  struct epoll_event outgoing;
-  outgoing.events = EPOLLOUT;
-  err = epoll_ctl(poll->epoll_fd, EPOLL_CTL_DEL, poll->ipc->outgoing, &outgoing);
+  struct epoll_event outgoing = {
+    .events = EPOLLOUT,
+  };
+
+  err = epoll_ctl(poll->fd.poll, EPOLL_CTL_DEL, poll->ipc->outgoing, &outgoing);
   assert(err == 0 || errno == ENOENT);
 
   poll->events = 0;

@@ -13,8 +13,11 @@ extern "C" {
 struct bare_ipc_poll_s {
   bare_ipc_t *ipc;
 
-  int epoll_fd;
-  int close_fd;
+  struct {
+    int poll;
+    int close;
+  } fd;
+
   pthread_t thread;
 
   int events;
