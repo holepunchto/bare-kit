@@ -259,6 +259,16 @@ bare_worklet__on_idle(bare_t *bare, void *data) {
 }
 
 static void
+bare_worklet__on_resume(bare_t *bare, void *data) {
+  int err;
+
+  bare_suspension_t *suspension = data;
+
+  err = bare_suspension_end(suspension);
+  assert(err == 0);
+}
+
+static void
 bare_worklet__on_thread(void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
 
@@ -288,6 +298,9 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   err = bare_on_idle(bare, bare_worklet__on_idle, &suspension);
+  assert(err == 0);
+
+  err = bare_on_resume(bare, bare_worklet__on_resume, &suspension);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -398,6 +411,9 @@ bare_worklet__on_thread(void *opaque) {
 
   err = uv_loop_close(&loop);
   assert(err == 0);
+
+  err = bare_suspension_end(suspension);
+  assert(err == 0);
 }
 
 int
@@ -451,9 +467,6 @@ int
 bare_worklet_resume(bare_worklet_t *worklet) {
   int err;
 
-  err = bare_suspension_end(worklet->suspension);
-  assert(err == 0);
-
   return bare_resume(worklet->bare);
 }
 
@@ -470,9 +483,6 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
   int err;
-
-  err = bare_suspension_end(worklet->suspension);
-  assert(err == 0);
 
   return bare_terminate(worklet->bare);
 }
