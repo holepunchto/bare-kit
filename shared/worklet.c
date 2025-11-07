@@ -465,8 +465,6 @@ bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
-  int err;
-
   return bare_resume(worklet->bare);
 }
 
@@ -482,8 +480,6 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
-  int err;
-
   return bare_terminate(worklet->bare);
 }
 
