@@ -412,7 +412,7 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
-  err = bare_suspension_end(suspension);
+  err = bare_suspension_end(&suspension);
   assert(err == 0);
 }
 
