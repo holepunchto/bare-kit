@@ -7,9 +7,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <utf.h>
 #include <uv.h>
+
+#if defined(BARE_KIT_WINDOWS)
+#include "windows/unistd.h"
+#else
+#include <unistd.h>
+#endif
 
 #include "suspension.h"
 #include "worklet.bundle.h"

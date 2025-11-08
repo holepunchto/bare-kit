@@ -44,6 +44,10 @@ enum {
 #include "linux/ipc.h"
 #endif
 
+#if defined(BARE_KIT_WINDOWS)
+#include "windows/ipc.h"
+#endif
+
 int
 bare_ipc_alloc(bare_ipc_t **result);
 

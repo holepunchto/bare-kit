@@ -19,6 +19,10 @@ typedef struct bare_suspension_s bare_suspension_t;
 #include "linux/suspension.h"
 #endif
 
+#if defined(BARE_KIT_WINDOWS)
+#include "windows/suspension.h"
+#endif
+
 int
 bare_suspension_init(bare_suspension_t *suspension);
 

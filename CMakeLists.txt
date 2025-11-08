@@ -9,6 +9,10 @@ project(bare_kit LANGUAGES C CXX VERSION 1.12.1)
 
 include(overrides.cmake)
 
+if(WIN32)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
 if(APPLE)
   enable_language(OBJC)
 endif()
@@ -27,6 +31,10 @@ endif()
 
 if(LINUX)
   add_subdirectory(linux)
+endif()
+
+if(WIN32)
+  add_subdirectory(windows)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL)

@@ -96,13 +96,53 @@ if(LINUX)
   )
 endif()
 
-target_link_libraries(
-  bare_worklet
-  PUBLIC
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
-  PUBLIC
-    log_static
-    rlimit_static
-)
+if(WIN32)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      windows/ipc.c
+      windows/ipc.h
+      windows/suspension.c
+      windows/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_worklet
+    PUBLIC
+      BARE_KIT_WINDOWS
+  )
+endif()
+
+if(WIN32)
+  target_include_directories(
+    bare_worklet
+    PUBLIC
+      $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
+  )
+
+  target_link_libraries(
+    bare_worklet
+    PUBLIC
+      $<LINK_LIBRARY:WHOLE_ARCHIVE,js_static>
+    PUBLIC
+      log_static
+      rlimit_static
+    PRIVATE
+      $<TARGET_OBJECTS:bare>
+      $<TARGET_OBJECTS:uv>
+      $<TARGET_OBJECTS:napi>
+    PRIVATE
+      bare
+  )
+else()
+  target_link_libraries(
+    bare_worklet
+    PUBLIC
+      $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
+    PUBLIC
+      log_static
+      rlimit_static
+  )
+endif()
 
 link_bare_modules(bare_worklet WORKING_DIRECTORY ..)
