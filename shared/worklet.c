@@ -224,8 +224,11 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
 
   js_value_t *args[2];
 
-  err = js_create_external_arraybuffer(env, (void *) payload.base, (size_t) payload.len, NULL, NULL, &args[0]);
+  void *copy;
+  err = js_create_arraybuffer(env, payload.len, &copy, &args[0]);
   assert(err == 0);
+
+  memcpy(copy, payload.base, payload.len);
 
   err = js_create_function(env, "reply", -1, bare_worklet__on_push_reply, data, &args[1]);
   assert(err == 0);
@@ -235,9 +238,6 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
   assert(err == 0);
 
   err = js_call_function(env, global, onpush, 2, args, NULL);
-  assert(err == 0);
-
-  err = js_detach_arraybuffer(env, args[0]);
   assert(err == 0);
 }
 
