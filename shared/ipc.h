@@ -9,6 +9,13 @@ extern "C" {
 
 #include "worklet.h"
 
+#if defined(BARE_KIT_WINDOWS)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#define BARE_IPC_WRITE_CHUNK_SIZE 64 * 1024
+#endif
+
 #define BARE_IPC_READ_BUFFER_SIZE 64 * 1024
 
 typedef struct bare_ipc_s bare_ipc_t;
@@ -20,6 +27,13 @@ struct bare_ipc_s {
   int incoming;
   int outgoing;
   char data[BARE_IPC_READ_BUFFER_SIZE];
+
+#if defined(BARE_KIT_WINDOWS)
+  struct {
+    OVERLAPPED incoming;
+    OVERLAPPED outgoing;
+  } overlapped;
+#endif
 };
 
 enum {

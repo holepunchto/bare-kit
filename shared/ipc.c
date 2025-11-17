@@ -27,6 +27,20 @@ bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
   ipc->incoming = dup(worklet->incoming);
   ipc->outgoing = dup(worklet->outgoing);
 
+#if defined(BARE_KIT_WINDOWS)
+  ipc->overlapped.incoming.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+  ipc->overlapped.incoming.Internal = 0;
+  ipc->overlapped.incoming.InternalHigh = 0;
+  ipc->overlapped.incoming.Offset = 0;
+  ipc->overlapped.incoming.OffsetHigh = 0;
+
+  ipc->overlapped.outgoing.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+  ipc->overlapped.outgoing.Internal = 0;
+  ipc->overlapped.outgoing.InternalHigh = 0;
+  ipc->overlapped.outgoing.Offset = 0;
+  ipc->overlapped.outgoing.OffsetHigh = 0;
+#endif
+
   return 0;
 }
 
@@ -34,6 +48,11 @@ void
 bare_ipc_destroy(bare_ipc_t *ipc) {
   close(ipc->incoming);
   close(ipc->outgoing);
+
+#if defined(BARE_KIT_WINDOWS)
+  CloseHandle(ipc->overlapped.incoming.hEvent);
+  CloseHandle(ipc->overlapped.outgoing.hEvent);
+#endif
 }
 
 int

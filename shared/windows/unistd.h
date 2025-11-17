@@ -10,54 +10,65 @@
 #define strdup _strdup
 
 #define read(fd, buf, count) ({ \
-  ssize_t res = 0; \
-  DWORD err; \
+  INT res = -1; \
   HANDLE handle = (HANDLE) _get_osfhandle(fd); \
-  assert(handle != INVALID_HANDLE_VALUE); \
-  OVERLAPPED overlapped = {0, 0, 0, 0, 0}; \
-  BOOL status = ReadFile(handle, buf, count, NULL, &overlapped); \
-  HANDLE_ASYNC_IO \
+  if (handle == INVALID_HANDLE_VALUE) { \
+    assert(_set_errno(EBADF) == 0); \
+  } else { \
+    if (ReadFile(handle, buf, count, NULL, &ipc->overlapped.incoming) || GetLastError() == ERROR_IO_PENDING) { \
+      if (!GetOverlappedResult(handle, &ipc->overlapped.incoming, (unsigned long *) &res, FALSE)) { \
+        if (CancelIoEx(handle, &ipc->overlapped.incoming) || GetLastError() == ERROR_NOT_FOUND) { \
+          if (!GetOverlappedResult(handle, &ipc->overlapped.incoming, (unsigned long *) &res, FALSE)) { \
+            DWORD err = GetLastError(); \
+            if (err == ERROR_OPERATION_ABORTED) { \
+              assert(_set_errno(EWOULDBLOCK) == 0); \
+              res = -1; \
+            } else if (err == ERROR_IO_INCOMPLETE) { \
+              assert(GetOverlappedResult(handle, &ipc->overlapped.incoming, (unsigned long *) &res, TRUE)); \
+            } else { \
+              assert(_set_errno(EIO) == 0); \
+            } \
+          } \
+        } else { \
+          assert(_set_errno(EIO) == 0); \
+        } \
+      } \
+    } else { \
+      assert(_set_errno(EIO) == 0); \
+    } \
+  } \
   res; \
 })
 
 #define write(fd, buf, count) ({ \
-  ssize_t res = 0; \
-  DWORD err; \
+  INT res = -1; \
   HANDLE handle = (HANDLE) _get_osfhandle(fd); \
-  assert(handle != INVALID_HANDLE_VALUE); \
-  OVERLAPPED overlapped = {0, 0, 0, 0, 0}; \
-  BOOL status = WriteFile(handle, buf, count, NULL, &overlapped); \
-  HANDLE_ASYNC_IO \
-  res; \
-})
-
-#define HANDLE_ASYNC_IO \
-  if (status) { \
-    status = GetOverlappedResult(handle, &overlapped, (unsigned long *) &res, FALSE); \
-\
-    if (!status) { \
-      err = GetLastError(); \
-      res = -1; \
-\
-      if (err == ERROR_IO_INCOMPLETE) { \
-        assert(_set_errno(EWOULDBLOCK) == 0); \
-      } else { \
-        assert(_set_errno(EIO) == 0); \
-      } \
-\
-      CancelIo(handle); \
-    } \
+  if (handle == INVALID_HANDLE_VALUE) { \
+    assert(_set_errno(EBADF) == 0); \
   } else { \
-    err = GetLastError(); \
-    res = -1; \
-\
-    if (err == ERROR_IO_PENDING) { \
-      assert(_set_errno(EWOULDBLOCK) == 0); \
+    if (WriteFile(handle, buf, min(count, BARE_IPC_WRITE_CHUNK_SIZE), NULL, &ipc->overlapped.outgoing) || GetLastError() == ERROR_IO_PENDING) { \
+      if (!GetOverlappedResult(handle, &ipc->overlapped.outgoing, (unsigned long *) &res, FALSE)) { \
+        if (CancelIoEx(handle, &ipc->overlapped.outgoing) || GetLastError() == ERROR_NOT_FOUND) { \
+          if (!GetOverlappedResult(handle, &ipc->overlapped.outgoing, (unsigned long *) &res, FALSE)) { \
+            DWORD err = GetLastError(); \
+            if (err == ERROR_OPERATION_ABORTED) { \
+              assert(_set_errno(EWOULDBLOCK) == 0); \
+              res = -1; \
+            } else if (err == ERROR_IO_INCOMPLETE) { \
+              assert(GetOverlappedResult(handle, &ipc->overlapped.outgoing, (unsigned long *) &res, TRUE)); \
+            } else { \
+              assert(_set_errno(EIO) == 0); \
+            } \
+          } \
+        } else { \
+          assert(_set_errno(EIO) == 0); \
+        } \
+      } \
     } else { \
       assert(_set_errno(EIO) == 0); \
     } \
-\
-    CancelIo(handle); \
-  }
+  } \
+  res; \
+})
 
 #endif // BARE_KIT_WINDOWS_UNISTD_H
