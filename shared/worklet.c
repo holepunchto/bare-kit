@@ -229,8 +229,11 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
 
   js_value_t *args[2];
 
-  err = js_create_external_arraybuffer(env, (void *) payload.base, (size_t) payload.len, NULL, NULL, &args[0]);
+  void *copy;
+  err = js_create_arraybuffer(env, payload.len, &copy, &args[0]);
   assert(err == 0);
+
+  memcpy(copy, payload.base, payload.len);
 
   err = js_create_function(env, "reply", -1, bare_worklet__on_push_reply, data, &args[1]);
   assert(err == 0);
@@ -240,9 +243,6 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
   assert(err == 0);
 
   err = js_call_function(env, global, onpush, 2, args, NULL);
-  assert(err == 0);
-
-  err = js_detach_arraybuffer(env, args[0]);
   assert(err == 0);
 }
 
@@ -255,6 +255,16 @@ bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
 
 static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
+  int err;
+
+  bare_suspension_t *suspension = data;
+
+  err = bare_suspension_end(suspension);
+  assert(err == 0);
+}
+
+static void
+bare_worklet__on_resume(bare_t *bare, void *data) {
   int err;
 
   bare_suspension_t *suspension = data;
@@ -293,6 +303,9 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   err = bare_on_idle(bare, bare_worklet__on_idle, &suspension);
+  assert(err == 0);
+
+  err = bare_on_resume(bare, bare_worklet__on_resume, &suspension);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -403,6 +416,9 @@ bare_worklet__on_thread(void *opaque) {
 
   err = uv_loop_close(&loop);
   assert(err == 0);
+
+  err = bare_suspension_end(&suspension);
+  assert(err == 0);
 }
 
 int
@@ -454,11 +470,6 @@ bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
-  int err;
-
-  err = bare_suspension_end(worklet->suspension);
-  assert(err == 0);
-
   return bare_resume(worklet->bare);
 }
 
@@ -474,11 +485,6 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
-  int err;
-
-  err = bare_suspension_end(worklet->suspension);
-  assert(err == 0);
-
   return bare_terminate(worklet->bare);
 }
 

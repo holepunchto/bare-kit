@@ -5,7 +5,7 @@ find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
 find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
 find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
 
-project(bare_kit LANGUAGES C CXX VERSION 1.12.1)
+project(bare_kit LANGUAGES C CXX VERSION 1.12.3)
 
 include(overrides.cmake)
 
@@ -17,7 +17,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.24.1")
+fetch_package("github:holepunchto/bare@1.24.3")
 
 add_subdirectory(shared)
 
