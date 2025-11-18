@@ -97,12 +97,12 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
     assert(CloseHandle(threads[i]));
   }
 
-  for (int i; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
+  for (int i = 0; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
     assert(CloseHandle(poll->reader.events[i]));
     poll->reader.events[i] = NULL;
   }
 
-  for (int i; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
+  for (int i = 0; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
     assert(CloseHandle(poll->writer.events[i]));
     poll->writer.events[i] = NULL;
   }
