@@ -356,7 +356,7 @@ bare_worklet__on_thread(void *opaque) {
     const uv_buf_t source = worklet->source.buffer;
 
     void *data;
-    err = js_create_arraybuffer(env, source.len, data, &args[1]);
+    err = js_create_arraybuffer(env, source.len, &data, &args[1]);
     assert(err == 0);
 
     memcpy(data, source.base, source.len);
