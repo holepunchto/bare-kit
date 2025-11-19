@@ -101,13 +101,6 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 @end
 
-static void
-bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *finalize_hint) {
-  CFTypeRef ref = (__bridge CFTypeRef) finalize_hint;
-
-  CFRelease(ref);
-}
-
 @implementation BareWorklet {
 @public
   bare_worklet_t _worklet;
@@ -159,16 +152,12 @@ bare_worklet__on_finalize(bare_worklet_t *handle, const uv_buf_t *source, void *
   }
 
   if (source == nil) {
-    err = bare_worklet_start(&_worklet, _filename, nil, nil, nil, argc, argv);
+    err = bare_worklet_start(&_worklet, _filename, nil, argc, argv);
     assert(err == 0);
   } else {
-    CFTypeRef ref = (__bridge CFTypeRef) source;
-
-    CFRetain(ref);
-
     uv_buf_t _source = uv_buf_init((char *) source.bytes, source.length);
 
-    err = bare_worklet_start(&_worklet, _filename, &_source, bare_worklet__on_finalize, (void *) ref, argc, argv);
+    err = bare_worklet_start(&_worklet, _filename, &_source, argc, argv);
     assert(err == 0);
   }
 
