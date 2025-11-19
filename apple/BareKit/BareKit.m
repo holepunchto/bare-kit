@@ -180,9 +180,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
        ofType:(NSString *_Nonnull)type
      inBundle:(NSBundle *_Nonnull)bundle
     arguments:(NSArray<NSString *> *_Nullable)arguments {
-  NSString *path = [bundle pathForResource:name ofType:type];
-
-  [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
+  [self start:[bundle pathForResource:name ofType:type] arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)name
@@ -197,9 +195,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   inDirectory:(NSString *_Nonnull)subpath
      inBundle:(NSBundle *_Nonnull)bundle
     arguments:(NSArray<NSString *> *_Nullable)arguments {
-  NSString *path = [bundle pathForResource:name ofType:type inDirectory:subpath];
-
-  [self start:path source:[NSData dataWithContentsOfFile:path] arguments:arguments];
+  [self start:[bundle pathForResource:name ofType:type inDirectory:subpath] arguments:arguments];
 }
 
 - (void)suspend {
