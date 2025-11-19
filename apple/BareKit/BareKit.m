@@ -137,6 +137,26 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 }
 
 - (void)start:(NSString *_Nonnull)filename
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  int err;
+
+  const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
+
+  int argc = arguments == nil ? 0 : [arguments count];
+
+  const char **argv = calloc(argc, sizeof(char *));
+
+  for (int i = 0; i < argc; i++) {
+    argv[i] = [arguments[i] UTF8String];
+  }
+
+  err = bare_worklet_start(&_worklet, _filename, nil, argc, argv);
+  assert(err == 0);
+
+  free(argv);
+}
+
+- (void)start:(NSString *_Nonnull)filename
        source:(NSData *_Nullable)source
     arguments:(NSArray<NSString *> *_Nullable)arguments {
   int err;
@@ -449,6 +469,18 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options {
+  self = [self initWithConfiguration:options];
+
+  if (self) {
+    [self start:filename arguments:arguments];
+  }
+
+  return self;
+}
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSData *_Nullable)source
                                  arguments:(NSArray<NSString *> *_Nullable)arguments
                              configuration:(BareWorkletConfiguration *_Nullable)options {
@@ -529,6 +561,11 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   }
 
   return self;
+}
+
+- (void)start:(NSString *_Nonnull)filename
+    arguments:(NSArray<NSString *> *_Nullable)arguments {
+  [_worklet start:filename arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)filename

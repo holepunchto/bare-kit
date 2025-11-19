@@ -22,6 +22,9 @@
 - (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options;
 
 - (void)start:(NSString *_Nonnull)filename
+    arguments:(NSArray<NSString *> *_Nullable)arguments;
+
+- (void)start:(NSString *_Nonnull)filename
        source:(NSData *_Nullable)source
     arguments:(NSArray<NSString *> *_Nullable)arguments;
 
@@ -106,6 +109,10 @@
 - (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options;
 
 - (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
+                                 arguments:(NSArray<NSString *> *_Nullable)arguments
+                             configuration:(BareWorkletConfiguration *_Nullable)options;
+
+- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
                                     source:(NSData *_Nullable)source
                                  arguments:(NSArray<NSString *> *_Nullable)arguments
                              configuration:(BareWorkletConfiguration *_Nullable)options;
@@ -139,6 +146,9 @@
                                   inBundle:(NSBundle *_Nonnull)bundle
                                  arguments:(NSArray<NSString *> *_Nullable)arguments
                              configuration:(BareWorkletConfiguration *_Nullable)options;
+
+- (void)start:(NSString *_Nonnull)filename
+    arguments:(NSArray<NSString *> *_Nullable)arguments;
 
 - (void)start:(NSString *_Nonnull)filename
        source:(NSData *_Nullable)source

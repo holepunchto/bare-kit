@@ -29,6 +29,11 @@ public abstract class MessagingService extends FirebaseMessagingService {
     this.callback = callback;
   }
 
+  protected MessagingService(String filename, String[] arguments, Worklet.Options options, ReplyCallback callback) {
+    this(options, callback);
+    start(filename, arguments);
+  }
+
   protected MessagingService(String filename, ByteBuffer source, String[] arguments, Worklet.Options options, ReplyCallback callback) {
     this(options, callback);
     start(filename, source, arguments);
@@ -71,6 +76,11 @@ public abstract class MessagingService extends FirebaseMessagingService {
   protected MessagingService(String filename, InputStream source, String[] arguments, Worklet.Options options) throws IOException {
     this(options);
     start(filename, source, arguments);
+  }
+
+  protected void
+  start(String filename, String[] arguments) {
+    this.worklet.start(filename, arguments);
   }
 
   protected void
