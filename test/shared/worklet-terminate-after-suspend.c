@@ -14,7 +14,7 @@ main() {
 
   uv_buf_t source = uv_buf_init(code, strlen(code));
 
-  e = bare_worklet_start(&worklet, "app.js", &source, NULL, NULL);
+  e = bare_worklet_start(&worklet, "app.js", &source, 0, NULL);
   assert(e == 0);
 
   e = bare_worklet_suspend(&worklet, 0);
