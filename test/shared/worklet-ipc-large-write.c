@@ -71,7 +71,7 @@ main() {
 
   char *code = "BareKit.IPC.on('data', (data) => BareKit.IPC.write(data))";
   uv_buf_t source = uv_buf_init(code, strlen(code));
-  err = bare_worklet_start(&context.worklet, "app.js", &source, NULL, NULL, 0, NULL);
+  err = bare_worklet_start(&context.worklet, "app.js", &source, 0, NULL);
   assert(err == 0);
 
   err = bare_ipc_init(&context.ipc, &context.worklet);
