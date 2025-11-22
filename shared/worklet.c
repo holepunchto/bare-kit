@@ -247,13 +247,6 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
 }
 
 static void
-bare_worklet__on_finalize(js_env_t *env, void *data, void *finalize_hint) {
-  bare_worklet_t *worklet = finalize_hint;
-
-  if (worklet->finalize) worklet->finalize(worklet, &worklet->source.buffer, worklet->finalize_hint);
-}
-
-static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
   int err;
 
@@ -365,15 +358,13 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   if (worklet->source.type == bare_worklet_source_buffer) {
-    err = js_create_external_arraybuffer(
-      env,
-      worklet->source.buffer.base,
-      worklet->source.buffer.len,
-      bare_worklet__on_finalize,
-      worklet,
-      &args[1]
-    );
+    const uv_buf_t source = worklet->source.buffer;
+
+    void *data;
+    err = js_create_arraybuffer(env, source.len, &data, &args[1]);
     assert(err == 0);
+
+    memcpy(data, source.base, source.len);
   } else {
     err = js_get_null(env, &args[1]);
     assert(err == 0);
@@ -422,12 +413,10 @@ bare_worklet__on_thread(void *opaque) {
 }
 
 int
-bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, bare_worklet_finalize_cb finalize, void *finalize_hint, int argc, const char *argv[]) {
+bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]) {
   int err;
 
   worklet->filename = filename;
-  worklet->finalize = finalize;
-  worklet->finalize_hint = finalize_hint;
   worklet->argc = argc;
   worklet->argv = argv;
 

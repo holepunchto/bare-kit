@@ -81,12 +81,17 @@ public class Worklet implements Closeable {
   }
 
   public void
-  start(String filename, ByteBuffer source, String[] arguments) {
-    ByteBuffer buffer;
+  start(String filename, String[] arguments) {
+    start(filename, null, 0, arguments);
+  }
 
+  public void
+  start(String filename, ByteBuffer source, String[] arguments) {
     if (source == null) {
       start(filename, null, 0, arguments);
     } else {
+      ByteBuffer buffer;
+
       if (source.isDirect()) {
         buffer = source;
       } else {
