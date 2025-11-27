@@ -28,7 +28,7 @@ bare_ipc_poll__readable(LPVOID lpParameter) {
     }
   }
 
-  assert(ResetEvent(poll->reader.events[bare_ipc_poll__close]));
+  ResetEvent(poll->reader.events[bare_ipc_poll__close]);
 
   return 0;
 }
@@ -42,7 +42,7 @@ bare_ipc_poll__writable(LPVOID lpParameter) {
     if (poll->cb) poll->cb(poll, bare_ipc_writable);
   }
 
-  assert(ResetEvent(poll->writer.events[bare_ipc_poll__close]));
+  ResetEvent(poll->writer.events[bare_ipc_poll__close]);
 
   return 0;
 }
@@ -87,26 +87,27 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
   err = bare_ipc_poll_stop(poll);
   assert(err == 0);
 
-  assert(SetEvent(poll->reader.events[bare_ipc_poll__close]));
-  assert(SetEvent(poll->writer.events[bare_ipc_poll__close]));
+  SetEvent(poll->reader.events[bare_ipc_poll__close]);
+  SetEvent(poll->writer.events[bare_ipc_poll__close]);
 
   HANDLE threads[2] = {poll->reader.thread, poll->writer.thread};
-  assert(WaitForMultipleObjects(2, threads, TRUE, INFINITE) == WAIT_OBJECT_0);
+  DWORD res = WaitForMultipleObjects(2, threads, TRUE, INFINITE);
+  assert(res == WAIT_OBJECT_0);
 
   poll->reader.thread = NULL;
   poll->writer.thread = NULL;
 
   for (int i = 0; i < 2; i++) {
-    assert(CloseHandle(threads[i]));
+    CloseHandle(threads[i]);
   }
 
   for (int i = 0; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
-    assert(CloseHandle(poll->reader.events[i]));
+    CloseHandle(poll->reader.events[i]);
     poll->reader.events[i] = NULL;
   }
 
   for (int i = 0; i < BARE_IPC_POLL_NUM_EVENTS; i++) {
-    assert(CloseHandle(poll->writer.events[i]));
+    CloseHandle(poll->writer.events[i]);
     poll->writer.events[i] = NULL;
   }
 }
@@ -132,21 +133,21 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
   if ((events & bare_ipc_readable) == 0) {
     if ((poll->events & bare_ipc_readable) != 0) {
-      assert(ResetEvent(poll->reader.events[bare_ipc_poll__start]));
+      ResetEvent(poll->reader.events[bare_ipc_poll__start]);
     }
   } else {
     if ((poll->events & bare_ipc_readable) == 0) {
-      assert(SetEvent(poll->reader.events[bare_ipc_poll__start]));
+      SetEvent(poll->reader.events[bare_ipc_poll__start]);
     }
   }
 
   if ((events & bare_ipc_writable) == 0) {
     if ((poll->events & bare_ipc_writable) != 0) {
-      assert(ResetEvent(poll->writer.events[bare_ipc_poll__start]));
+      ResetEvent(poll->writer.events[bare_ipc_poll__start]);
     }
   } else {
     if ((poll->events & bare_ipc_writable) == 0) {
-      assert(SetEvent(poll->writer.events[bare_ipc_poll__start]));
+      SetEvent(poll->writer.events[bare_ipc_poll__start]);
     }
   }
 
@@ -158,8 +159,8 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
 int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
-  assert(ResetEvent(poll->reader.events[bare_ipc_poll__start]));
-  assert(ResetEvent(poll->writer.events[bare_ipc_poll__start]));
+  ResetEvent(poll->reader.events[bare_ipc_poll__start]);
+  ResetEvent(poll->writer.events[bare_ipc_poll__start]);
 
   poll->events = 0;
   poll->cb = NULL;
