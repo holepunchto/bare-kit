@@ -3,6 +3,10 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
+#ifndef max
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
 typedef struct bare_kit_context_s bare_kit_context_t;
 typedef void (*bare_kit_read_cb)(bare_kit_context_t *context, const char *data, size_t len);
 typedef void (*bare_kit_write_cb)(bare_kit_context_t *context);
