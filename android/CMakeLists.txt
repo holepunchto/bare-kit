@@ -22,3 +22,9 @@ target_link_libraries(
   PUBLIC
     bare_worklet
 )
+
+target_link_options(
+  bare_kit
+  PRIVATE
+    "-Wl,-z,global"
+)
