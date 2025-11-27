@@ -1,8 +1,11 @@
 #ifndef BARE_KIT_WINDOWS_UNISTD_H
 #define BARE_KIT_WINDOWS_UNISTD_H
-#define WIN32_LEAN_AND_MEAN
 
-#include <Windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <io.h>
 
 #define close  _close

@@ -2,7 +2,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #if defined(BARE_KIT_WINDOWS)
 #include "windows/unistd.h"
 #else

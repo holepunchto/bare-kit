@@ -5,14 +5,18 @@
 extern "C" {
 #endif
 
+#if defined(BARE_KIT_WINDOWS)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <stddef.h>
 
 #include "worklet.h"
 
 #if defined(BARE_KIT_WINDOWS)
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
 #define BARE_IPC_WRITE_CHUNK_SIZE 64 * 1024
 #endif
 
