@@ -1,8 +1,8 @@
 list(APPEND tests
+  common-worklet-ipc
+  common-worklet-ipc-large-write
   worklet-assets
   worklet-destroy-before-start
-  worklet-ipc
-  worklet-ipc-large-write
   worklet-suspend-resume
   worklet-terminate-after-suspend
 )

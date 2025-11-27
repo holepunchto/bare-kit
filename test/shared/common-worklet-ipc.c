@@ -1,51 +1,32 @@
 #include <assert.h>
 #include <uv.h>
 
-#include "../../shared/ipc.h"
-#include "worklet-ipc.h"
+#include "common-worklet-ipc.h"
 
-#define BUFFER_LEN 4 * 1024 * 1024
-
-static uint8_t buffer[BUFFER_LEN];
+static char *buffer = "Hello, World!\n";
 static uv_async_t finished;
-static size_t received = 0;
 
-void
-on_exit(uv_async_t *handle);
-void
-on_read(bare_kit_context_t *context);
 void
 on_write(bare_kit_context_t *context);
+void
+on_read(bare_kit_context_t *context, const char *data, size_t len);
+void
+on_exit(uv_async_t *handle);
+
+void
+on_write(bare_kit_context_t *context) {
+  bare_kit_read(context, on_read);
+}
+
+void
+on_read(bare_kit_context_t *context, const char *data, size_t len) {
+  assert(strcmp(data, buffer) == 0);
+  uv_async_send(&finished);
+}
 
 void
 on_exit(uv_async_t *handle) {
   uv_close((uv_handle_t *) &finished, NULL);
-}
-
-void
-on_read(bare_kit_context_t *context) {
-  char *data;
-  size_t len;
-  int err = bare_ipc_read(&context->ipc, (void **) &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
-
-  received += max(len, 0);
-
-  for (int i = 0; i < max(len, 0); i++) {
-    assert(((uint8_t *) data)[i] == (received + i) % 256);
-  }
-
-  if (received == BUFFER_LEN) {
-    context->readable = NULL;
-    bare_kit_update(context);
-    uv_async_send(&finished);
-  }
-}
-
-void
-on_write(bare_kit_context_t *context) {
-  context->readable = on_read;
-  bare_kit_update(context);
 }
 
 int
@@ -64,7 +45,6 @@ main() {
   context.pending_write = NULL;
   context.data = NULL;
   context.len = 0;
-  finished.data = (void *) &context;
 
   err = bare_worklet_init(&context.worklet, NULL);
   assert(err == 0);
@@ -82,11 +62,7 @@ main() {
 
   bare_ipc_poll_set_data(&context.poll, (void *) &context);
 
-  for (int i = 0; i < BUFFER_LEN; i++) {
-    buffer[i] = i % 256;
-  }
-
-  bare_kit_write(&context, (char *) buffer, BUFFER_LEN, on_write);
+  bare_kit_write(&context, buffer, strlen(buffer), on_write);
 
   err = uv_run(loop, UV_RUN_DEFAULT);
   assert(err == 0);
