@@ -11,14 +11,14 @@ static uv_async_t finished;
 static size_t received = 0;
 
 void
-on_exit(uv_async_t *handle);
+on_finish(uv_async_t *handle);
 void
 on_read(bare_kit_context_t *context);
 void
 on_write(bare_kit_context_t *context);
 
 void
-on_exit(uv_async_t *handle) {
+on_finish(uv_async_t *handle) {
   uv_close((uv_handle_t *) &finished, NULL);
 }
 
@@ -54,7 +54,7 @@ main() {
 
   uv_loop_t *loop = uv_default_loop();
 
-  err = uv_async_init(loop, &finished, on_exit);
+  err = uv_async_init(loop, &finished, on_finish);
   assert(err == 0);
 
   bare_kit_context_t context;
