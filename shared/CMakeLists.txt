@@ -114,12 +114,6 @@ if(WIN32)
 endif()
 
 if(WIN32)
-  target_include_directories(
-    bare_worklet
-    PUBLIC
-      $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
-  )
-
   target_link_libraries(
     bare_worklet
     PUBLIC
@@ -127,12 +121,10 @@ if(WIN32)
     PUBLIC
       log_static
       rlimit_static
+    PUBLIC
+      bare
     PRIVATE
       $<TARGET_OBJECTS:bare>
-      $<TARGET_OBJECTS:uv>
-      $<TARGET_OBJECTS:napi>
-    PRIVATE
-      bare
   )
 else()
   target_link_libraries(

@@ -5,8 +5,19 @@ set_target_properties(
   PROPERTIES
   C_STANDARD 11
   POSITION_INDEPENDENT_CODE ON
-  WINDOWS_EXPORT_ALL_SYMBOLS ON
   OUTPUT_NAME bare-kit
+)
+
+target_sources(
+  bare_kit
+  PUBLIC
+    ${bare_SOURCE_DIR}/src/bare.def
+    ${bare_SOURCE_DIR}/src/js.def
+    ${bare_SOURCE_DIR}/src/napi.def
+  PUBLIC
+    ../shared/windows/ipc.def
+    ../shared/windows/suspension.def
+    ../shared/windows/worklet.def
 )
 
 target_link_libraries(

@@ -1,0 +1,4 @@
+EXPORTS
+  bare_suspension_init
+  bare_suspension_start
+  bare_suspension_end
