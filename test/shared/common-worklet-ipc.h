@@ -118,7 +118,7 @@ bare_kit_write(bare_kit_context_t *context, char *data, size_t len, bare_kit_wri
   int err = bare_ipc_write(&context->ipc, data, len);
   assert(err >= 0 || err == bare_ipc_would_block);
 
-  if (err == context->len) {
+  if (err == len) {
     cb(context);
   } else {
     context->data = &data[max(err, 0)];
