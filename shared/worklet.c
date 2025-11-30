@@ -7,7 +7,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(BARE_KIT_WINDOWS)
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <utf.h>
 #include <uv.h>
 
