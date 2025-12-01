@@ -25,6 +25,12 @@ target_sources(
     worklet.h
 )
 
+target_include_directories(
+  bare_worklet
+  PUBLIC
+    $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 if(APPLE)
   target_sources(
     bare_worklet
@@ -113,28 +119,13 @@ if(WIN32)
   )
 endif()
 
-if(WIN32)
-  target_link_libraries(
-    bare_worklet
-    PUBLIC
-      $<LINK_LIBRARY:WHOLE_ARCHIVE,js_static>
-    PUBLIC
-      bare
-    PUBLIC
-      log_static
-      rlimit_static
-    PRIVATE
-      $<TARGET_OBJECTS:bare>
-  )
-else()
-  target_link_libraries(
-    bare_worklet
-    PUBLIC
-      $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
-    PUBLIC
-      log_static
-      rlimit_static
-  )
-endif()
+target_link_libraries(
+  bare_worklet
+  INTERFACE
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
+  PUBLIC
+    log_static
+    rlimit_static
+)
 
 link_bare_modules(bare_worklet WORKING_DIRECTORY ..)
