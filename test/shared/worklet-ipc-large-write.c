@@ -20,7 +20,7 @@ on_read(bare_worklet_ipc_t *ipc, ssize_t len, const char *data) {
   if (received == BARE_IPC_LARGE_BUF_LEN) {
     uv_async_send(&finished);
   } else {
-    bare_worklet_ipc_read(ipc, on_read);
+    bare_worklet_ipc__set_readable(ipc, on_read);
   }
 }
 
