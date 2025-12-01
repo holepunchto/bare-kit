@@ -12,6 +12,7 @@
 
 #include "ipc.h"
 
+#if defined(BARE_KIT_WINDOWS)
 void
 bare_ipc__close(uv_async_t *handle) {
   bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) handle);
@@ -91,6 +92,7 @@ bare_ipc__write(uv_async_t *handle) {
   int err = uv_write(req, (uv_stream_t *) &ipc->pipe.outgoing, &ipc->write_buffer, 1, bare_ipc__on_write);
   assert(err == 0);
 }
+#endif
 
 int
 bare_ipc_alloc(bare_ipc_t **result) {

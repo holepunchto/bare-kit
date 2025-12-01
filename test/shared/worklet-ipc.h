@@ -22,27 +22,27 @@ struct bare_worklet_ipc_s {
   void *data;
 };
 
-int
+static inline int
 bare_worklet_ipc_alloc(bare_worklet_ipc_t **result);
-int
+static inline int
 bare_worklet_ipc_init(bare_worklet_ipc_t *ipc, bare_worklet_t *worklet);
-void
+static inline void
 bare_worklet_ipc_destroy(bare_worklet_ipc_t *ipc);
-void
+static inline void
 bare_worklet_ipc_read(bare_worklet_ipc_t *ipc, bare_worklet_ipc_read_cb cb);
-void
+static inline void
 bare_worklet_ipc_write(bare_worklet_ipc_t *ipc, const char *data, size_t len, bare_worklet_ipc_write_cb cb);
-void
+static void
 bare_worklet_ipc__on_poll(bare_ipc_poll_t *poll, int events);
-void
+static inline void
 bare_worklet_ipc__readable(bare_worklet_ipc_t *ipc);
-void
+static inline void
 bare_worklet_ipc__writable(bare_worklet_ipc_t *ipc);
-void
+static inline void
 bare_worklet_ipc__set_readable(bare_worklet_ipc_t *ipc, bare_worklet_ipc_read_cb cb);
-void
+static inline void
 bare_worklet_ipc__set_writable(bare_worklet_ipc_t *ipc, bare_worklet_ipc_write_cb cb);
-void
+static inline void
 bare_worklet_ipc__update(bare_worklet_ipc_t *ipc);
 
 static void
@@ -77,6 +77,9 @@ bare_worklet_ipc_init(bare_worklet_ipc_t *ipc, bare_worklet_t *worklet) {
   assert(err == 0);
 
   bare_ipc_poll_set_data(&ipc->poll, (void *) ipc);
+
+  ipc->readable = NULL;
+  ipc->writable = NULL;
 
   return 0;
 }
