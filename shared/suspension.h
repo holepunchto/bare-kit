@@ -20,7 +20,7 @@ typedef struct bare_suspension_s bare_suspension_t;
 #endif
 
 #if defined(BARE_KIT_WINDOWS)
-#include "windows/suspension.h"
+#include "win32/suspension.h"
 #endif
 
 int

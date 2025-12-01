@@ -7,10 +7,6 @@ extern "C" {
 
 #include <stddef.h>
 
-#if defined(BARE_KIT_WINDOWS)
-#include <uv.h>
-#endif
-
 #include "worklet.h"
 
 #define BARE_IPC_READ_BUFFER_SIZE 64 * 1024
@@ -20,34 +16,11 @@ typedef struct bare_ipc_poll_s bare_ipc_poll_t;
 
 typedef void (*bare_ipc_poll_cb)(bare_ipc_poll_t *, int events);
 
-struct bare_ipc_s {
-  int incoming;
-  int outgoing;
-
 #if defined(BARE_KIT_WINDOWS)
-  struct {
-    char base[BARE_IPC_READ_BUFFER_SIZE];
-    size_t len;
-  } read_buffer;
-
-  uv_buf_t write_buffer;
-
-  struct {
-    uv_pipe_t incoming;
-    uv_pipe_t outgoing;
-  } pipe;
-
-  uv_loop_t loop;
-  uv_async_t close;
-  uv_async_t read;
-  uv_async_t write;
-  uv_thread_t thread;
-
-  bare_ipc_poll_t *poll;
+#include "win32/ipc.h"
 #else
-  char data[BARE_IPC_READ_BUFFER_SIZE];
+#include "posix/ipc.h"
 #endif
-};
 
 enum {
   bare_ipc_readable = 0x1,
@@ -69,10 +42,6 @@ enum {
 
 #if defined(BARE_KIT_LINUX)
 #include "linux/ipc.h"
-#endif
-
-#if defined(BARE_KIT_WINDOWS)
-#include "windows/ipc.h"
 #endif
 
 int
