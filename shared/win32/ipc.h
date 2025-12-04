@@ -5,7 +5,12 @@
 extern "C" {
 #endif
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <uv.h>
+#include <windows.h>
 
 #include "../ipc.h"
 
@@ -29,7 +34,11 @@ struct bare_ipc_s {
   uv_async_t close;
   uv_async_t read;
   uv_async_t write;
-  uv_thread_t thread;
+
+  SYNCHRONIZATION_BARRIER ready;
+  HANDLE reading;
+  HANDLE writing;
+  HANDLE thread;
 
   bare_ipc_poll_t *poll;
 };

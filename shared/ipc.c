@@ -1,14 +1,3 @@
-#include <assert.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#if defined(BARE_KIT_WINDOWS)
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
-
 #include "ipc.h"
 
 int

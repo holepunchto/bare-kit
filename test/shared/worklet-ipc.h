@@ -178,7 +178,7 @@ bare_worklet_ipc_write(bare_worklet_ipc_t *ipc, const char *data, size_t len, ba
   } else {
     ipc->buffer = malloc(len);
     ipc->length = len;
-    ipc->offset = written;
+    ipc->offset = written == bare_ipc_would_block ? 0 : written;
     bare_worklet_ipc__set_writable(ipc, cb);
   }
 }

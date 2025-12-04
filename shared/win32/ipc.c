@@ -1,5 +1,10 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <io.h>
 #include <uv.h>
+#include <windows.h>
 
 #include "ipc.h"
 
@@ -12,19 +17,6 @@ bare_ipc__close(uv_async_t *handle) {
   uv_close((uv_handle_t *) &ipc->read, NULL);
   uv_close((uv_handle_t *) &ipc->write, NULL);
   uv_close((uv_handle_t *) &ipc->close, NULL);
-}
-
-void
-bare_ipc__loop(void *arg) {
-  bare_ipc_t *ipc = (bare_ipc_t *) arg;
-
-  int err;
-
-  err = uv_run(&ipc->loop, UV_RUN_DEFAULT);
-  assert(err == 0);
-
-  err = uv_loop_close(&ipc->loop);
-  assert(err == 0);
 }
 
 void
@@ -42,13 +34,22 @@ bare_ipc__on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     return;
   }
 
-  int err = uv_read_stop(stream);
+  int err;
+
+  err = uv_read_stop(stream);
   assert(err == 0);
 
   bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) stream);
 
+  err = WaitForSingleObject(ipc->reading, INFINITE);
+  assert(err == WAIT_OBJECT_0);
+
   memcpy(ipc->read_buffer.base, buf->base, nread);
   ipc->read_buffer.len = nread;
+
+  err = ReleaseSemaphore(ipc->reading, 1, NULL);
+  assert(err);
+
   if (ipc->poll && ipc->poll->cb) ipc->poll->cb(ipc->poll, bare_ipc_readable);
 
   free(buf->base);
@@ -70,25 +71,31 @@ bare_ipc__on_write(uv_write_t *req, int status) {
 
   free(ipc->write_buffer.base);
   free(req);
+
+  BOOL res = ReleaseSemaphore(ipc->writing, 1, NULL);
+  assert(res);
+
+  if (ipc->poll && ipc->poll->cb && (ipc->poll->events & bare_ipc_writable) != 0) ipc->poll->cb(ipc->poll, bare_ipc_writable);
 }
 
 void
 bare_ipc__write(uv_async_t *handle) {
+  int err;
+
   bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) handle);
 
   uv_write_t *req = malloc(sizeof(uv_write_t));
   uv_handle_set_data((uv_handle_t *) req, (void *) ipc);
 
-  int err = uv_write(req, (uv_stream_t *) &ipc->pipe.outgoing, &ipc->write_buffer, 1, bare_ipc__on_write);
+  err = uv_write(req, (uv_stream_t *) &ipc->pipe.outgoing, &ipc->write_buffer, 1, bare_ipc__on_write);
   assert(err == 0);
 }
 
-int
-bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
-  int err;
+DWORD WINAPI
+bare_ipc__loop(LPVOID lpParameter) {
+  bare_ipc_t *ipc = (bare_ipc_t *) lpParameter;
 
-  ipc->incoming = dup(worklet->incoming);
-  ipc->outgoing = dup(worklet->outgoing);
+  int err;
 
   err = uv_loop_init(&ipc->loop);
   assert(err == 0);
@@ -117,11 +124,44 @@ bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
   assert(err == 0);
   uv_handle_set_data((uv_handle_t *) &ipc->pipe.outgoing, (void *) ipc);
 
-  err = uv_thread_create(&ipc->thread, bare_ipc__loop, (void *) ipc);
+  err = EnterSynchronizationBarrier(&ipc->ready, 0);
+  assert(err);
+
+  err = uv_run(&ipc->loop, UV_RUN_DEFAULT);
   assert(err == 0);
+
+  err = uv_loop_close(&ipc->loop);
+  assert(err == 0);
+
+  ExitThread(0);
+}
+
+int
+bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
+  int err;
+
+  ipc->incoming = dup(worklet->incoming);
+  ipc->outgoing = dup(worklet->outgoing);
+
+  err = InitializeSynchronizationBarrier(&ipc->ready, 2, -1);
+  assert(err);
+
+  ipc->reading = CreateSemaphore(NULL, 1, 1, NULL);
+  assert(ipc->reading != NULL);
+
+  ipc->writing = CreateSemaphore(NULL, 1, 1, NULL);
+  assert(ipc->writing != NULL);
+
+  ipc->thread = CreateThread(NULL, 0, bare_ipc__loop, ipc, 0, NULL);
+  assert(ipc->thread != NULL);
 
   ipc->read_buffer.len = 0;
   ipc->poll = NULL;
+
+  err = EnterSynchronizationBarrier(&ipc->ready, 0);
+  assert(err == 0);
+
+  DeleteSynchronizationBarrier(&ipc->ready);
 
   return 0;
 }
@@ -133,20 +173,38 @@ bare_ipc_destroy(bare_ipc_t *ipc) {
   err = uv_async_send(&ipc->close);
   assert(err == 0);
 
-  err = uv_thread_join(&ipc->thread);
-  assert(err == 0);
+  err = WaitForSingleObject(ipc->thread, INFINITE);
+  assert(err == WAIT_OBJECT_0);
+
+  err = CloseHandle(ipc->thread);
+  assert(err);
+
+  err = CloseHandle(ipc->reading);
+  assert(err);
+
+  err = CloseHandle(ipc->writing);
+  assert(err);
 }
 
 int
 bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
+  int err;
+
   if (ipc->read_buffer.len > 0) {
+    err = WaitForSingleObject(ipc->reading, INFINITE);
+    assert(err == WAIT_OBJECT_0);
+
     memcpy(data, ipc->read_buffer.base, ipc->read_buffer.len);
     *len = ipc->read_buffer.len;
     ipc->read_buffer.len = 0;
+
+    err = ReleaseSemaphore(ipc->reading, 1, NULL);
+    assert(err);
+
     return 0;
   }
 
-  int err = uv_async_send(&ipc->read);
+  err = uv_async_send(&ipc->read);
   assert(err == 0);
 
   return bare_ipc_would_block;
@@ -156,11 +214,11 @@ int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len) {
   int err;
 
-  uv_buf_t buf = uv_buf_init((char *) data, len);
-  err = uv_try_write((uv_stream_t *) &ipc->pipe.outgoing, &buf, 1);
+  err = WaitForSingleObject(ipc->writing, 0);
+  assert(err == WAIT_OBJECT_0 || err == WAIT_TIMEOUT);
 
-  if (err > 0) {
-    return err;
+  if (err == WAIT_TIMEOUT) {
+    return bare_ipc_would_block;
   }
 
   ipc->write_buffer.base = malloc(len);
