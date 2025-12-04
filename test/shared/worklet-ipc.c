@@ -9,7 +9,7 @@ uv_async_t finished;
 void
 on_read2(bare_worklet_ipc_t *ipc, ssize_t len, const char *data) {
   assert(len > 0);
-  printf("%s\n", data);
+  printf("%.*s\n", len, data);
   free((void *) data);
 
   uv_async_send(&finished);
@@ -25,7 +25,7 @@ on_write(bare_worklet_ipc_t *ipc, int status) {
 void
 on_read1(bare_worklet_ipc_t *ipc, ssize_t len, const char *data) {
   assert(len > 0);
-  printf("%s\n", data);
+  printf("%.*s\n", len, data);
   free((void *) data);
 
   const char *buffer = "Hello back!";
