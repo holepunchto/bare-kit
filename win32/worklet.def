@@ -1,0 +1,12 @@
+EXPORTS
+  bare_worklet_optimize_for_memory
+  bare_worklet_alloc
+  bare_worklet_init
+  bare_worklet_destroy
+  bare_worklet_get_data
+  bare_worklet_set_data
+  bare_worklet_start
+  bare_worklet_suspend
+  bare_worklet_resume
+  bare_worklet_wakeup
+  bare_worklet_terminate
