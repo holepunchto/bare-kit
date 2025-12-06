@@ -170,8 +170,6 @@ bare_ipc_destroy(bare_ipc_t *ipc) {
 
 int
 bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
-  int err;
-
   if (ipc->read_buffer.len > 0) {
     uv_mutex_lock(&ipc->reading);
 
@@ -183,9 +181,6 @@ bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
 
     return 0;
   }
-
-  err = uv_async_send(&ipc->read);
-  assert(err == 0);
 
   return bare_ipc_would_block;
 }
@@ -255,6 +250,15 @@ bare_ipc_poll_get_ipc(bare_ipc_poll_t *poll) {
 int
 bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
   if (events == 0) return bare_ipc_poll_stop(poll);
+
+  int err;
+
+  if ((events & bare_ipc_readable) != 0) {
+    if ((poll->events & bare_ipc_readable) == 0) {
+      err = uv_async_send(&poll->ipc->read);
+      assert(err == 0);
+    }
+  }
 
   poll->events = events;
   poll->cb = cb;
