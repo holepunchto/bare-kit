@@ -171,13 +171,9 @@ bare_ipc_destroy(bare_ipc_t *ipc) {
 int
 bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
   if (ipc->read_buffer.len > 0) {
-    uv_mutex_lock(&ipc->reading);
-
-    memcpy(data, ipc->read_buffer.base, ipc->read_buffer.len);
+    *data = ipc->read_buffer.base;
     *len = ipc->read_buffer.len;
     ipc->read_buffer.len = 0;
-
-    uv_mutex_unlock(&ipc->reading);
 
     return 0;
   }
