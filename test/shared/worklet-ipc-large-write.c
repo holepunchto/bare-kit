@@ -1,36 +1,71 @@
 #include <uv.h>
 
+#include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
-
-#include "worklet-ipc.h"
 
 #define BARE_IPC_LARGE_BUF_LEN 4 * 1024 * 1024
 
-const char BARE_IPC_LARGE_BUF[BARE_IPC_LARGE_BUF_LEN];
+void
+read_continuosly(bare_ipc_poll_t *poll);
+void
+write_continuosly(bare_ipc_poll_t *poll);
 
-size_t received = 0;
+const char BARE_IPC_LARGE_BUF[BARE_IPC_LARGE_BUF_LEN];
 uv_async_t finished;
+size_t received = 0;
+size_t written = 0;
 
 void
-on_read(bare_worklet_ipc_t *ipc, ssize_t len, const char *data) {
-  free((void *) data);
+on_poll(bare_ipc_poll_t *poll, int events) {
+  int err = bare_ipc_poll_stop(poll);
+  assert(err == 0);
 
-  received += len;
-
-  if (received == BARE_IPC_LARGE_BUF_LEN) {
-    uv_async_send(&finished);
-  } else {
-#if defined(BARE_KIT_WINDOWS)
-    bare_worklet_ipc_read(ipc, on_read);
-#else
-    bare_worklet_ipc__set_readable(ipc, on_read);
-#endif
-  }
+  if ((events & bare_ipc_readable) != 0) read_continuosly(poll);
+  if ((events & bare_ipc_writable) != 0) write_continuosly(poll);
 }
 
 void
-on_write(bare_worklet_ipc_t *ipc, int status) {
-  bare_worklet_ipc_read(ipc, on_read);
+read_continuosly(bare_ipc_poll_t *poll) {
+  int err;
+  void *data;
+  size_t len;
+
+  while (received != BARE_IPC_LARGE_BUF_LEN) {
+    err = bare_ipc_read(poll->ipc, &data, &len);
+    assert(err == 0 || err == bare_ipc_would_block);
+
+    if (err != bare_ipc_would_block) {
+      received += len;
+    } else {
+      err = bare_ipc_poll_start(poll, bare_ipc_readable, on_poll);
+      assert(err == 0);
+
+      return;
+    }
+  }
+
+  uv_async_send(&finished);
+}
+
+void
+write_continuosly(bare_ipc_poll_t *poll) {
+  int err;
+
+  while (written != BARE_IPC_LARGE_BUF_LEN) {
+    err = bare_ipc_write(poll->ipc, &BARE_IPC_LARGE_BUF[written], BARE_IPC_LARGE_BUF_LEN - written);
+    assert(err >= 0 || err == bare_ipc_would_block);
+
+    if (err != bare_ipc_would_block) {
+      written += err;
+    } else {
+      err = bare_ipc_poll_start(poll, bare_ipc_writable, on_poll);
+      assert(err == 0);
+
+      return;
+    }
+  }
+
+  read_continuosly(poll);
 }
 
 void
@@ -55,11 +90,15 @@ main() {
   err = bare_worklet_start(&worklet, "app.js", &source, 0, NULL);
   assert(err == 0);
 
-  bare_worklet_ipc_t ipc;
-  err = bare_worklet_ipc_init(&ipc, &worklet);
+  bare_ipc_t ipc;
+  err = bare_ipc_init(&ipc, &worklet);
   assert(err == 0);
 
-  bare_worklet_ipc_write(&ipc, BARE_IPC_LARGE_BUF, BARE_IPC_LARGE_BUF_LEN, on_write);
+  bare_ipc_poll_t poll;
+  err = bare_ipc_poll_init(&poll, &ipc);
+  assert(err == 0);
+
+  write_continuosly(&poll);
 
   err = uv_run(loop, UV_RUN_DEFAULT);
   assert(err == 0);
@@ -70,7 +109,9 @@ main() {
   err = bare_worklet_terminate(&worklet);
   assert(err == 0);
 
-  bare_worklet_ipc_destroy(&ipc);
+  bare_ipc_poll_destroy(&poll);
+
+  bare_ipc_destroy(&ipc);
 
   bare_worklet_destroy(&worklet);
 }
