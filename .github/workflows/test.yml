@@ -102,3 +102,32 @@ jobs:
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --debug
       - run: bare-make build
       - run: bare-make test
+  windows:
+    strategy:
+      matrix:
+        include:
+          - os: windows-2022
+            platform: win32
+            arch: x64
+          - os: windows-2022
+            platform: win32
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build/_drive
+          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - run: choco upgrade llvm
+      - run: choco install nasm
+      - run: npm install -g bare-make
+      - run: npm install
+      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --debug
+      - run: bare-make build
+      - run: bare-make test
+        if: ${{ matrix.arch == 'x64' }}
