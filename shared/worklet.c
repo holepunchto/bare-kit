@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <bare.h>
 #include <js.h>
-#include <log.h>
 #include <rlimit.h>
 #include <signal.h>
 #include <stddef.h>
@@ -24,9 +23,6 @@ bare_worklet__on_init(void) {
 #ifdef SIGPIPE
   signal(SIGPIPE, SIG_IGN);
 #endif
-
-  err = log_open("bare", 0);
-  assert(err == 0);
 
   err = rlimit_set(rlimit_open_files, rlimit_infer);
   assert(err == 0);

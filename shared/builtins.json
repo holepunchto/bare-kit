@@ -9,6 +9,7 @@
   { "addon": "bare-module-lexer" },
   { "addon": "bare-pipe" },
   { "addon": "bare-os" },
+  { "addon": "bare-system-logger" },
   { "addon": "bare-type" },
   { "addon": "bare-url" }
 ]

@@ -101,7 +101,6 @@ target_link_libraries(
   PUBLIC
     $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
   PUBLIC
-    log_static
     rlimit_static
 )
 
