@@ -16,7 +16,8 @@ bare_ipc__close(uv_async_t *handle) {
 
 void
 bare_ipc__on_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  buf->base = malloc(BARE_IPC_READ_BUFFER_SIZE);
+  bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data(handle);
+  buf->base = ipc->read_tmp_buffer;
   buf->len = BARE_IPC_READ_BUFFER_SIZE;
 }
 
@@ -43,8 +44,6 @@ bare_ipc__on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
   uv_mutex_unlock(&ipc->reading);
 
-  free(buf->base);
-
   if (ipc->poll && ipc->poll->cb) ipc->poll->cb(ipc->poll, bare_ipc_readable);
 }
 
@@ -63,9 +62,8 @@ bare_ipc__on_write(uv_write_t *req, int status) {
   bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) req);
 
   free(ipc->write_buffer.base);
-  free(req);
 
-  uv_mutex_unlock(&ipc->writing);
+  ipc->writing = false;
 
   if (ipc->poll && ipc->poll->cb && (ipc->poll->events & bare_ipc_writable) != 0) ipc->poll->cb(ipc->poll, bare_ipc_writable);
 }
@@ -76,10 +74,7 @@ bare_ipc__write(uv_async_t *handle) {
 
   bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) handle);
 
-  uv_write_t *req = malloc(sizeof(uv_write_t));
-  uv_handle_set_data((uv_handle_t *) req, (void *) ipc);
-
-  err = uv_write(req, (uv_stream_t *) &ipc->pipe.outgoing, &ipc->write_buffer, 1, bare_ipc__on_write);
+  err = uv_write(&ipc->write_request, (uv_stream_t *) &ipc->pipe.outgoing, &ipc->write_buffer, 1, bare_ipc__on_write);
   assert(err == 0);
 }
 
@@ -91,6 +86,8 @@ bare_ipc__loop(void *arg) {
 
   err = uv_loop_init(&ipc->loop);
   assert(err == 0);
+
+  uv_handle_set_data((uv_handle_t *) &ipc->write_request, (void *) ipc);
 
   err = uv_async_init(&ipc->loop, &ipc->read, bare_ipc__read);
   assert(err == 0);
@@ -135,8 +132,7 @@ bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
   err = uv_mutex_init(&ipc->reading);
   assert(err == 0);
 
-  err = uv_mutex_init(&ipc->writing);
-  assert(err == 0);
+  ipc->writing = false;
 
   err = uv_barrier_init(&ipc->ready, 2);
   assert(err == 0);
@@ -164,16 +160,18 @@ bare_ipc_destroy(bare_ipc_t *ipc) {
   assert(err == 0);
 
   uv_mutex_destroy(&ipc->reading);
-
-  uv_mutex_destroy(&ipc->writing);
 }
 
 int
 bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
   if (ipc->read_buffer.len > 0) {
+    uv_mutex_lock(&ipc->reading);
+
     *data = ipc->read_buffer.base;
     *len = ipc->read_buffer.len;
     ipc->read_buffer.len = 0;
+
+    uv_mutex_unlock(&ipc->reading);
 
     return 0;
   }
@@ -185,10 +183,11 @@ int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len) {
   int err;
 
-  if (uv_mutex_trylock(&ipc->writing) != 0) {
+  if (ipc->writing) {
     return bare_ipc_would_block;
   }
 
+  ipc->writing = true;
   ipc->write_buffer.base = malloc(len);
   memcpy(ipc->write_buffer.base, data, len);
   ipc->write_buffer.len = len;

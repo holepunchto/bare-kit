@@ -18,6 +18,9 @@ struct bare_ipc_s {
     size_t len;
   } read_buffer;
 
+  char read_tmp_buffer[BARE_IPC_READ_BUFFER_SIZE];
+
+  uv_write_t write_request;
   uv_buf_t write_buffer;
 
   struct {
@@ -32,7 +35,7 @@ struct bare_ipc_s {
 
   uv_barrier_t ready;
   uv_mutex_t reading;
-  uv_mutex_t writing;
+  bool writing;
   uv_thread_t thread;
 
   bare_ipc_poll_t *poll;
