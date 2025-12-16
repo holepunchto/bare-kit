@@ -62,6 +62,9 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
 
+  worklet->incoming = -1;
+  worklet->outgoing = -1;
+
   return 0;
 }
 
@@ -71,8 +74,8 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
 
   if (worklet->thread != 0) uv_sem_post(worklet->finished);
 
-  close(worklet->incoming);
-  close(worklet->outgoing);
+  if (worklet->incoming >= 0) close(worklet->incoming);
+  if (worklet->outgoing >= 0) close(worklet->outgoing);
 
   free((char *) worklet->options.assets);
 }
