@@ -35,7 +35,8 @@ struct bare_ipc_s {
 
   uv_barrier_t ready;
   uv_mutex_t reading;
-  bool writing;
+  uv_mutex_t writing;
+  bool is_writing;
   uv_thread_t thread;
 
   bare_ipc_poll_t *poll;
