@@ -63,7 +63,6 @@ bare_ipc__on_write(uv_write_t *req, int status) {
   free(ipc->write_buffer.base);
 
   uv_mutex_unlock(&ipc->writing);
-  ipc->is_writing = false;
 
   if (ipc->poll && ipc->poll->cb && (ipc->poll->events & bare_ipc_writable) != 0) ipc->poll->cb(ipc->poll, bare_ipc_writable);
 }
@@ -134,7 +133,6 @@ bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
 
   err = uv_mutex_init(&ipc->writing);
   assert(err == 0);
-  ipc->is_writing = false;
 
   err = uv_barrier_init(&ipc->ready, 2);
   assert(err == 0);
@@ -189,11 +187,10 @@ int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len) {
   int err;
 
-  if (uv_mutex_trylock(&ipc->writing) != 0 || ipc->is_writing) {
+  if (uv_mutex_trylock(&ipc->writing) != 0) {
     return bare_ipc_would_block;
   }
 
-  ipc->is_writing = true;
   ipc->write_buffer.base = malloc(len);
   memcpy(ipc->write_buffer.base, data, len);
   ipc->write_buffer.len = len;
