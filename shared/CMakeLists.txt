@@ -25,10 +25,18 @@ target_sources(
     worklet.h
 )
 
+target_include_directories(
+  bare_worklet
+  PUBLIC
+    $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 if(APPLE)
   target_sources(
     bare_worklet
     PRIVATE
+      posix/ipc.h
+      posix/ipc.c
       apple/ipc.h
       apple/ipc.m
       apple/suspension.h
@@ -60,6 +68,8 @@ if(ANDROID)
   target_sources(
     bare_worklet
     PRIVATE
+      posix/ipc.h
+      posix/ipc.c
       android/ipc.c
       android/ipc.h
       android/suspension.c
@@ -83,6 +93,8 @@ if(LINUX)
   target_sources(
     bare_worklet
     PRIVATE
+      posix/ipc.h
+      posix/ipc.c
       linux/ipc.c
       linux/ipc.h
       linux/suspension.c
@@ -96,9 +108,26 @@ if(LINUX)
   )
 endif()
 
+if(WIN32)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      win32/ipc.c
+      win32/ipc.h
+      win32/suspension.c
+      win32/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_worklet
+    PUBLIC
+      BARE_KIT_WINDOWS
+  )
+endif()
+
 target_link_libraries(
   bare_worklet
-  PUBLIC
+  INTERFACE
     $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
   PUBLIC
     rlimit_static

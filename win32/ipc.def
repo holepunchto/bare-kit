@@ -1,0 +1,16 @@
+EXPORTS
+  bare_ipc_alloc
+  bare_ipc_init
+  bare_ipc_destroy
+  bare_ipc_get_incoming
+  bare_ipc_get_outgoing
+  bare_ipc_read
+  bare_ipc_write
+  bare_ipc_poll_alloc
+  bare_ipc_poll_init
+  bare_ipc_poll_destroy
+  bare_ipc_poll_get_data
+  bare_ipc_poll_set_data
+  bare_ipc_poll_get_ipc
+  bare_ipc_poll_start
+  bare_ipc_poll_stop

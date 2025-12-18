@@ -16,12 +16,6 @@ typedef struct bare_ipc_poll_s bare_ipc_poll_t;
 
 typedef void (*bare_ipc_poll_cb)(bare_ipc_poll_t *, int events);
 
-struct bare_ipc_s {
-  int incoming;
-  int outgoing;
-  char data[BARE_IPC_READ_BUFFER_SIZE];
-};
-
 enum {
   bare_ipc_readable = 0x1,
   bare_ipc_writable = 0x2,
@@ -42,6 +36,12 @@ enum {
 
 #if defined(BARE_KIT_LINUX)
 #include "linux/ipc.h"
+#endif
+
+#if defined(BARE_KIT_WINDOWS)
+#include "win32/ipc.h"
+#else
+#include "posix/ipc.h"
 #endif
 
 int
