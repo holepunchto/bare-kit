@@ -2,6 +2,7 @@
 .cxx/
 .idea/
 build/
+node_modules/
 local.properties
 *.bundle.h
 *.d
