@@ -18,6 +18,8 @@ const ports = IPC.open()
 
 const ipc = new IPC(ports[0])
 
+Bare.IPC = ipc
+
 Bare.on('suspend', () => ipc.unref()).on('resume', () => ipc.ref())
 
 class BareKit extends EventEmitter {
