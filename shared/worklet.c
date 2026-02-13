@@ -272,6 +272,12 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
 
+  uv_sem_t finished;
+  err = uv_sem_init(&finished, 0);
+  assert(err == 0);
+
+  worklet->finished = &finished;
+
   bare_suspension_t suspension;
   err = bare_suspension_init(&suspension);
   assert(err == 0);
@@ -376,18 +382,12 @@ bare_worklet__on_thread(void *opaque) {
     assert(err == 0);
   }
 
+  uv_barrier_wait(&worklet->ready);
+
   js_call_function(env, module, start, 3, args, NULL);
 
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
-
-  uv_sem_t finished;
-  err = uv_sem_init(&finished, 0);
-  assert(err == 0);
-
-  worklet->finished = &finished;
-
-  uv_barrier_wait(&worklet->ready);
 
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
