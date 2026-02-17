@@ -13,6 +13,9 @@
 #endif
 #include <utf.h>
 #include <uv.h>
+#if defined(__APPLE__)
+#include <os/log.h>
+#endif
 
 #include "suspension.h"
 #include "worklet.bundle.h"
@@ -265,6 +268,32 @@ bare_worklet__on_resume(bare_t *bare, void *data) {
 }
 
 static void
+bare_worklet__log_error(js_env_t *env, js_value_t *error, const char *type) {
+  js_value_t *str;
+  if (js_coerce_to_string(env, error, &str) == 0) {
+    char buf[512];
+    if (js_get_value_string_utf8(env, str, (utf8_t *) buf, sizeof(buf), NULL) == 0) {
+#if defined(__APPLE__)
+      os_log_error(OS_LOG_DEFAULT, "[WORKLET] %{public}s: %{public}s", type, buf);
+#endif
+    }
+  }
+}
+
+static void
+bare_worklet__on_uncaught(js_env_t *env, js_value_t *error, void *data) {
+  (void) data;
+  bare_worklet__log_error(env, error, "uncaught");
+}
+
+static void
+bare_worklet__on_rejection(js_env_t *env, js_value_t *reason, js_value_t *promise, void *data) {
+  (void) promise;
+  (void) data;
+  bare_worklet__log_error(env, reason, "rejection");
+}
+
+static void
 bare_worklet__on_thread(void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
 
@@ -315,6 +344,13 @@ bare_worklet__on_thread(void *opaque) {
 
   js_value_t *module;
   err = bare_load(bare, "bare:/worklet.bundle", &source, &module);
+  assert(err == 0);
+
+  // Prevent worklet termination from calling abort() in the host process
+  err = js_on_uncaught_exception(env, bare_worklet__on_uncaught, (void *) worklet);
+  assert(err == 0);
+
+  err = js_on_unhandled_rejection(env, bare_worklet__on_rejection, (void *) worklet);
   assert(err == 0);
 
   js_value_t *exports;
@@ -428,7 +464,12 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
   err = uv_barrier_init(&worklet->ready, 2);
   assert(err == 0);
 
-  err = uv_thread_create(&worklet->thread, bare_worklet__on_thread, (void *) worklet);
+  uv_thread_options_t thread_opts = {
+    .flags = UV_THREAD_HAS_STACK_SIZE,
+    .stack_size = 64 * 1024 * 1024, // 64MB — needed for deep module graphs
+  };
+
+  err = uv_thread_create_ex(&worklet->thread, &thread_opts, bare_worklet__on_thread, (void *) worklet);
   if (err < 0) {
     uv_barrier_destroy(&worklet->ready);
 

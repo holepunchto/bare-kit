@@ -14,6 +14,21 @@ const unpack = require('bare-unpack')
 
 global.console = new Console(new SystemLog())
 
+// Suppress exceptions from worklet.terminate() to prevent abort() in host process
+const _origEmit = Bare.emit.bind(Bare)
+Bare.emit = function (event, ...args) {
+  if (event === 'uncaughtException' || event === 'unhandledRejection') {
+    const err = args[0]
+    const msg = err && err.message ? err.message : String(err)
+    if (!msg.includes('execution terminated')) {
+      console.error('[WORKLET]', event + ':', msg)
+      if (err && err.stack) console.error(err.stack)
+    }
+    return true
+  }
+  return _origEmit(event, ...args)
+}
+
 const ports = IPC.open()
 
 const ipc = new IPC(ports[0])
