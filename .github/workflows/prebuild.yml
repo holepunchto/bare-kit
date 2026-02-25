@@ -94,6 +94,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+        if: ${{ matrix.platform == 'linux' }}
       - run: npm install -g bare-make
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
