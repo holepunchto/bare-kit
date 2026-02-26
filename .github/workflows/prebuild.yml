@@ -6,25 +6,50 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-26
             platform: darwin
             arch: x64
-          - os: macos-14
+          - os: macos-26
+            platform: darwin
+            arch: x64
+            tags: -javascriptcore
+            flags: -D BARE_ENGINE=github:holepunchto/libjsc
+          - os: macos-26
             platform: darwin
             arch: arm64
-          - os: macos-14
+          - os: macos-26
+            platform: darwin
+            arch: arm64
+            tags: -javascriptcore
+            flags: -D BARE_ENGINE=github:holepunchto/libjsc
+          - os: macos-26
             platform: ios
             arch: arm64
-          - os: macos-14
+          - os: macos-26
+            platform: ios
+            arch: arm64
+            tags: -javascriptcore
+            flags: -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
+          - os: macos-26
             platform: ios
             arch: arm64
             tags: -simulator
             flags: --simulator
-          - os: macos-14
+          - os: macos-26
+            platform: ios
+            arch: arm64
+            tags: -simulator-javascriptcore
+            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
+          - os: macos-26
             platform: ios
             arch: x64
             tags: -simulator
             flags: --simulator
+          - os: macos-26
+            platform: ios
+            arch: x64
+            tags: -simulator-javascriptcore
+            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
@@ -127,6 +152,11 @@ jobs:
         with:
           name: prebuilds
           path: |
+            prebuilds/apple/BareKit.xcframework
+            prebuilds/apple-javascriptcore/BareKit.xcframework
+            prebuilds/darwin/BareKit.xcframework
+            prebuilds/darwin-javascriptcore/BareKit.xcframework
             prebuilds/ios/BareKit.xcframework
+            prebuilds/ios-javascriptcore/BareKit.xcframework
             prebuilds/android/bare-kit
           retention-days: 5
