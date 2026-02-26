@@ -29,7 +29,7 @@ jobs:
             platform: ios
             arch: arm64
             tags: -javascriptcore
-            flags: -D BARE_ENGINE=github:holepunchto/libjsc
+            flags: -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
           - os: macos-26
             platform: ios
             arch: arm64
@@ -39,7 +39,7 @@ jobs:
             platform: ios
             arch: arm64
             tags: -simulator-javascriptcore
-            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc
+            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
           - os: macos-26
             platform: ios
             arch: arm64
@@ -49,7 +49,7 @@ jobs:
             platform: ios
             arch: arm64
             tags: -simulator-javascriptcore
-            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc
+            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
           - os: macos-26
             platform: ios
             arch: x64
@@ -59,7 +59,7 @@ jobs:
             platform: ios
             arch: x64
             tags: -simulator-javascriptcore
-            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc
+            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
