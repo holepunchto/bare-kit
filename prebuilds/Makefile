@@ -18,8 +18,11 @@
 
 all: \
 	apple/BareKit.xcframework \
+	apple-javascriptcore/BareKit.xcframework \
 	darwin/BareKit.xcframework \
+	darwin-javascriptcore/BareKit.xcframework \
 	ios/BareKit.xcframework \
+	ios-javascriptcore/BareKit.xcframework \
 	android/bare-kit
 
 apple/BareKit.xcframework: \
