@@ -42,16 +42,6 @@ jobs:
             flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
           - os: macos-26
             platform: ios
-            arch: arm64
-            tags: -simulator
-            flags: --simulator
-          - os: macos-26
-            platform: ios
-            arch: arm64
-            tags: -simulator-javascriptcore
-            flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
-          - os: macos-26
-            platform: ios
             arch: x64
             tags: -simulator
             flags: --simulator
