@@ -36,6 +36,6 @@
     "cmake-fetch": "^1.1.0",
     "cmake-napi": "^1.1.2",
     "prettier": "^3.3.3",
-    "prettier-config-standard": "^7.0.0"
+    "prettier-config-holepunch": "^2.0.0"
   }
 }
