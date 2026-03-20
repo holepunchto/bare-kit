@@ -4,7 +4,6 @@
 #ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
-#import <UserNotifications/UserNotifications.h>
 
 @interface BareWorkletConfiguration : NSObject
 
@@ -93,91 +92,6 @@
    completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
 
 - (void)close;
-
-@end
-
-@protocol BareNotificationServiceDelegate
-
-- (UNNotificationContent *_Nonnull)workletDidReply:(NSDictionary *_Nonnull)reply;
-
-@end
-
-@interface BareNotificationService : UNNotificationServiceExtension <BareNotificationServiceDelegate>
-
-@property(nonatomic, assign, nonnull) id<BareNotificationServiceDelegate> delegate;
-
-- (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSData *_Nullable)source
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithFilename:(NSString *_Nonnull)filename
-                                    source:(NSString *_Nonnull)source
-                                  encoding:(NSStringEncoding)encoding
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
-                                    ofType:(NSString *_Nonnull)type
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
-                                    ofType:(NSString *_Nonnull)type
-                                  inBundle:(NSBundle *_Nonnull)bundle
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
-                                    ofType:(NSString *_Nonnull)type
-                               inDirectory:(NSString *_Nonnull)subpath
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (_Nullable instancetype)initWithResource:(NSString *_Nonnull)name
-                                    ofType:(NSString *_Nonnull)type
-                               inDirectory:(NSString *_Nonnull)subpath
-                                  inBundle:(NSBundle *_Nonnull)bundle
-                                 arguments:(NSArray<NSString *> *_Nullable)arguments
-                             configuration:(BareWorkletConfiguration *_Nullable)options;
-
-- (void)start:(NSString *_Nonnull)filename
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)filename
-       source:(NSData *_Nullable)source
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)filename
-       source:(NSString *_Nonnull)source
-     encoding:(NSStringEncoding)encoding
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type
-     inBundle:(NSBundle *_Nonnull)bundle
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type
-  inDirectory:(NSString *_Nonnull)subpath
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
-
-- (void)start:(NSString *_Nonnull)name
-       ofType:(NSString *_Nonnull)type
-  inDirectory:(NSString *_Nonnull)subpath
-     inBundle:(NSBundle *_Nonnull)bundle
-    arguments:(NSArray<NSString *> *_Nullable)arguments;
 
 @end
 
