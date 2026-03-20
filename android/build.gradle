@@ -38,8 +38,6 @@ android {
 }
 
 dependencies {
-  api "com.google.firebase:firebase-messaging:+"
-
   androidTestImplementation "androidx.test:runner:+"
   androidTestImplementation "androidx.test:rules:+"
 }
