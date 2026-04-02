@@ -51,17 +51,17 @@ jobs:
             tags: -simulator-javascriptcore
             flags: --simulator -D BARE_ENGINE=github:holepunchto/libjsc -D APPLE_CLANG=ON
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
+    name: Build / ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - uses: actions/cache@v5
         with:
           path: build/_drive
           key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install -g bare-make
+      - run: npm install --global bare-make
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols ${{ matrix.flags }}
       - run: bare-make build
@@ -77,21 +77,21 @@ jobs:
           - os: ubuntu-24.04
             platform: android
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.platform }}
+    name: Build / ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: android/build/_drive
-          key: corestore-${{ matrix.platform }}
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
-      - run: npm install -g cmake-runtime ninja-runtime
+      - uses: actions/cache@v5
+        with:
+          path: android/build/_drive
+          key: corestore-${{ matrix.platform }}
+      - run: npm install --global cmake-runtime ninja-runtime
       - run: npm install
       - run: gradle aR
       - uses: actions/upload-artifact@v4
@@ -109,22 +109,22 @@ jobs:
             platform: linux
             arch: arm64
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    name: Build / ${{ matrix.platform }}-${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - uses: actions/cache@v5
         with:
           path: build/_drive
           key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 21
+          sudo ./llvm.sh 22
         if: ${{ matrix.platform == 'linux' }}
-      - run: npm install -g bare-make
+      - run: npm install --global bare-make
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
       - run: bare-make build
@@ -138,17 +138,18 @@ jobs:
       - apple
       - android
       - linux
+    name: Merge
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           sparse-checkout: |
             prebuilds/Makefile
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: prebuilds
       - run: make
         working-directory: prebuilds
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: prebuilds
           path: |
