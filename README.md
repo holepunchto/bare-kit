@@ -107,10 +107,11 @@ main() {
   options.memoryLimit = 1024 * 1024 * 24; // 24 MiB
 
   BareWorklet *worklet = [[BareWorklet alloc] initWithConfiguration:options];
-  BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
 
   NSString *source = @"console.log('hello from the worklet')";
   [worklet start:@"/app.js" source:[source dataUsingEncoding:NSUTF8StringEncoding] arguments:@[]];
+
+  BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
 
   // Set up readable callback
   ipc.readable = ^(BareIPC *ipc) {
