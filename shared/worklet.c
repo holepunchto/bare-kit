@@ -336,6 +336,10 @@ bare_worklet__on_resume(bare_t *bare, void *data) {
 
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
+
+  if (state->finished) return;
+
+  if (state->callbacks.resume) state->callbacks.resume(bare, state->callbacks.resume_data);
 }
 
 static void
