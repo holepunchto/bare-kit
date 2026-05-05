@@ -14,6 +14,7 @@ extern "C" {
 
 typedef struct bare_worklet_s bare_worklet_t;
 typedef struct bare_worklet_options_s bare_worklet_options_t;
+typedef struct bare_worklet_state_s bare_worklet_state_t;
 typedef struct bare_worklet_push_s bare_worklet_push_t;
 
 typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
@@ -41,7 +42,7 @@ struct bare_worklet_s {
 
   bare_worklet_options_t options;
 
-  bare_suspension_t *suspension;
+  bare_worklet_state_t *state;
 
   const char *filename;
 
@@ -98,6 +99,18 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
 void
 bare_worklet_destroy(bare_worklet_t *worklet);
+
+int
+bare_worklet_on_suspend(bare_worklet_t *worklet, bare_suspend_cb cb, void *data);
+
+int
+bare_worklet_on_wakeup(bare_worklet_t *worklet, bare_wakeup_cb cb, void *data);
+
+int
+bare_worklet_on_idle(bare_worklet_t *worklet, bare_idle_cb cb, void *data);
+
+int
+bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data);
 
 void *
 bare_worklet_get_data(bare_worklet_t *worklet);
