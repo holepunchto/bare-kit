@@ -18,6 +18,26 @@
 #include "worklet.bundle.h"
 #include "worklet.h"
 
+struct bare_worklet_state_s {
+  bool finished;
+
+  bare_suspension_t suspension;
+
+  struct {
+    bare_suspend_cb suspend;
+    void *suspend_data;
+
+    bare_wakeup_cb wakeup;
+    void *wakeup_data;
+
+    bare_idle_cb idle;
+    void *idle_data;
+
+    bare_resume_cb resume;
+    void *resume_data;
+  } callbacks;
+};
+
 static uv_once_t bare_worklet__init_guard = UV_ONCE_INIT;
 
 static void
@@ -74,6 +94,38 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   if (worklet->outgoing >= 0) close(worklet->outgoing);
 
   free((char *) worklet->options.assets);
+}
+
+int
+bare_worklet_on_suspend(bare_worklet_t *worklet, bare_suspend_cb cb, void *data) {
+  worklet->state->callbacks.suspend = cb;
+  worklet->state->callbacks.suspend_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_wakeup(bare_worklet_t *worklet, bare_wakeup_cb cb, void *data) {
+  worklet->state->callbacks.wakeup = cb;
+  worklet->state->callbacks.wakeup_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_idle(bare_worklet_t *worklet, bare_idle_cb cb, void *data) {
+  worklet->state->callbacks.idle = cb;
+  worklet->state->callbacks.idle_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data) {
+  worklet->state->callbacks.resume = cb;
+  worklet->state->callbacks.resume_data = data;
+
+  return 0;
 }
 
 void *
@@ -245,22 +297,44 @@ bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *da
 }
 
 static void
+bare_worklet__on_suspend(bare_t *bare, int linger, void *data) {
+  bare_worklet_state_t *state = data;
+
+  if (state->finished) return;
+
+  if (state->callbacks.suspend) state->callbacks.suspend(bare, linger, state->callbacks.suspend_data);
+}
+
+static void
+bare_worklet__on_wakeup(bare_t *bare, int deadline, void *data) {
+  bare_worklet_state_t *state = data;
+
+  if (state->finished) return;
+
+  if (state->callbacks.wakeup) state->callbacks.wakeup(bare, deadline, state->callbacks.wakeup_data);
+}
+
+static void
 bare_worklet__on_idle(bare_t *bare, void *data) {
   int err;
 
-  bare_suspension_t *suspension = data;
+  bare_worklet_state_t *state = data;
 
-  err = bare_suspension_end(suspension);
+  err = bare_suspension_end(&state->suspension);
   assert(err == 0);
+
+  if (state->finished) return;
+
+  if (state->callbacks.idle) state->callbacks.idle(bare, state->callbacks.idle_data);
 }
 
 static void
 bare_worklet__on_resume(bare_t *bare, void *data) {
   int err;
 
-  bare_suspension_t *suspension = data;
+  bare_worklet_state_t *state = data;
 
-  err = bare_suspension_end(suspension);
+  err = bare_suspension_end(&state->suspension);
   assert(err == 0);
 }
 
@@ -278,11 +352,16 @@ bare_worklet__on_thread(void *opaque) {
 
   worklet->finished = &finished;
 
-  bare_suspension_t suspension;
-  err = bare_suspension_init(&suspension);
-  assert(err == 0);
+  bare_worklet_state_t state;
 
-  worklet->suspension = &suspension;
+  state.finished = false;
+
+  memset(&state.callbacks, 0, sizeof(state.callbacks));
+
+  worklet->state = &state;
+
+  err = bare_suspension_init(&state.suspension);
+  assert(err == 0);
 
   uv_loop_t loop;
   err = uv_loop_init(&loop);
@@ -299,10 +378,16 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
-  err = bare_on_idle(bare, bare_worklet__on_idle, &suspension);
+  err = bare_on_suspend(bare, bare_worklet__on_suspend, &state);
   assert(err == 0);
 
-  err = bare_on_resume(bare, bare_worklet__on_resume, &suspension);
+  err = bare_on_wakeup(bare, bare_worklet__on_wakeup, &state);
+  assert(err == 0);
+
+  err = bare_on_idle(bare, bare_worklet__on_idle, &state);
+  assert(err == 0);
+
+  err = bare_on_resume(bare, bare_worklet__on_resume, &state);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -392,6 +477,8 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
+  state.finished = true;
+
   uv_sem_wait(&finished);
 
   uv_sem_destroy(&finished);
@@ -406,7 +493,7 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
-  err = bare_suspension_end(&suspension);
+  err = bare_suspension_end(&state.suspension);
   assert(err == 0);
 }
 
@@ -449,7 +536,7 @@ int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
   int err;
 
-  linger = bare_suspension_start(worklet->suspension, linger);
+  linger = bare_suspension_start(&worklet->state->suspension, linger);
   assert(linger >= 0);
 
   return bare_suspend(worklet->bare, linger);
@@ -464,7 +551,7 @@ int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
   int err;
 
-  deadline = bare_suspension_start(worklet->suspension, deadline);
+  deadline = bare_suspension_start(&worklet->state->suspension, deadline);
   assert(deadline >= 0);
 
   return bare_wakeup(worklet->bare, deadline);
