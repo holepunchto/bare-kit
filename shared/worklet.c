@@ -71,6 +71,14 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
   worklet->thread = 0;
 
+  bare_worklet_state_t *state = malloc(sizeof(bare_worklet_state_t));
+
+  state->finished = false;
+
+  memset(&state->callbacks, 0, sizeof(state->callbacks));
+
+  worklet->state = state;
+
   memset(&worklet->options, 0, sizeof(worklet->options));
 
   if (options) {
@@ -89,6 +97,7 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   int err;
 
   if (worklet->thread != 0) uv_sem_post(worklet->finished);
+  else free(worklet->state);
 
   if (worklet->incoming >= 0) close(worklet->incoming);
   if (worklet->outgoing >= 0) close(worklet->outgoing);
@@ -356,15 +365,9 @@ bare_worklet__on_thread(void *opaque) {
 
   worklet->finished = &finished;
 
-  bare_worklet_state_t state;
+  bare_worklet_state_t *state = worklet->state;
 
-  state.finished = false;
-
-  memset(&state.callbacks, 0, sizeof(state.callbacks));
-
-  worklet->state = &state;
-
-  err = bare_suspension_init(&state.suspension);
+  err = bare_suspension_init(&state->suspension);
   assert(err == 0);
 
   uv_loop_t loop;
@@ -382,16 +385,16 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
-  err = bare_on_suspend(bare, bare_worklet__on_suspend, &state);
+  err = bare_on_suspend(bare, bare_worklet__on_suspend, state);
   assert(err == 0);
 
-  err = bare_on_wakeup(bare, bare_worklet__on_wakeup, &state);
+  err = bare_on_wakeup(bare, bare_worklet__on_wakeup, state);
   assert(err == 0);
 
-  err = bare_on_idle(bare, bare_worklet__on_idle, &state);
+  err = bare_on_idle(bare, bare_worklet__on_idle, state);
   assert(err == 0);
 
-  err = bare_on_resume(bare, bare_worklet__on_resume, &state);
+  err = bare_on_resume(bare, bare_worklet__on_resume, state);
   assert(err == 0);
 
   worklet->bare = bare;
@@ -481,7 +484,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_run(bare, UV_RUN_DEFAULT);
   assert(err == 0);
 
-  state.finished = true;
+  state->finished = true;
 
   uv_sem_wait(&finished);
 
@@ -497,8 +500,10 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
-  err = bare_suspension_end(&state.suspension);
+  err = bare_suspension_end(&state->suspension);
   assert(err == 0);
+
+  free(state);
 }
 
 int
