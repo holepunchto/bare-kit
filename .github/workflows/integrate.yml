@@ -45,10 +45,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-      - uses: actions/cache@v5
-        with:
-          path: build/_drive
-          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
       - run: npm install --global bare-make
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }} --debug
@@ -72,10 +68,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: actions/cache@v5
-        with:
-          path: android/build/_drive
-          key: corestore-${{ matrix.platform }}
       - run: npm install --global cmake-runtime ninja-runtime
       - run: npm install
       - run: gradle aR
@@ -96,10 +88,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-      - uses: actions/cache@v5
-        with:
-          path: build/_drive
-          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -127,10 +115,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-      - uses: actions/cache@v5
-        with:
-          path: build/_drive
-          key: corestore-${{ matrix.platform }}-${{ matrix.arch }}
       - run: choco upgrade llvm
       - run: choco install nasm
       - run: npm install --global bare-make
