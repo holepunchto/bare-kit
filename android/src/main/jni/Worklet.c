@@ -21,7 +21,7 @@ typedef struct {
 } bare_worklet_push_context_t;
 
 static void
-bare_worklet_android_set_context_class_loader(JNIEnv *env) {
+bare_worklet_set_context_class_loader(JNIEnv *env) {
   jclass thread_class = (*env)->FindClass(env, "java/lang/Thread");
   assert(thread_class != NULL);
 
@@ -67,7 +67,7 @@ bare_worklet_android_set_context_class_loader(JNIEnv *env) {
 }
 
 static void
-bare_worklet_android_on_thread_enter(bare_worklet_t *worklet, void **data) {
+bare_worklet_on_thread_enter(bare_worklet_t *worklet, void **data) {
   int err;
 
   bare_worklet_context_t *context = (bare_worklet_context_t *) worklet->data;
@@ -91,11 +91,11 @@ bare_worklet_android_on_thread_enter(bare_worklet_t *worklet, void **data) {
     *data = NULL;
   }
 
-  bare_worklet_android_set_context_class_loader(env);
+  bare_worklet_set_context_class_loader(env);
 }
 
 static void
-bare_worklet_android_on_thread_exit(bare_worklet_t *worklet, void *data) {
+bare_worklet_on_thread_exit(bare_worklet_t *worklet, void *data) {
   (void) worklet;
 
   if (data == NULL) return;
@@ -118,8 +118,8 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   bare_worklet_options_t options;
 
   options.memory_limit = (int) jmemory_limit;
-  options.on_thread_enter = bare_worklet_android_on_thread_enter;
-  options.on_thread_exit = bare_worklet_android_on_thread_exit;
+  options.on_thread_enter = bare_worklet_on_thread_enter;
+  options.on_thread_exit = bare_worklet_on_thread_exit;
 
   if ((*env)->IsSameObject(env, jassets, NULL)) {
     options.assets = NULL;
