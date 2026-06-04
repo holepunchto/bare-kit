@@ -67,7 +67,7 @@ bare_worklet_set_context_class_loader(JNIEnv *env) {
 }
 
 static void
-bare_worklet_on_thread_enter(void **thread_data, void *data) {
+bare_worklet_android_on_thread_enter(void **thread_data, void *data) {
   int err;
 
   bare_worklet_context_t *context = (bare_worklet_context_t *) data;
@@ -95,7 +95,7 @@ bare_worklet_on_thread_enter(void **thread_data, void *data) {
 }
 
 static void
-bare_worklet_on_thread_exit(void *thread_data, void *data) {
+bare_worklet_android_on_thread_exit(void *thread_data, void *data) {
   (void) data;
 
   if (thread_data == NULL) return;
@@ -128,10 +128,10 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   err = bare_worklet_init(&context->worklet, &options);
   assert(err == 0);
 
-  err = bare_worklet_on_thread_enter(&context->worklet, bare_worklet_on_thread_enter, context);
+  err = bare_worklet_on_thread_enter(&context->worklet, bare_worklet_android_on_thread_enter, context);
   assert(err == 0);
 
-  err = bare_worklet_on_thread_exit(&context->worklet, bare_worklet_on_thread_exit, NULL);
+  err = bare_worklet_on_thread_exit(&context->worklet, bare_worklet_android_on_thread_exit, NULL);
   assert(err == 0);
 
   if (options.assets) {
