@@ -18,6 +18,8 @@ typedef struct bare_worklet_state_s bare_worklet_state_t;
 typedef struct bare_worklet_push_s bare_worklet_push_t;
 
 typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
+typedef void (*bare_worklet_thread_enter_cb)(void **thread_data, void *data);
+typedef void (*bare_worklet_thread_exit_cb)(void *thread_data, void *data);
 
 struct bare_worklet_options_s {
   /**
@@ -36,16 +38,6 @@ struct bare_worklet_options_s {
    */
   const char *assets;
 
-  /**
-   * Platform-specific setup for the worklet thread. Used by Android to attach
-   * the native worklet thread to the JVM before Bare starts.
-   */
-  void (*on_thread_enter)(bare_worklet_t *worklet, void **data);
-
-  /**
-   * Platform-specific cleanup for the worklet thread.
-   */
-  void (*on_thread_exit)(bare_worklet_t *worklet, void *data);
 };
 
 struct bare_worklet_s {
@@ -122,6 +114,12 @@ bare_worklet_on_idle(bare_worklet_t *worklet, bare_idle_cb cb, void *data);
 
 int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data);
+
+int
+bare_worklet_on_thread_enter(bare_worklet_t *worklet, bare_worklet_thread_enter_cb cb, void *data);
+
+int
+bare_worklet_on_thread_exit(bare_worklet_t *worklet, bare_worklet_thread_exit_cb cb, void *data);
 
 void *
 bare_worklet_get_data(bare_worklet_t *worklet);

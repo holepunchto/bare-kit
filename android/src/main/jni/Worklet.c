@@ -67,10 +67,10 @@ bare_worklet_set_context_class_loader(JNIEnv *env) {
 }
 
 static void
-bare_worklet_on_thread_enter(bare_worklet_t *worklet, void **data) {
+bare_worklet_on_thread_enter(void **thread_data, void *data) {
   int err;
 
-  bare_worklet_context_t *context = (bare_worklet_context_t *) worklet->data;
+  bare_worklet_context_t *context = (bare_worklet_context_t *) data;
 
   JNIEnv *env;
   err = (*context->vm)->GetEnv(context->vm, (void **) &env, JNI_VERSION_1_6);
@@ -85,22 +85,22 @@ bare_worklet_on_thread_enter(bare_worklet_t *worklet, void **data) {
     err = (*context->vm)->AttachCurrentThread(context->vm, &env, &args);
     assert(err == JNI_OK);
 
-    *data = context->vm;
+    *thread_data = context->vm;
   } else {
     assert(err == JNI_OK);
-    *data = NULL;
+    *thread_data = NULL;
   }
 
   bare_worklet_set_context_class_loader(env);
 }
 
 static void
-bare_worklet_on_thread_exit(bare_worklet_t *worklet, void *data) {
-  (void) worklet;
+bare_worklet_on_thread_exit(void *thread_data, void *data) {
+  (void) data;
 
-  if (data == NULL) return;
+  if (thread_data == NULL) return;
 
-  JavaVM *vm = (JavaVM *) data;
+  JavaVM *vm = (JavaVM *) thread_data;
   int err = (*vm)->DetachCurrentThread(vm);
   assert(err == JNI_OK);
 }
@@ -118,8 +118,6 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   bare_worklet_options_t options;
 
   options.memory_limit = (int) jmemory_limit;
-  options.on_thread_enter = bare_worklet_on_thread_enter;
-  options.on_thread_exit = bare_worklet_on_thread_exit;
 
   if ((*env)->IsSameObject(env, jassets, NULL)) {
     options.assets = NULL;
@@ -128,6 +126,12 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   }
 
   err = bare_worklet_init(&context->worklet, &options);
+  assert(err == 0);
+
+  err = bare_worklet_on_thread_enter(&context->worklet, bare_worklet_on_thread_enter, context);
+  assert(err == 0);
+
+  err = bare_worklet_on_thread_exit(&context->worklet, bare_worklet_on_thread_exit, NULL);
   assert(err == 0);
 
   if (options.assets) {

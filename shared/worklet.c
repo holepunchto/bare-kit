@@ -35,6 +35,12 @@ struct bare_worklet_state_s {
 
     bare_resume_cb resume;
     void *resume_data;
+
+    bare_worklet_thread_enter_cb thread_enter;
+    void *thread_enter_data;
+
+    bare_worklet_thread_exit_cb thread_exit;
+    void *thread_exit_data;
   } callbacks;
 };
 
@@ -83,9 +89,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
   if (options) {
     worklet->options.memory_limit = options->memory_limit;
-    worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
-    worklet->options.on_thread_enter = options->on_thread_enter;
-    worklet->options.on_thread_exit = options->on_thread_exit;
   }
 
   worklet->incoming = -1;
@@ -135,6 +138,22 @@ int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data) {
   worklet->state->callbacks.resume = cb;
   worklet->state->callbacks.resume_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_thread_enter(bare_worklet_t *worklet, bare_worklet_thread_enter_cb cb, void *data) {
+  worklet->state->callbacks.thread_enter = cb;
+  worklet->state->callbacks.thread_enter_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_thread_exit(bare_worklet_t *worklet, bare_worklet_thread_exit_cb cb, void *data) {
+  worklet->state->callbacks.thread_exit = cb;
+  worklet->state->callbacks.thread_exit_data = data;
 
   return 0;
 }
@@ -362,8 +381,10 @@ bare_worklet__on_thread(void *opaque) {
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
   void *platform_thread_data = NULL;
 
-  if (worklet->options.on_thread_enter) {
-    worklet->options.on_thread_enter(worklet, &platform_thread_data);
+  bare_worklet_state_t *state = worklet->state;
+
+  if (state->callbacks.thread_enter) {
+    state->callbacks.thread_enter(&platform_thread_data, state->callbacks.thread_enter_data);
   }
 
   uv_sem_t finished;
@@ -371,8 +392,6 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   worklet->finished = &finished;
-
-  bare_worklet_state_t *state = worklet->state;
 
   err = bare_suspension_init(&state->suspension);
   assert(err == 0);
@@ -493,6 +512,9 @@ bare_worklet__on_thread(void *opaque) {
 
   state->finished = true;
 
+  bare_worklet_thread_exit_cb thread_exit = state->callbacks.thread_exit;
+  void *thread_exit_data = state->callbacks.thread_exit_data;
+
   uv_sem_wait(&finished);
 
   uv_sem_destroy(&finished);
@@ -510,11 +532,9 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
 
-  free(state);
+  if (thread_exit) thread_exit(platform_thread_data, thread_exit_data);
 
-  if (worklet->options.on_thread_exit) {
-    worklet->options.on_thread_exit(worklet, platform_thread_data);
-  }
+  free(state);
 }
 
 int
