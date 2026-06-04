@@ -35,6 +35,17 @@ struct bare_worklet_options_s {
    * referenced and doing so will result in a runtime error.
    */
   const char *assets;
+
+  /**
+   * Platform-specific setup for the worklet thread. Used by Android to attach
+   * the native worklet thread to the JVM before Bare starts.
+   */
+  void (*on_thread_enter)(bare_worklet_t *worklet, void **data);
+
+  /**
+   * Platform-specific cleanup for the worklet thread.
+   */
+  void (*on_thread_exit)(bare_worklet_t *worklet, void *data);
 };
 
 struct bare_worklet_s {

@@ -84,6 +84,8 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   if (options) {
     worklet->options.memory_limit = options->memory_limit;
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
+    worklet->options.on_thread_enter = options->on_thread_enter;
+    worklet->options.on_thread_exit = options->on_thread_exit;
   }
 
   worklet->incoming = -1;
@@ -358,6 +360,11 @@ bare_worklet__on_thread(void *opaque) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
+  void *platform_thread_data = NULL;
+
+  if (worklet->options.on_thread_enter) {
+    worklet->options.on_thread_enter(worklet, &platform_thread_data);
+  }
 
   uv_sem_t finished;
   err = uv_sem_init(&finished, 0);
@@ -504,6 +511,10 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   free(state);
+
+  if (worklet->options.on_thread_exit) {
+    worklet->options.on_thread_exit(worklet, platform_thread_data);
+  }
 }
 
 int
