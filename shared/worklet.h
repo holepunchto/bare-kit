@@ -18,8 +18,8 @@ typedef struct bare_worklet_state_s bare_worklet_state_t;
 typedef struct bare_worklet_push_s bare_worklet_push_t;
 
 typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
-typedef void (*bare_worklet_thread_enter_cb)(void **thread_data, void *data);
-typedef void (*bare_worklet_thread_exit_cb)(void *thread_data, void *data);
+typedef void (*bare_worklet_thread_enter_cb)(void *data);
+typedef void (*bare_worklet_thread_exit_cb)(void *data);
 
 struct bare_worklet_options_s {
   /**

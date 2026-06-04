@@ -379,12 +379,11 @@ bare_worklet__on_thread(void *opaque) {
   int err;
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
-  void *platform_thread_data = NULL;
 
   bare_worklet_state_t *state = worklet->state;
 
   if (state->callbacks.thread_enter) {
-    state->callbacks.thread_enter(&platform_thread_data, state->callbacks.thread_enter_data);
+    state->callbacks.thread_enter(state->callbacks.thread_enter_data);
   }
 
   uv_sem_t finished;
@@ -532,7 +531,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
 
-  if (thread_exit) thread_exit(platform_thread_data, thread_exit_data);
+  if (thread_exit) thread_exit(thread_exit_data);
 
   free(state);
 }

@@ -67,41 +67,36 @@ bare_worklet_set_context_class_loader(JNIEnv *env) {
 }
 
 static void
-bare_worklet_android_on_thread_enter(void **thread_data, void *data) {
+bare_worklet_android_on_thread_enter(void *java_vm) {
   int err;
 
-  bare_worklet_context_t *context = (bare_worklet_context_t *) data;
+  JavaVM *vm = (JavaVM *) java_vm;
 
   JNIEnv *env;
-  err = (*context->vm)->GetEnv(context->vm, (void **) &env, JNI_VERSION_1_6);
+  err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+  assert(err == JNI_EDETACHED);
 
-  if (err == JNI_EDETACHED) {
-    JavaVMAttachArgs args = {
-      JNI_VERSION_1_6,
-      "bare-worklet",
-      NULL,
-    };
+  JavaVMAttachArgs args = {
+    JNI_VERSION_1_6,
+    "bare-worklet",
+    NULL,
+  };
 
-    err = (*context->vm)->AttachCurrentThread(context->vm, &env, &args);
-    assert(err == JNI_OK);
-
-    *thread_data = context->vm;
-  } else {
-    assert(err == JNI_OK);
-    *thread_data = NULL;
-  }
+  err = (*vm)->AttachCurrentThread(vm, &env, &args);
+  assert(err == JNI_OK);
 
   bare_worklet_set_context_class_loader(env);
 }
 
 static void
-bare_worklet_android_on_thread_exit(void *thread_data, void *data) {
-  (void) data;
+bare_worklet_android_on_thread_exit(void *java_vm) {
+  JavaVM *vm = (JavaVM *) java_vm;
 
-  if (thread_data == NULL) return;
+  JNIEnv *env;
+  int err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+  assert(err == JNI_OK);
 
-  JavaVM *vm = (JavaVM *) thread_data;
-  int err = (*vm)->DetachCurrentThread(vm);
+  err = (*vm)->DetachCurrentThread(vm);
   assert(err == JNI_OK);
 }
 
@@ -128,10 +123,10 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   err = bare_worklet_init(&context->worklet, &options);
   assert(err == 0);
 
-  err = bare_worklet_on_thread_enter(&context->worklet, bare_worklet_android_on_thread_enter, context);
+  err = bare_worklet_on_thread_enter(&context->worklet, bare_worklet_android_on_thread_enter, context->vm);
   assert(err == 0);
 
-  err = bare_worklet_on_thread_exit(&context->worklet, bare_worklet_android_on_thread_exit, NULL);
+  err = bare_worklet_on_thread_exit(&context->worklet, bare_worklet_android_on_thread_exit, context->vm);
   assert(err == 0);
 
   if (options.assets) {
