@@ -35,6 +35,12 @@ struct bare_worklet_state_s {
 
     bare_resume_cb resume;
     void *resume_data;
+
+    bare_worklet_thread_enter_cb thread_enter;
+    void *thread_enter_data;
+
+    bare_worklet_thread_exit_cb thread_exit;
+    void *thread_exit_data;
   } callbacks;
 };
 
@@ -133,6 +139,22 @@ int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data) {
   worklet->state->callbacks.resume = cb;
   worklet->state->callbacks.resume_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_thread_enter(bare_worklet_t *worklet, bare_worklet_thread_enter_cb cb, void *data) {
+  worklet->state->callbacks.thread_enter = cb;
+  worklet->state->callbacks.thread_enter_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_thread_exit(bare_worklet_t *worklet, bare_worklet_thread_exit_cb cb, void *data) {
+  worklet->state->callbacks.thread_exit = cb;
+  worklet->state->callbacks.thread_exit_data = data;
 
   return 0;
 }
@@ -359,13 +381,19 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_worklet_t *worklet = (bare_worklet_t *) opaque;
 
+  bare_worklet_state_t *state = worklet->state;
+  bare_worklet_thread_exit_cb thread_exit = state->callbacks.thread_exit;
+  void *thread_exit_data = state->callbacks.thread_exit_data;
+
+  if (state->callbacks.thread_enter) {
+    state->callbacks.thread_enter(state->callbacks.thread_enter_data);
+  }
+
   uv_sem_t finished;
   err = uv_sem_init(&finished, 0);
   assert(err == 0);
 
   worklet->finished = &finished;
-
-  bare_worklet_state_t *state = worklet->state;
 
   err = bare_suspension_init(&state->suspension);
   assert(err == 0);
@@ -502,6 +530,8 @@ bare_worklet__on_thread(void *opaque) {
 
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
+
+  if (thread_exit) thread_exit(thread_exit_data);
 
   free(state);
 }
