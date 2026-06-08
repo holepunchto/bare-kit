@@ -37,7 +37,6 @@ struct bare_worklet_options_s {
    * referenced and doing so will result in a runtime error.
    */
   const char *assets;
-
 };
 
 struct bare_worklet_s {
