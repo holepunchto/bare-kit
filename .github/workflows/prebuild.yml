@@ -150,4 +150,6 @@ jobs:
             prebuilds/ios/BareKit.xcframework
             prebuilds/ios-javascriptcore/BareKit.xcframework
             prebuilds/android/bare-kit
+            prebuilds/linux/x64/libbare-kit.so
+            prebuilds/linux/arm64/libbare-kit.so
           retention-days: 5
