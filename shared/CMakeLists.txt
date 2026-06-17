@@ -20,10 +20,19 @@ target_sources(
   PRIVATE
     ipc.h
     ipc.c
+    platform.h
     worklet.c
     worklet.bundle.h
     worklet.h
 )
+
+if(NOT ANDROID)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      platform.c
+  )
+endif()
 
 target_include_directories(
   bare_worklet
@@ -74,12 +83,14 @@ if(ANDROID)
       android/ipc.h
       android/suspension.c
       android/suspension.h
+      android/worklet.c
   )
 
   target_link_libraries(
     bare_worklet
     PRIVATE
       android
+      dl
   )
 
   target_compile_definitions(
