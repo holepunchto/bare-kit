@@ -115,7 +115,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-      - run: choco upgrade llvm
+      - run: choco install llvm --version 20.1.8 --force
       - run: choco install nasm
       - run: npm install --global bare-make
       - run: npm install
