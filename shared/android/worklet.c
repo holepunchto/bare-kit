@@ -1,69 +1,9 @@
 #include <assert.h>
-#include <dlfcn.h>
 #include <jni.h>
-#include <stddef.h>
-#include <uv.h>
 
 #include "../platform.h"
 #include "../worklet.h"
-
-typedef jint (*bare_worklet_android_get_created_java_vms_fn)(JavaVM **, jsize, jsize *);
-
-static uv_once_t bare_worklet_android_get_created_java_vms_guard = UV_ONCE_INIT;
-static bare_worklet_android_get_created_java_vms_fn bare_worklet_android_get_created_java_vms_fn_ = NULL;
-
-static void
-bare_worklet_android_on_get_created_java_vms_init() {
-  void *symbol = dlsym(RTLD_DEFAULT, "JNI_GetCreatedJavaVMs");
-
-  if (symbol) {
-    bare_worklet_android_get_created_java_vms_fn_ = (bare_worklet_android_get_created_java_vms_fn) symbol;
-    return;
-  }
-
-  const char *libraries[] = {
-    "libart.so",
-    "libnativehelper.so",
-  };
-
-  for (size_t i = 0; i < sizeof(libraries) / sizeof(libraries[0]); i++) {
-    void *handle = dlopen(libraries[i], RTLD_NOW | RTLD_LOCAL);
-    if (handle == NULL) continue;
-
-    symbol = dlsym(handle, "JNI_GetCreatedJavaVMs");
-    if (symbol == NULL) continue;
-
-    bare_worklet_android_get_created_java_vms_fn_ = (bare_worklet_android_get_created_java_vms_fn) symbol;
-    return;
-  }
-
-  assert(bare_worklet_android_get_created_java_vms_fn_ != NULL);
-}
-
-static bare_worklet_android_get_created_java_vms_fn
-bare_worklet_android_get_created_java_vms() {
-  uv_once(&bare_worklet_android_get_created_java_vms_guard, bare_worklet_android_on_get_created_java_vms_init);
-
-  return bare_worklet_android_get_created_java_vms_fn_;
-}
-
-static uv_once_t bare_worklet_android_java_vm_guard = UV_ONCE_INIT;
-static JavaVM *bare_worklet_android_java_vm = NULL;
-
-static void
-bare_worklet_android_on_java_vm_init() {
-  jsize count = 0;
-  int err = bare_worklet_android_get_created_java_vms()(&bare_worklet_android_java_vm, 1, &count);
-  assert(err == JNI_OK);
-  assert(count == 1);
-}
-
-static JavaVM *
-bare_worklet_android_get_java_vm() {
-  uv_once(&bare_worklet_android_java_vm_guard, bare_worklet_android_on_java_vm_init);
-
-  return bare_worklet_android_java_vm;
-}
+#include "worklet.h"
 
 static void
 bare_worklet_android_set_context_class_loader(JNIEnv *env) {
@@ -111,11 +51,11 @@ bare_worklet_android_set_context_class_loader(JNIEnv *env) {
   (*env)->DeleteLocalRef(env, thread_class);
 }
 
-void
-bare_worklet__platform_on_thread_enter(bare_worklet_t *worklet) {
+static void
+bare_worklet_android_on_thread_enter(void *data) {
   int err;
 
-  JavaVM *vm = bare_worklet_android_get_java_vm();
+  JavaVM *vm = (JavaVM *) data;
 
   JNIEnv *env;
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
@@ -133,9 +73,9 @@ bare_worklet__platform_on_thread_enter(bare_worklet_t *worklet) {
   bare_worklet_android_set_context_class_loader(env);
 }
 
-void
-bare_worklet__platform_on_thread_exit(bare_worklet_t *worklet) {
-  JavaVM *vm = bare_worklet_android_get_java_vm();
+static void
+bare_worklet_android_on_thread_exit(void *data) {
+  JavaVM *vm = (JavaVM *) data;
 
   JNIEnv *env;
   int err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
@@ -146,8 +86,27 @@ bare_worklet__platform_on_thread_exit(bare_worklet_t *worklet) {
 }
 
 int
-bare_worklet__platform_init(bare_worklet_t *worklet) {
-  bare_worklet_android_get_java_vm();
+bare_worklet_android_attach_vm(bare_worklet_t *worklet, JavaVM *vm) {
+  int err;
 
+  if (vm == NULL) return -1;
+
+  err = bare_worklet_on_thread_enter(worklet, bare_worklet_android_on_thread_enter, vm);
+  if (err < 0) return err;
+
+  err = bare_worklet_on_thread_exit(worklet, bare_worklet_android_on_thread_exit, vm);
+  if (err < 0) return err;
+
+  return 0;
+}
+
+void
+bare_worklet__platform_on_thread_enter(bare_worklet_t *worklet) {}
+
+void
+bare_worklet__platform_on_thread_exit(bare_worklet_t *worklet) {}
+
+int
+bare_worklet__platform_init(bare_worklet_t *worklet) {
   return 0;
 }

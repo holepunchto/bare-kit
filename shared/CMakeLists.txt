@@ -90,7 +90,6 @@ if(ANDROID)
     bare_worklet
     PRIVATE
       android
-      dl
   )
 
   target_compile_definitions(

@@ -2,6 +2,7 @@
 #include <jni.h>
 #include <stdlib.h>
 
+#include "../../../../shared/android/worklet.h"
 #include "../../../../shared/worklet.h"
 
 typedef struct {
@@ -37,6 +38,13 @@ Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_
   }
 
   err = bare_worklet_init(&context->worklet, &options);
+  assert(err == 0);
+
+  JavaVM *vm;
+  err = (*env)->GetJavaVM(env, &vm);
+  assert(err == JNI_OK);
+
+  err = bare_worklet_android_attach_vm(&context->worklet, vm);
   assert(err == 0);
 
   if (options.assets) {
