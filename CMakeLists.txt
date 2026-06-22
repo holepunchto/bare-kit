@@ -4,6 +4,7 @@ find_package(cmake-bare REQUIRED PATHS node_modules/cmake-bare)
 find_package(cmake-bare-bundle REQUIRED PATHS node_modules/cmake-bare-bundle)
 find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
 find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
+find_package(cmake-java REQUIRED PATHS node_modules/cmake-java)
 
 project(bare_kit LANGUAGES C CXX VERSION 2.2.1)
 
