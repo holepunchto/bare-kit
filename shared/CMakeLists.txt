@@ -18,12 +18,27 @@ set_target_properties(
 target_sources(
   bare_worklet
   PRIVATE
+    events.h
     ipc.h
     ipc.c
     worklet.c
     worklet.bundle.h
     worklet.h
 )
+
+if(ANDROID)
+  target_sources(
+    bare_worklet
+    PRIVATE
+      android/events.c
+  )
+else()
+  target_sources(
+    bare_worklet
+    PRIVATE
+      events.c
+  )
+endif()
 
 target_include_directories(
   bare_worklet
@@ -76,10 +91,13 @@ if(ANDROID)
       android/suspension.h
   )
 
+  use_java()
+
   target_link_libraries(
     bare_worklet
     PRIVATE
       android
+      JNI::NativeHelper
   )
 
   target_compile_definitions(
