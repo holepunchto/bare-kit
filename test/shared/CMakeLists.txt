@@ -1,8 +1,10 @@
 list(APPEND tests
   worklet-assets
   worklet-destroy-before-start
+  worklet-exit-eof
   worklet-ipc
   worklet-ipc-large-write
+  worklet-jsend-eof
   worklet-suspend-resume
   worklet-terminate-after-suspend
 )
