@@ -70,7 +70,7 @@ jobs:
           java-version: 21
       - run: npm install --global cmake-runtime ninja-runtime
       - run: npm install
-      - run: gradle aR
+      - run: ./gradlew aR
   linux:
     strategy:
       matrix:
