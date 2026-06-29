@@ -36,6 +36,9 @@ struct bare_worklet_state_s {
 
     bare_resume_cb resume;
     void *resume_data;
+
+    bare_worklet_exit_cb exit;
+    void *exit_data;
   } callbacks;
 };
 
@@ -134,6 +137,14 @@ int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data) {
   worklet->state->callbacks.resume = cb;
   worklet->state->callbacks.resume_data = data;
+
+  return 0;
+}
+
+int
+bare_worklet_on_exit(bare_worklet_t *worklet, bare_worklet_exit_cb cb, void *data) {
+  worklet->state->callbacks.exit = cb;
+  worklet->state->callbacks.exit_data = data;
 
   return 0;
 }
@@ -488,6 +499,8 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   state->finished = true;
+
+  if (state->callbacks.exit) state->callbacks.exit(worklet, state->callbacks.exit_data);
 
   uv_sem_wait(&finished);
 

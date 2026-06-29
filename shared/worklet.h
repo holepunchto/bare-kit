@@ -19,6 +19,8 @@ typedef struct bare_worklet_push_s bare_worklet_push_t;
 
 typedef void (*bare_worklet_push_cb)(bare_worklet_push_t *, const char *error, const uv_buf_t *reply);
 
+typedef void (*bare_worklet_exit_cb)(bare_worklet_t *, void *data);
+
 struct bare_worklet_options_s {
   /**
    * The memory limit of each JavaScript heap. By default, the limit will be
@@ -111,6 +113,16 @@ bare_worklet_on_idle(bare_worklet_t *worklet, bare_idle_cb cb, void *data);
 
 int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_resume_cb cb, void *data);
+
+/**
+ * Register a callback invoked on the worklet thread when the worklet stops
+ * running JavaScript, whether it exited on its own (`Bare.exit()` or the event
+ * loop draining) or was terminated by the host. This lets the host detect a
+ * worklet that has stopped and tear it down. The callback fires before the
+ * worklet parks waiting for `bare_worklet_destroy`.
+ */
+int
+bare_worklet_on_exit(bare_worklet_t *worklet, bare_worklet_exit_cb cb, void *data);
 
 void *
 bare_worklet_get_data(bare_worklet_t *worklet);
