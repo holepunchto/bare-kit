@@ -294,6 +294,25 @@ ipc.write(data, (exception) -> {
 > [!TIP]
 > For a full API reference, see [`android/src/main/java/to/holepunch/bare/kit/IPC.java`](android/src/main/java/to/holepunch/bare/kit/IPC.java).
 
+## Error handling
+
+A worklet runs as a thread inside the host process, so it follows Bare's default handling of uncaught errors: an uncaught exception or unhandled promise rejection in worklet JavaScript is printed to `stderr` and the process is aborted. Because the worklet shares the host's process, this takes the **host** down with it. This is by design.
+
+To keep a worklet error from aborting the host, register an `uncaughtException` (and/or `unhandledRejection`) listener inside the worklet. Adding a listener overrides the default abort and lets the worklet decide how to respond:
+
+```js
+Bare.on('uncaughtException', (err) => {
+  // The host no longer aborts. Report the error to the host (for example over
+  // Bare.IPC) and exit or recover as appropriate.
+  console.error(err)
+})
+```
+
+> [!IMPORTANT]
+> The handler runs inside the worklet, not in the host - the host cannot catch a worklet exception directly. Surface it yourself, for example by sending a message over IPC from the handler before the worklet exits.
+
+See Bare's [`uncaughtException`](https://github.com/holepunchto/bare#bareonuncaughtexception-err) and [`unhandledRejection`](https://github.com/holepunchto/bare#bareonunhandledrejection-reason-promise) for the underlying behavior.
+
 ## License
 
 Apache-2.0
