@@ -1,5 +1,6 @@
 list(APPEND tests
   worklet-ipc
+  worklet-ipc-eof
   worklet-ipc-large-write
   worklet-push
   worklet-push-error
