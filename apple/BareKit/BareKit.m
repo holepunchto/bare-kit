@@ -377,20 +377,29 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
-  NSData *data = [self read];
+  int err;
 
-  if (data) {
-    completion(data, nil);
-  } else {
+  void *data;
+  size_t len;
+  err = bare_ipc_read(&_ipc, &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
+
+  if (err == bare_ipc_would_block) {
     self.readable = ^(BareIPC *ipc) {
-      NSData *data = [self read];
+      self.readable = nil;
 
-      if (data) {
-        self.readable = nil;
-
-        completion(data, nil);
-      }
+      [self read:completion];
     };
+
+    return;
+  }
+
+  // A successful read of zero bytes is end-of-stream; signal it as nil rather
+  // than an empty buffer so consumers can detect a closed IPC.
+  if (len == 0) {
+    completion(nil, nil);
+  } else {
+    completion([[NSData alloc] initWithBytes:data length:len], nil);
   }
 }
 

@@ -100,8 +100,10 @@ public class IPC implements Closeable {
   read(ReadCallback callback) {
     ByteBuffer data1 = read();
 
+    // A zero-length read is end-of-stream; signal it as null rather than an
+    // empty buffer so consumers can detect a closed IPC.
     if (data1 != null) {
-      callback.apply(data1, null);
+      callback.apply(data1.limit() == 0 ? null : data1, null);
     } else {
       readable(() -> {
         ByteBuffer data2 = read();
@@ -109,7 +111,7 @@ public class IPC implements Closeable {
         if (data2 != null) {
           readable(null);
 
-          callback.apply(data2, null);
+          callback.apply(data2.limit() == 0 ? null : data2, null);
         }
       });
     }
