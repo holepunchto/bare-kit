@@ -23,6 +23,13 @@ bare_ipc__on_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 void
 bare_ipc__on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
+  // End-of-stream when the worklet closes its IPC. Stop reading rather than
+  // aborting; surfacing EOF to the host is not yet implemented for win32.
+  if (nread == UV_EOF) {
+    uv_read_stop(stream);
+    return;
+  }
+
   assert(nread >= 0);
 
   if (nread == 0) {
