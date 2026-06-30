@@ -1,20 +1,13 @@
 list(APPEND tests
   worklet-assets
   worklet-destroy-before-start
+  worklet-exit-eof
   worklet-ipc
   worklet-ipc-large-write
+  worklet-jsend-eof
   worklet-suspend-resume
   worklet-terminate-after-suspend
 )
-
-# The win32 IPC layer does not yet surface end-of-stream, so the EOF tests only
-# run on platforms with the posix read path.
-if(NOT WIN32)
-  list(APPEND tests
-    worklet-exit-eof
-    worklet-jsend-eof
-  )
-endif()
 
 execute_process(
   COMMAND node fixtures/generate.js

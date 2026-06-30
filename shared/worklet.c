@@ -489,6 +489,12 @@ bare_worklet__on_thread(void *opaque) {
 
   state->finished = true;
 
+  // The 'exit' handler closes Bare.IPC. Flush the loop so the close completes
+  // and the host sees EOF before we park waiting for teardown. This is a no-op
+  // where uv_close is synchronous (posix) but is required on platforms where
+  // the close only completes via the loop (win32).
+  uv_run(&loop, UV_RUN_NOWAIT);
+
   uv_sem_wait(&finished);
 
   uv_sem_destroy(&finished);
