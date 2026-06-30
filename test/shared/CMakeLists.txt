@@ -7,6 +7,15 @@ list(APPEND tests
   worklet-terminate-after-suspend
 )
 
+# The win32 IPC layer does not yet surface end-of-stream, so the EOF tests only
+# run on platforms with the posix read path.
+if(NOT WIN32)
+  list(APPEND tests
+    worklet-exit-eof
+    worklet-jsend-eof
+  )
+endif()
+
 execute_process(
   COMMAND node fixtures/generate.js
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
