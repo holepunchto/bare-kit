@@ -3,45 +3,73 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
-// Corroborates worklet-exit-no-eof: the host EOF comes from the JS side. When
-// the worklet ends its Bare.IPC (closing the b1 write end), the host read
-// returns 0 (EOF) - the signal the bindings turn into (nil, nil).
+// When the worklet ends its Bare.IPC (closing the write end), the host's read
+// reaches EOF (a zero-length read) - the signal the bindings turn into a null
+// read. This covers the explicit end() path, independent of process exit.
 
-int
-main() {
-  int e;
+static uv_async_t finished;
+static bool eof = false;
 
-  bare_worklet_t worklet;
-  e = bare_worklet_init(&worklet, NULL);
-  assert(e == 0);
-
-  char *code = "setTimeout(() => Bare.IPC.end(), 50)";
-
-  uv_buf_t source = uv_buf_init(code, strlen(code));
-
-  e = bare_worklet_start(&worklet, "app.js", &source, 0, NULL);
-  assert(e == 0);
-
-  bare_ipc_t ipc;
-  e = bare_ipc_init(&ipc, &worklet);
-  assert(e == 0);
+static void
+on_poll(bare_ipc_poll_t *poll, int events) {
+  if ((events & bare_ipc_readable) == 0) return;
 
   void *data;
   size_t len;
+  int err = bare_ipc_read(bare_ipc_poll_get_ipc(poll), &data, &len);
+  assert(err == 0 || err == bare_ipc_would_block);
 
-  // Poll for up to ~2s for EOF. Expect read to return 0 once b1 closes.
-  bool eof = false;
-  for (int i = 0; i < 200; i++) {
-    e = bare_ipc_read(&ipc, &data, &len);
-    assert(e == 0 || e == bare_ipc_would_block);
-    if (e == 0 && len == 0) {
-      eof = true;
-      break;
-    }
-    uv_sleep(10);
+  if (err == 0 && len == 0) {
+    eof = true;
+
+    bare_ipc_poll_stop(poll);
+
+    uv_async_send(&finished);
   }
+}
+
+static void
+on_finish(uv_async_t *handle) {
+  uv_close((uv_handle_t *) handle, NULL);
+}
+
+int
+main() {
+  int err;
+
+  uv_loop_t *loop = uv_default_loop();
+  err = uv_async_init(loop, &finished, on_finish);
+  assert(err == 0);
+
+  bare_worklet_t worklet;
+  err = bare_worklet_init(&worklet, NULL);
+  assert(err == 0);
+
+  char *code = "setTimeout(() => Bare.IPC.end(), 50)";
+  uv_buf_t source = uv_buf_init(code, strlen(code));
+  err = bare_worklet_start(&worklet, "app.js", &source, 0, NULL);
+  assert(err == 0);
+
+  bare_ipc_t ipc;
+  err = bare_ipc_init(&ipc, &worklet);
+  assert(err == 0);
+
+  bare_ipc_poll_t poll;
+  err = bare_ipc_poll_init(&poll, &ipc);
+  assert(err == 0);
+
+  err = bare_ipc_poll_start(&poll, bare_ipc_readable, on_poll);
+  assert(err == 0);
+
+  err = uv_run(loop, UV_RUN_DEFAULT);
+  assert(err == 0);
 
   assert(eof); // The JS-side end reached the host as EOF
+
+  err = uv_loop_close(loop);
+  assert(err == 0);
+
+  bare_ipc_poll_destroy(&poll);
 
   bare_ipc_destroy(&ipc);
 

@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <uv.h>
 
 #include "../ipc.h"
@@ -12,6 +13,8 @@ extern "C" {
 struct bare_ipc_s {
   int incoming;
   int outgoing;
+
+  bool eof;
 
   struct {
     char base[BARE_IPC_READ_BUFFER_SIZE];

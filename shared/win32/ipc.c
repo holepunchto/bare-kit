@@ -23,10 +23,19 @@ bare_ipc__on_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 void
 bare_ipc__on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-  // End-of-stream when the worklet closes its IPC. Stop reading rather than
-  // aborting; surfacing EOF to the host is not yet implemented for win32.
+  bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) stream);
+
+  // End-of-stream when the worklet closes its IPC. Mark EOF and notify the
+  // reader so a subsequent bare_ipc_read() returns it as a zero-length read.
   if (nread == UV_EOF) {
     uv_read_stop(stream);
+
+    uv_mutex_lock(&ipc->reading);
+    ipc->eof = true;
+    uv_mutex_unlock(&ipc->reading);
+
+    if (ipc->poll && ipc->poll->cb) ipc->poll->cb(ipc->poll, bare_ipc_readable);
+
     return;
   }
 
@@ -40,8 +49,6 @@ bare_ipc__on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
   err = uv_read_stop(stream);
   assert(err == 0);
-
-  bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) stream);
 
   uv_mutex_lock(&ipc->reading);
 
@@ -148,6 +155,7 @@ bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet) {
   assert(err == 0);
 
   ipc->read_buffer.len = 0;
+  ipc->eof = false;
   ipc->poll = NULL;
 
   uv_barrier_wait(&ipc->ready);
@@ -179,6 +187,15 @@ bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len) {
     *data = ipc->read_buffer.base;
     *len = ipc->read_buffer.len;
     ipc->read_buffer.len = 0;
+
+    uv_mutex_unlock(&ipc->reading);
+
+    return 0;
+  }
+
+  if (ipc->eof) {
+    *data = ipc->read_buffer.base;
+    *len = 0;
 
     uv_mutex_unlock(&ipc->reading);
 
