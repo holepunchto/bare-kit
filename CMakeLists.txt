@@ -14,7 +14,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.29.4")
+fetch_package("github:holepunchto/bare@1.29.4" PATCHES patches/bare-exit-drain.patch)
 
 add_subdirectory(shared)
 
