@@ -21,6 +21,8 @@ target_sources(
     events.h
     ipc.h
     ipc.c
+    queue.h
+    queue.c
     worklet.c
     worklet.bundle.h
     worklet.h
