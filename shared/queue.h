@@ -83,7 +83,8 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
 // worklet thread, whenever this end's state changes: data to read, or space
 // freed so a blocked write can be retried. The host hops to its own run loop
 // and re-checks both. It may fire during this call if the worklet has already
-// queued data.
+// queued data, and must be safe to call concurrently: an open racing a
+// worklet-thread signal can invoke it from two threads at once.
 bare_queue_port_t *
 bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal);
 
