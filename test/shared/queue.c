@@ -23,6 +23,43 @@ main() {
 
   uv_loop_t *loop = uv_default_loop();
 
+  // Catch-up on open: data queued before the consumer opens still wakes it.
+  {
+    bare_queue_t q;
+    bare_queue_init(&q);
+
+    // Host writes, then the worklet opens.
+    bare_queue_port_t *producer = bare_queue_open_thread(&q, on_signal);
+    assert(bare_queue_write(producer, "early", 5) == 5);
+
+    uv_received = 0;
+    bare_queue_open_uv(&q, loop, on_recv_uv);
+    err = uv_run(loop, UV_RUN_NOWAIT);
+    assert(err >= 0);
+    assert(uv_received == 1);
+
+    bare_queue_destroy(&q, NULL);
+    err = uv_run(loop, UV_RUN_DEFAULT);
+    assert(err == 0);
+  }
+
+  {
+    bare_queue_t q;
+    bare_queue_init(&q);
+
+    // Worklet writes, then the host opens: it is signalled during open.
+    bare_queue_port_t *producer = bare_queue_open_uv(&q, loop, on_recv_uv);
+    assert(bare_queue_write(producer, "early", 5) == 5);
+
+    int before = signaled;
+    bare_queue_open_thread(&q, on_signal);
+    assert(signaled == before + 1);
+
+    bare_queue_destroy(&q, NULL);
+    err = uv_run(loop, UV_RUN_DEFAULT);
+    assert(err == 0);
+  }
+
   bare_queue_t queue;
   bare_queue_init(&queue);
 

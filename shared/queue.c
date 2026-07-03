@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
@@ -88,6 +89,13 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
   queue->on_recv_uv = on_recv;
   queue->uv_open = true;
 
+  // Catch up on anything the host queued before we opened.
+  uv_mutex_lock(&queue->lock);
+  bool pending = queue->to_uv.head != queue->to_uv.tail;
+  uv_mutex_unlock(&queue->lock);
+
+  if (pending) uv_async_send(&queue->async);
+
   return &queue->uv_port;
 }
 
@@ -95,6 +103,13 @@ bare_queue_port_t *
 bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal) {
   queue->on_signal_thread = on_signal;
   queue->thread_open = true;
+
+  // Catch up on anything the worklet queued before we opened.
+  uv_mutex_lock(&queue->lock);
+  bool pending = queue->to_thread.head != queue->to_thread.tail;
+  uv_mutex_unlock(&queue->lock);
+
+  if (pending && on_signal) on_signal(&queue->thread_port);
 
   return &queue->thread_port;
 }
@@ -104,6 +119,10 @@ bare_queue_write(bare_queue_port_t *port, const void *data, size_t len) {
   bare_queue_t *queue = port->queue;
 
   if (len == 0) return 0;
+
+  // Cap the copied span so the returned byte count never overflows the int
+  // return value or aliases a negative status. Callers write the rest.
+  if (len > INT_MAX) len = INT_MAX;
 
   bare_queue_ring_t *ring = port->is_uv ? &queue->to_thread : &queue->to_uv;
 

@@ -71,14 +71,19 @@ struct bare_queue_s {
 void
 bare_queue_init(bare_queue_t *queue);
 
-// Opens the worklet (uv) end. `on_recv` fires on `loop` when the host has sent
-// something to drain.
+// Opens the worklet (uv) end. `on_recv` fires on `loop` whenever this end's
+// state changes: the host has sent data to read, or has drained a full ring so
+// a blocked write can be retried. Re-check both readability and writability on
+// each wake. It also fires once during this call if the host has already queued
+// data.
 bare_queue_port_t *
 bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_recv);
 
 // Opens the host (native thread) end. `on_signal` is called, possibly from the
-// worklet thread, when the host should wake and drain; the host is responsible
-// for hopping to its own run loop.
+// worklet thread, whenever this end's state changes: data to read, or space
+// freed so a blocked write can be retried. The host hops to its own run loop
+// and re-checks both. It may fire during this call if the worklet has already
+// queued data.
 bare_queue_port_t *
 bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal);
 
@@ -100,6 +105,10 @@ bare_queue_close(bare_queue_port_t *port);
 uv_handle_t *
 bare_queue_uv_handle(bare_queue_t *queue);
 
+// Tears down the queue and frees any buffered messages. Must be called on the
+// worklet (uv) thread, and only once the host end is quiesced: after this call
+// neither port may be read, written, or closed from either thread. `on_close`
+// runs when teardown completes (from the uv loop when the uv end was opened).
 void
 bare_queue_destroy(bare_queue_t *queue, void (*on_close)(bare_queue_t *queue));
 
