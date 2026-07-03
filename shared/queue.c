@@ -211,11 +211,6 @@ bare_queue_close(bare_queue_port_t *port) {
   else bare_queue__signal_uv(queue);
 }
 
-uv_handle_t *
-bare_queue_uv_handle(bare_queue_t *queue) {
-  return (uv_handle_t *) &queue->async;
-}
-
 static void
 bare_queue__free(bare_queue_t *queue) {
   bare_queue_message_t message;

@@ -103,9 +103,6 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len);
 void
 bare_queue_close(bare_queue_port_t *port);
 
-uv_handle_t *
-bare_queue_uv_handle(bare_queue_t *queue);
-
 // Tears down the queue and frees any buffered messages. Must be called on the
 // worklet (uv) thread, and only once the host end is quiesced: after this call
 // neither port may be read, written, or closed from either thread. `on_close`
