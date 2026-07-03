@@ -141,13 +141,16 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len) {
 
   uv_mutex_lock(&queue->lock);
 
+  bool was_full = ((ring->head + 1) & BARE_QUEUE_MASK) == ring->tail;
+
   bare_queue_message_t message;
+  bool shifted = bare_queue__ring_shift(ring, &message);
 
-  if (!bare_queue__ring_shift(ring, &message)) {
-    bool peer_closed = port->is_uv ? queue->thread_closed : queue->uv_closed;
+  bool peer_closed = port->is_uv ? queue->thread_closed : queue->uv_closed;
 
-    uv_mutex_unlock(&queue->lock);
+  uv_mutex_unlock(&queue->lock);
 
+  if (!shifted) {
     if (!peer_closed) return bare_queue_would_block;
 
     free(port->held);
@@ -159,7 +162,11 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len) {
     return bare_queue_ok;
   }
 
-  uv_mutex_unlock(&queue->lock);
+  // Draining a full ring lets the peer producer retry a blocked write.
+  if (was_full) {
+    if (port->is_uv) bare_queue__signal_thread(queue);
+    else bare_queue__signal_uv(queue);
+  }
 
   free(port->held);
   port->held = message.base;

@@ -62,6 +62,15 @@ main() {
   while (bare_queue_write(uv, "x", 1) == 1) n++;
   assert(n == BARE_QUEUE_CAPACITY - 1);
   assert(bare_queue_write(uv, "x", 1) == bare_queue_would_block);
+
+  // Draining the full ring wakes the worklet so it can retry the blocked write.
+  uv_received = 0;
+  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok && len == 1);
+  n--;
+  err = uv_run(loop, UV_RUN_NOWAIT);
+  assert(err >= 0);
+  assert(uv_received == 1);
+
   while (bare_queue_read(thread, &data, &len) == bare_queue_ok && len > 0) n--;
   assert(n == 0);
 
