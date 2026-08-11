@@ -124,12 +124,42 @@ jobs:
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}
           path: build/linux/*.so
+  windows:
+    strategy:
+      matrix:
+        include:
+          - os: windows-2022
+            platform: win32
+            arch: x64
+          - os: windows-11-arm
+            platform: win32
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    name: Build / ${{ matrix.platform }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - run: choco install llvm --version 20.1.8 --force
+      - run: choco install nasm
+      - run: npm install --global bare-make
+      - run: npm install
+      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
+      - run: bare-make build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            build/win32/bare-kit.dll
+            build/win32/bare-kit.lib
   merge:
     runs-on: macos-latest
     needs:
       - apple
       - android
       - linux
+      - windows
     name: Merge
     steps:
       - uses: actions/checkout@v6
@@ -154,6 +184,10 @@ jobs:
             prebuilds/android/bare-kit
             prebuilds/linux/x64/libbare-kit.so
             prebuilds/linux/arm64/libbare-kit.so
+            prebuilds/win32/x64/bare-kit.dll
+            prebuilds/win32/x64/bare-kit.lib
+            prebuilds/win32/arm64/bare-kit.dll
+            prebuilds/win32/arm64/bare-kit.lib
           retention-days: 5
   publish:
     runs-on: ubuntu-latest
