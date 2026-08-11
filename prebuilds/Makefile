@@ -25,7 +25,11 @@ all: \
 	ios-javascriptcore/BareKit.xcframework \
 	android/bare-kit \
 	linux/x64/libbare-kit.so \
-	linux/arm64/libbare-kit.so
+	linux/arm64/libbare-kit.so \
+	win32/x64/bare-kit.dll \
+	win32/x64/bare-kit.lib \
+	win32/arm64/bare-kit.dll \
+	win32/arm64/bare-kit.lib
 
 apple/BareKit.xcframework: \
 	darwin/BareKit.framework \
@@ -74,5 +78,13 @@ ios-simulator-javascriptcore/BareKit.framework: \
 	ios-x64-simulator-javascriptcore/BareKit.framework
 
 linux/%/libbare-kit.so: linux-%/libbare-kit.so
+	mkdir -p $(dir $@)
+	cp -a $< $@
+
+win32/%/bare-kit.dll: win32-%/bare-kit.dll
+	mkdir -p $(dir $@)
+	cp -a $< $@
+
+win32/%/bare-kit.lib: win32-%/bare-kit.lib
 	mkdir -p $(dir $@)
 	cp -a $< $@
