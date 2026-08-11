@@ -17,6 +17,6 @@ target_sources(
 
 target_link_libraries(
   bare_kit
-  PUBLIC
+  PRIVATE
     bare_worklet
 )
