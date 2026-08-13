@@ -153,6 +153,7 @@ jobs:
           path: |
             build/win32/bare-kit.dll
             build/win32/bare-kit.lib
+            build/win32/bare-kit.def
   merge:
     runs-on: macos-latest
     needs:
@@ -186,8 +187,10 @@ jobs:
             prebuilds/linux/arm64/libbare-kit.so
             prebuilds/win32/x64/bare-kit.dll
             prebuilds/win32/x64/bare-kit.lib
+            prebuilds/win32/x64/bare-kit.def
             prebuilds/win32/arm64/bare-kit.dll
             prebuilds/win32/arm64/bare-kit.lib
+            prebuilds/win32/arm64/bare-kit.def
           retention-days: 5
   publish:
     runs-on: ubuntu-latest
