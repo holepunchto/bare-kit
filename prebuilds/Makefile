@@ -28,8 +28,10 @@ all: \
 	linux/arm64/libbare-kit.so \
 	win32/x64/bare-kit.dll \
 	win32/x64/bare-kit.lib \
+	win32/x64/bare-kit.def \
 	win32/arm64/bare-kit.dll \
-	win32/arm64/bare-kit.lib
+	win32/arm64/bare-kit.lib \
+	win32/arm64/bare-kit.def
 
 apple/BareKit.xcframework: \
 	darwin/BareKit.framework \
@@ -86,5 +88,9 @@ win32/%/bare-kit.dll: win32-%/bare-kit.dll
 	cp -a $< $@
 
 win32/%/bare-kit.lib: win32-%/bare-kit.lib
+	mkdir -p $(dir $@)
+	cp -a $< $@
+
+win32/%/bare-kit.def: win32-%/bare-kit.def
 	mkdir -p $(dir $@)
 	cp -a $< $@
