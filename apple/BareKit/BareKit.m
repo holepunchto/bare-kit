@@ -296,8 +296,9 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 @implementation BareIPC {
-  // Strong: an IPC is opened on a worklet and is meaningless without it, so it
-  // must not outlive it. Holding it here is what orders the two deallocs.
+  // Retained: an IPC is opened on a worklet and is meaningless without it, so it
+  // must not outlive it. This file is manual reference counting, so the retain
+  // and the release below are what actually hold it.
   BareWorklet *_worklet;
 
   bare_ipc_t _ipc;
@@ -310,7 +311,7 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   if (self) {
     int err;
 
-    _worklet = worklet;
+    _worklet = [worklet retain];
 
     err = bare_ipc_init(&_ipc, &worklet->_worklet);
     assert(err == 0);
@@ -458,6 +459,12 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 - (void)close {
   bare_ipc_poll_destroy(&_poll);
   bare_ipc_destroy(&_ipc);
+}
+
+- (void)dealloc {
+  [_worklet release];
+
+  [super dealloc];
 }
 
 @end

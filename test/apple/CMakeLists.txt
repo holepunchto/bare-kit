@@ -1,4 +1,5 @@
 list(APPEND tests
+  ipc-retains-worklet
   worklet-ipc
   worklet-ipc-eof
   worklet-ipc-large-write
