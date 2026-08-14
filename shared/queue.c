@@ -33,7 +33,8 @@ bare_queue__ring_shift(bare_queue_ring_t *ring, bare_queue_message_t *message) {
 
 static void
 bare_queue__signal_uv(bare_queue_t *queue) {
-  if (queue->uv_open) uv_async_send(&queue->async);
+  // Never wake a peer that has closed its end; it may be tearing down.
+  if (queue->uv_open && !queue->uv_closed) uv_async_send(&queue->async);
 }
 
 // Chosen and called with the lock held, so a host that retires its end cannot
@@ -41,7 +42,7 @@ bare_queue__signal_uv(bare_queue_t *queue) {
 // wake the host's run loop - it must never re-enter the queue.
 static void
 bare_queue__signal_thread(bare_queue_t *queue) {
-  if (queue->thread_open && queue->on_signal_thread) queue->on_signal_thread(&queue->thread_port);
+  if (queue->thread_open && !queue->thread_closed && queue->on_signal_thread) queue->on_signal_thread(&queue->thread_port);
 }
 
 static void
@@ -51,9 +52,13 @@ bare_queue__on_wakeup_uv(uv_async_t *async) {
   if (queue->on_recv_uv) queue->on_recv_uv(&queue->uv_port);
 }
 
-void
-bare_queue_init(bare_queue_t *queue) {
+bare_queue_t *
+bare_queue_create(void) {
   int err;
+
+  bare_queue_t *queue = malloc(sizeof(bare_queue_t));
+
+  if (queue == NULL) return NULL;
 
   memset(&queue->to_uv, 0, sizeof(queue->to_uv));
   memset(&queue->to_thread, 0, sizeof(queue->to_thread));
@@ -65,7 +70,6 @@ bare_queue_init(bare_queue_t *queue) {
 
   queue->on_signal_thread = NULL;
   queue->on_recv_uv = NULL;
-  queue->on_close = NULL;
 
   queue->uv_port.queue = queue;
   queue->uv_port.is_uv = true;
@@ -79,6 +83,8 @@ bare_queue_init(bare_queue_t *queue) {
 
   err = uv_mutex_init(&queue->lock);
   assert(err == 0);
+
+  return queue;
 }
 
 bare_queue_port_t *
@@ -219,8 +225,41 @@ bare_queue_close(bare_queue_port_t *port) {
   uv_mutex_unlock(&queue->lock);
 }
 
-static void
-bare_queue__free(bare_queue_t *queue) {
+bool
+bare_queue_readable(bare_queue_port_t *port) {
+  bare_queue_t *queue = port->queue;
+
+  bare_queue_ring_t *ring = port->is_uv ? &queue->to_uv : &queue->to_thread;
+
+  uv_mutex_lock(&queue->lock);
+
+  bool peer_closed = port->is_uv ? queue->thread_closed : queue->uv_closed;
+  bool readable = ring->head != ring->tail || peer_closed;
+
+  uv_mutex_unlock(&queue->lock);
+
+  return readable;
+}
+
+bool
+bare_queue_writable(bare_queue_port_t *port) {
+  bare_queue_t *queue = port->queue;
+
+  bare_queue_ring_t *ring = port->is_uv ? &queue->to_thread : &queue->to_uv;
+
+  uv_mutex_lock(&queue->lock);
+
+  bool peer_closed = port->is_uv ? queue->thread_closed : queue->uv_closed;
+  bool full = ((ring->head + 1) & BARE_QUEUE_MASK) == ring->tail;
+  bool writable = !peer_closed && !full;
+
+  uv_mutex_unlock(&queue->lock);
+
+  return writable;
+}
+
+void
+bare_queue_destroy(bare_queue_t *queue) {
   bare_queue_message_t message;
 
   while (bare_queue__ring_shift(&queue->to_uv, &message))
@@ -233,18 +272,19 @@ bare_queue__free(bare_queue_t *queue) {
 
   uv_mutex_destroy(&queue->lock);
 
-  if (queue->on_close) queue->on_close(queue);
-}
-
-static void
-bare_queue__on_close(uv_handle_t *handle) {
-  bare_queue__free((bare_queue_t *) handle->data);
+  free(queue);
 }
 
 void
-bare_queue_destroy(bare_queue_t *queue, void (*on_close)(bare_queue_t *queue)) {
-  queue->on_close = on_close;
+bare_queue_shutdown_uv(bare_queue_t *queue) {
+  if (queue->uv_open) uv_close((uv_handle_t *) &queue->async, NULL);
+}
 
-  if (queue->uv_open) uv_close((uv_handle_t *) &queue->async, bare_queue__on_close);
-  else bare_queue__free(queue);
+void
+bare_queue_shutdown_thread(bare_queue_t *queue) {
+  uv_mutex_lock(&queue->lock);
+
+  queue->on_signal_thread = NULL;
+
+  uv_mutex_unlock(&queue->lock);
 }

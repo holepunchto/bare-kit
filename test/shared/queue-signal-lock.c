@@ -11,7 +11,7 @@
 // The callback parks for a while and this asserts the lock cannot be taken for
 // as long as it is in there.
 
-static bare_queue_t queue;
+static bare_queue_t *queue;
 
 static uv_sem_t entered;
 static uv_loop_t loop;
@@ -49,10 +49,11 @@ main() {
   err = uv_sem_init(&entered, 0);
   assert(err == 0);
 
-  bare_queue_init(&queue);
+  queue = bare_queue_create();
+  assert(queue != NULL);
 
-  bare_queue_port_t *uv = bare_queue_open_uv(&queue, &loop, on_recv_uv);
-  bare_queue_open_thread(&queue, on_signal);
+  bare_queue_port_t *uv = bare_queue_open_uv(queue, &loop, on_recv_uv);
+  bare_queue_open_thread(queue, on_signal);
 
   uv_thread_t producer;
   err = uv_thread_create(&producer, on_thread, (void *) uv);
@@ -61,8 +62,8 @@ main() {
   uv_sem_wait(&entered);
 
   // The callback is running right now. Taking the lock must not be possible.
-  if (uv_mutex_trylock(&queue.lock) == 0) {
-    uv_mutex_unlock(&queue.lock);
+  if (uv_mutex_trylock(&queue->lock) == 0) {
+    uv_mutex_unlock(&queue->lock);
   } else {
     locked_during_callback = true;
   }
@@ -72,13 +73,16 @@ main() {
 
   assert(locked_during_callback);
 
-  bare_queue_destroy(&queue, NULL);
+  bare_queue_shutdown_uv(queue);
+  bare_queue_shutdown_thread(queue);
 
   err = uv_run(&loop, UV_RUN_DEFAULT);
   assert(err == 0);
 
   err = uv_loop_close(&loop);
   assert(err == 0);
+
+  bare_queue_destroy(queue);
 
   uv_sem_destroy(&entered);
 
