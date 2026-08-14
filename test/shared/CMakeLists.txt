@@ -1,5 +1,6 @@
 list(APPEND tests
   queue
+  queue-threads
   queue-signal-lock
   worklet-assets
   worklet-destroy-before-start

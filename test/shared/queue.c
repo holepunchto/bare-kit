@@ -25,46 +25,70 @@ main() {
 
   // Catch-up on open: data queued before the consumer opens still wakes it.
   {
-    bare_queue_t q;
-    bare_queue_init(&q);
+    bare_queue_t *q = bare_queue_create();
 
     // Host writes, then the worklet opens.
-    bare_queue_port_t *producer = bare_queue_open_thread(&q, on_signal);
+    bare_queue_port_t *producer = bare_queue_open_thread(q, on_signal);
     assert(bare_queue_write(producer, "early", 5) == 5);
 
     uv_received = 0;
-    bare_queue_open_uv(&q, loop, on_recv_uv);
+    bare_queue_open_uv(q, loop, on_recv_uv);
     err = uv_run(loop, UV_RUN_NOWAIT);
     assert(err >= 0);
     assert(uv_received == 1);
 
-    bare_queue_destroy(&q, NULL);
+    bare_queue_shutdown_uv(q);
+    bare_queue_shutdown_thread(q);
     err = uv_run(loop, UV_RUN_DEFAULT);
     assert(err == 0);
+    bare_queue_destroy(q);
   }
 
   {
-    bare_queue_t q;
-    bare_queue_init(&q);
+    bare_queue_t *q = bare_queue_create();
 
     // Worklet writes, then the host opens: it is signalled during open.
-    bare_queue_port_t *producer = bare_queue_open_uv(&q, loop, on_recv_uv);
+    bare_queue_port_t *producer = bare_queue_open_uv(q, loop, on_recv_uv);
     assert(bare_queue_write(producer, "early", 5) == 5);
 
     int before = signaled;
-    bare_queue_open_thread(&q, on_signal);
+    bare_queue_open_thread(q, on_signal);
     assert(signaled == before + 1);
 
-    bare_queue_destroy(&q, NULL);
+    bare_queue_shutdown_uv(q);
+    bare_queue_shutdown_thread(q);
     err = uv_run(loop, UV_RUN_DEFAULT);
     assert(err == 0);
+    bare_queue_destroy(q);
   }
 
-  bare_queue_t queue;
-  bare_queue_init(&queue);
+  // Non-consuming poll status.
+  {
+    bare_queue_t *q = bare_queue_create();
+    bare_queue_port_t *u = bare_queue_open_uv(q, loop, on_recv_uv);
+    bare_queue_port_t *t = bare_queue_open_thread(q, on_signal);
 
-  bare_queue_port_t *uv = bare_queue_open_uv(&queue, loop, on_recv_uv);
-  bare_queue_port_t *thread = bare_queue_open_thread(&queue, on_signal);
+    assert(!bare_queue_readable(u) && bare_queue_writable(u));
+    assert(!bare_queue_readable(t) && bare_queue_writable(t));
+
+    assert(bare_queue_write(t, "x", 1) == 1);
+    assert(bare_queue_readable(u));
+
+    bare_queue_close(t);
+    assert(!bare_queue_writable(u)); // peer closed
+    assert(bare_queue_readable(u));  // buffered data, then EOF
+
+    bare_queue_shutdown_uv(q);
+    bare_queue_shutdown_thread(q);
+    err = uv_run(loop, UV_RUN_DEFAULT);
+    assert(err == 0);
+    bare_queue_destroy(q);
+  }
+
+  bare_queue_t *queue = bare_queue_create();
+
+  bare_queue_port_t *uv = bare_queue_open_uv(queue, loop, on_recv_uv);
+  bare_queue_port_t *thread = bare_queue_open_thread(queue, on_signal);
 
   void *data;
   size_t len;
@@ -96,7 +120,8 @@ main() {
 
   // Backpressure: fill the ring, then the next write blocks.
   int n = 0;
-  while (bare_queue_write(uv, "x", 1) == 1) n++;
+  while (bare_queue_write(uv, "x", 1) == 1)
+    n++;
   assert(n == BARE_QUEUE_CAPACITY - 1);
   assert(bare_queue_write(uv, "x", 1) == bare_queue_would_block);
 
@@ -108,7 +133,8 @@ main() {
   assert(err >= 0);
   assert(uv_received == 1);
 
-  while (bare_queue_read(thread, &data, &len) == bare_queue_ok && len > 0) n--;
+  while (bare_queue_read(thread, &data, &len) == bare_queue_ok && len > 0)
+    n--;
   assert(n == 0);
 
   // Zero-length writes never enqueue, so they cannot be read as EOF.
@@ -123,10 +149,13 @@ main() {
   bare_queue_close(thread);
   assert(bare_queue_read(uv, &data, &len) == bare_queue_ok && len == 0);
 
-  bare_queue_destroy(&queue, NULL);
+  bare_queue_shutdown_uv(queue);
+  bare_queue_shutdown_thread(queue);
 
   err = uv_run(loop, UV_RUN_DEFAULT);
   assert(err == 0);
+
+  bare_queue_destroy(queue);
 
   err = uv_loop_close(loop);
   assert(err == 0);

@@ -64,12 +64,20 @@ struct bare_queue_s {
 
   bare_queue_port_t uv_port;
   bare_queue_port_t thread_port;
-
-  void (*on_close)(bare_queue_t *queue);
 };
 
+// The worklet closes its end after it has parked, so by the ownership invariants
+// the queue belongs to the worklet, and cannot live in the host's storage: the
+// host is free to destroy its worklet the moment it has signalled it.
+//
+// Created on the host thread, handed to the worklet at start, and freed by
+// `bare_queue_destroy` on the worklet thread once its loop is done. A host that
+// never started a worklet frees it itself.
+bare_queue_t *
+bare_queue_create(void);
+
 void
-bare_queue_init(bare_queue_t *queue);
+bare_queue_destroy(bare_queue_t *queue);
 
 // Opens the worklet (uv) end. `on_recv` fires on `loop` whenever this end's
 // state changes: the host has sent data to read, or has drained a full ring so
@@ -103,12 +111,26 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len);
 void
 bare_queue_close(bare_queue_port_t *port);
 
-// Tears down the queue and frees any buffered messages. Must be called on the
-// worklet (uv) thread, and only once the host end is quiesced: after this call
-// neither port may be read, written, or closed from either thread. `on_close`
-// runs when teardown completes (from the uv loop when the uv end was opened).
+// Non-consuming status for a poller. `readable` is true when a read would not
+// return `bare_queue_would_block` (data buffered, or EOF once the peer closed);
+// `writable` is true when a write would not (space free and the peer open).
+bool
+bare_queue_readable(bare_queue_port_t *port);
+
+bool
+bare_queue_writable(bare_queue_port_t *port);
+
+// Retires the worklet (uv) end by closing its wakeup handle. Must be called on
+// the worklet thread, with the loop still to run so the close completes.
 void
-bare_queue_destroy(bare_queue_t *queue, void (*on_close)(bare_queue_t *queue));
+bare_queue_shutdown_uv(bare_queue_t *queue);
+
+// Retires the host end: after this the worklet will not call `on_signal` again,
+// so the host may free whatever that callback touches. Must be called before the
+// host signals its worklet to be destroyed, because afterwards the queue is the
+// worklet's alone.
+void
+bare_queue_shutdown_thread(bare_queue_t *queue);
 
 #ifdef __cplusplus
 }
