@@ -1,5 +1,6 @@
 list(APPEND tests
   queue
+  queue-threads
   worklet-assets
   worklet-destroy-before-start
   worklet-ipc
