@@ -296,6 +296,10 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 @implementation BareIPC {
+  // Strong: an IPC is opened on a worklet and is meaningless without it, so it
+  // must not outlive it. Holding it here is what orders the two deallocs.
+  BareWorklet *_worklet;
+
   bare_ipc_t _ipc;
   bare_ipc_poll_t _poll;
 }
@@ -305,6 +309,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 
   if (self) {
     int err;
+
+    _worklet = worklet;
 
     err = bare_ipc_init(&_ipc, &worklet->_worklet);
     assert(err == 0);

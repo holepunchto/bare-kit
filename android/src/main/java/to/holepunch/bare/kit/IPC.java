@@ -27,10 +27,16 @@ public class IPC implements Closeable {
 
   ByteBuffer handle;
 
+  // An IPC is opened on a worklet and is meaningless without it, so it must not
+  // outlive it. Held here to keep it reachable for as long as this is.
+  private final Worklet worklet;
+
   private PollCallback readable;
   private PollCallback writable;
 
   public IPC(Worklet worklet) {
+    this.worklet = worklet;
+
     handle = init(worklet.handle);
   }
 
