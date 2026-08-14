@@ -103,13 +103,15 @@ main() {
   err = uv_run(loop, UV_RUN_DEFAULT);
   assert(err == 0);
 
+  // Before the loop closes: the worklet's exit closes its end of the queue, and
+  // that wakes the poll - whose callback posts to this loop.
+  bare_ipc_poll_destroy(&poll);
+
   err = uv_loop_close(loop);
   assert(err == 0);
 
   err = bare_worklet_terminate(&worklet);
   assert(err == 0);
-
-  bare_ipc_poll_destroy(&poll);
 
   bare_ipc_destroy(&ipc);
 

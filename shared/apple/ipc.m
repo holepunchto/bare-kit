@@ -5,6 +5,94 @@
 
 static const void *const bare_ipc_poll_queue = &bare_ipc_poll_queue;
 
+// Waits for the serial queue to reach the current point, unless we are already
+// on it, in which case the handler is this call and there is nothing to wait for.
+static void
+bare_ipc__drain(dispatch_queue_t queue) {
+  if (dispatch_get_specific(bare_ipc_poll_queue) != NULL) return;
+
+  dispatch_semaphore_t done = dispatch_semaphore_create(0);
+
+  dispatch_async(queue, ^{
+    dispatch_semaphore_signal(done);
+  });
+
+  dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+}
+
+typedef struct {
+  dispatch_queue_t queue;
+  dispatch_source_t source;
+} bare_ipc_signal_t;
+
+int
+bare_ipc__signal_init(bare_ipc_t *ipc) {
+  bare_ipc_signal_t *signal = malloc(sizeof(bare_ipc_signal_t));
+
+  if (signal == NULL) return -1;
+
+  dispatch_queue_t queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
+
+  dispatch_queue_set_specific(queue, bare_ipc_poll_queue, (void *) bare_ipc_poll_queue, NULL);
+
+  // A manual source the queue signal triggers; the handler reports whichever
+  // requested events are actually ready of whichever poll is subscribed.
+  dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
+
+  dispatch_source_set_cancel_handler(source, ^{
+    dispatch_release(source);
+  });
+
+  dispatch_source_set_event_handler(source, ^{
+    bare_ipc_poll_t *poll = ipc->poll;
+
+    if (poll == NULL) return;
+
+    bare_ipc_poll_cb cb = atomic_load(&poll->cb);
+
+    if (cb == NULL) return;
+
+    int ready = bare_ipc__ready(ipc, poll->events);
+
+    if (ready == 0) return;
+
+    @autoreleasepool {
+      cb(poll, ready);
+    }
+  });
+
+  signal->queue = queue;
+  signal->source = source;
+
+  ipc->signal = signal;
+
+  dispatch_resume(source);
+
+  return 0;
+}
+
+void
+bare_ipc__signal(bare_ipc_t *ipc) {
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
+
+  dispatch_source_merge_data(signal->source, 1);
+}
+
+void
+bare_ipc__signal_destroy(bare_ipc_t *ipc) {
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
+
+  dispatch_source_cancel(signal->source);
+
+  bare_ipc__drain(signal->queue);
+
+  dispatch_release(signal->queue);
+
+  free(signal);
+
+  ipc->signal = NULL;
+}
+
 int
 bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
   bare_ipc_poll_t *poll = malloc(sizeof(bare_ipc_poll_t));
@@ -18,76 +106,29 @@ bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
 
 int
 bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
-  dispatch_queue_t queue = dispatch_queue_create("to.holepunch.bare.kit.ipc", DISPATCH_QUEUE_SERIAL);
-
-  dispatch_queue_set_specific(queue, bare_ipc_poll_queue, (void *) bare_ipc_poll_queue, NULL);
-
-  dispatch_source_t reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, ipc->incoming, 0, queue);
-
-  dispatch_source_t writer = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, ipc->outgoing, 0, queue);
-
-  dispatch_source_set_cancel_handler(reader, ^{
-    dispatch_release(reader);
-  });
-
-  dispatch_source_set_cancel_handler(writer, ^{
-    dispatch_release(writer);
-  });
-
-  dispatch_source_set_event_handler(reader, ^{
-    bare_ipc_poll_cb cb = atomic_load(&poll->cb);
-
-    if (cb == NULL) return;
-
-    @autoreleasepool {
-      cb(poll, bare_ipc_readable);
-    }
-  });
-
-  dispatch_source_set_event_handler(writer, ^{
-    bare_ipc_poll_cb cb = atomic_load(&poll->cb);
-
-    if (cb == NULL) return;
-
-    @autoreleasepool {
-      cb(poll, bare_ipc_writable);
-    }
-  });
-
   poll->ipc = ipc;
   poll->events = 0;
-  poll->queue = queue;
-  poll->reader = reader;
-  poll->writer = writer;
+  poll->data = NULL;
 
   atomic_init(&poll->cb, NULL);
+
+  ipc->poll = poll;
 
   return 0;
 }
 
 void
 bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
-  int err;
-  err = bare_ipc_poll_stop(poll);
-  assert(err == 0);
+  bare_ipc_t *ipc = poll->ipc;
 
-  dispatch_resume(poll->reader);
-  dispatch_source_cancel(poll->reader);
+  atomic_store(&poll->cb, NULL);
 
-  dispatch_resume(poll->writer);
-  dispatch_source_cancel(poll->writer);
+  ipc->poll = NULL;
 
-  if (dispatch_get_specific(bare_ipc_poll_queue) == NULL) {
-    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-    dispatch_async(poll->queue, ^{
-      dispatch_semaphore_signal(done);
-    });
-
-    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
-  }
-
-  dispatch_release(poll->queue);
+  // Let any handler already running finish before the caller frees the poll.
+  bare_ipc__drain(signal->queue);
 }
 
 void *
@@ -109,30 +150,18 @@ int
 bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
   if (events == 0) return bare_ipc_poll_stop(poll);
 
-  if ((events & bare_ipc_readable) == 0) {
-    if ((poll->events & bare_ipc_readable) != 0) dispatch_suspend(poll->reader);
-  } else {
-    if ((poll->events & bare_ipc_readable) == 0) dispatch_resume(poll->reader);
-  }
-
-  if ((events & bare_ipc_writable) == 0) {
-    if ((poll->events & bare_ipc_writable) != 0) dispatch_suspend(poll->writer);
-  } else {
-    if ((poll->events & bare_ipc_writable) == 0) dispatch_resume(poll->writer);
-  }
-
   poll->events = events;
 
   atomic_store(&poll->cb, cb);
+
+  // Level-trigger: re-check immediately in case data or space is already ready.
+  bare_ipc__signal(poll->ipc);
 
   return 0;
 }
 
 int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
-  if ((poll->events & bare_ipc_readable) != 0) dispatch_suspend(poll->reader);
-  if ((poll->events & bare_ipc_writable) != 0) dispatch_suspend(poll->writer);
-
   poll->events = 0;
 
   atomic_store(&poll->cb, NULL);

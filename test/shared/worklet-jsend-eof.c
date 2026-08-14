@@ -3,9 +3,9 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
-// Corroborates worklet-exit-no-eof: the host EOF comes from the JS side. When
-// the worklet ends its Bare.IPC (closing the b1 write end), the host read
-// returns 0 (EOF) - the signal the bindings turn into (nil, nil).
+// The host EOF comes from the JS side: when the worklet ends its Bare.IPC, its
+// end of the in-process queue closes and the host read returns 0 (EOF) - the
+// signal the bindings turn into (nil, nil).
 
 int
 main() {
@@ -29,7 +29,7 @@ main() {
   void *data;
   size_t len;
 
-  // Poll for up to ~2s for EOF. Expect read to return 0 once b1 closes.
+  // Poll for up to ~2s for EOF. Expect read to return 0 once the worklet ends.
   bool eof = false;
   for (int i = 0; i < 200; i++) {
     e = bare_ipc_read(&ipc, &data, &len);
