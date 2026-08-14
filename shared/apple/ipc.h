@@ -15,10 +15,6 @@ extern "C" {
 struct bare_ipc_poll_s {
   bare_ipc_t *ipc;
 
-  dispatch_queue_t queue;
-  dispatch_source_t reader;
-  dispatch_source_t writer;
-
   int events;
 
   _Atomic bare_ipc_poll_cb cb;

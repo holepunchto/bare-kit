@@ -10,6 +10,7 @@ extern "C" {
 #include <utf.h>
 #include <uv.h>
 
+#include "queue.h"
 #include "suspension.h"
 
 typedef struct bare_worklet_s bare_worklet_t;
@@ -66,8 +67,10 @@ struct bare_worklet_s {
   uv_barrier_t ready;
   uv_sem_t *finished;
 
-  uv_file incoming;
-  uv_file outgoing;
+  bare_queue_t *queue;
+
+  js_env_t *env;
+  js_ref_t *ipc_signal;
 
   js_threadsafe_function_t *push;
 
@@ -97,6 +100,9 @@ bare_worklet_alloc(bare_worklet_t **result);
 int
 bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options);
 
+// Signals the worklet to stop and returns immediately; it never blocks, and the
+// thread tears itself down. Any ipc opened on this worklet must already have been
+// destroyed, because from here the queue is the worklet's alone.
 void
 bare_worklet_destroy(bare_worklet_t *worklet);
 

@@ -52,8 +52,6 @@ if(APPLE)
   target_sources(
     bare_worklet
     PRIVATE
-      posix/ipc.h
-      posix/ipc.c
       apple/ipc.h
       apple/ipc.m
       apple/suspension.h
@@ -85,8 +83,6 @@ if(ANDROID)
   target_sources(
     bare_worklet
     PRIVATE
-      posix/ipc.h
-      posix/ipc.c
       android/ipc.c
       android/ipc.h
       android/suspension.c
@@ -113,10 +109,8 @@ if(LINUX)
   target_sources(
     bare_worklet
     PRIVATE
-      posix/ipc.h
-      posix/ipc.c
-      linux/ipc.c
-      linux/ipc.h
+      uv/ipc.c
+      uv/ipc.h
       linux/suspension.c
       linux/suspension.h
   )
@@ -132,8 +126,8 @@ if(WIN32)
   target_sources(
     bare_worklet
     PRIVATE
-      win32/ipc.c
-      win32/ipc.h
+      uv/ipc.c
+      uv/ipc.h
       win32/suspension.c
       win32/suspension.h
   )
