@@ -36,6 +36,9 @@ bare_queue__signal_uv(bare_queue_t *queue) {
   if (queue->uv_open) uv_async_send(&queue->async);
 }
 
+// Chosen and called with the lock held, so a host that retires its end cannot
+// free what the callback touches in between. The callback may therefore only
+// wake the host's run loop - it must never re-enter the queue.
 static void
 bare_queue__signal_thread(bare_queue_t *queue) {
   if (queue->thread_open && queue->on_signal_thread) queue->on_signal_thread(&queue->thread_port);
@@ -86,12 +89,17 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
   assert(err == 0);
 
   queue->async.data = queue;
+
+  // Published under the lock, because the peer reads them under it: an open can
+  // race a signal from the other thread.
+  uv_mutex_lock(&queue->lock);
+
   queue->on_recv_uv = on_recv;
   queue->uv_open = true;
 
   // Catch up on anything the host queued before we opened.
-  uv_mutex_lock(&queue->lock);
   bool pending = queue->to_uv.head != queue->to_uv.tail;
+
   uv_mutex_unlock(&queue->lock);
 
   if (pending) uv_async_send(&queue->async);
@@ -101,15 +109,15 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
 
 bare_queue_port_t *
 bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal) {
+  uv_mutex_lock(&queue->lock);
+
   queue->on_signal_thread = on_signal;
   queue->thread_open = true;
 
   // Catch up on anything the worklet queued before we opened.
-  uv_mutex_lock(&queue->lock);
-  bool pending = queue->to_thread.head != queue->to_thread.tail;
-  uv_mutex_unlock(&queue->lock);
+  if (queue->to_thread.head != queue->to_thread.tail) bare_queue__signal_thread(queue);
 
-  if (pending && on_signal) on_signal(&queue->thread_port);
+  uv_mutex_unlock(&queue->lock);
 
   return &queue->thread_port;
 }
@@ -144,10 +152,10 @@ bare_queue_write(bare_queue_port_t *port, const void *data, size_t len) {
     return bare_queue_would_block;
   }
 
-  uv_mutex_unlock(&queue->lock);
-
   if (port->is_uv) bare_queue__signal_thread(queue);
   else bare_queue__signal_uv(queue);
+
+  uv_mutex_unlock(&queue->lock);
 
   return (int) len;
 }
@@ -167,6 +175,12 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len) {
 
   bool peer_closed = port->is_uv ? queue->thread_closed : queue->uv_closed;
 
+  // Draining a full ring lets the peer producer retry a blocked write.
+  if (shifted && was_full) {
+    if (port->is_uv) bare_queue__signal_thread(queue);
+    else bare_queue__signal_uv(queue);
+  }
+
   uv_mutex_unlock(&queue->lock);
 
   if (!shifted) {
@@ -179,12 +193,6 @@ bare_queue_read(bare_queue_port_t *port, void **data, size_t *len) {
     *len = 0;
 
     return bare_queue_ok;
-  }
-
-  // Draining a full ring lets the peer producer retry a blocked write.
-  if (was_full) {
-    if (port->is_uv) bare_queue__signal_thread(queue);
-    else bare_queue__signal_uv(queue);
   }
 
   free(port->held);
@@ -205,18 +213,20 @@ bare_queue_close(bare_queue_port_t *port) {
   if (port->is_uv) queue->uv_closed = true;
   else queue->thread_closed = true;
 
-  uv_mutex_unlock(&queue->lock);
-
   if (port->is_uv) bare_queue__signal_thread(queue);
   else bare_queue__signal_uv(queue);
+
+  uv_mutex_unlock(&queue->lock);
 }
 
 static void
 bare_queue__free(bare_queue_t *queue) {
   bare_queue_message_t message;
 
-  while (bare_queue__ring_shift(&queue->to_uv, &message)) free(message.base);
-  while (bare_queue__ring_shift(&queue->to_thread, &message)) free(message.base);
+  while (bare_queue__ring_shift(&queue->to_uv, &message))
+    free(message.base);
+  while (bare_queue__ring_shift(&queue->to_thread, &message))
+    free(message.base);
 
   free(queue->uv_port.held);
   free(queue->thread_port.held);
