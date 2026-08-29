@@ -57,8 +57,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build / ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: holepunchto/actions/checkout@v1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 20
       - run: npm install --global bare-make
@@ -66,7 +66,7 @@ jobs:
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols ${{ matrix.flags }}
       - run: bare-make build
       - run: tar -cvf build/apple/BareKit.framework.tar -C build/apple BareKit.framework
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
           path: build/apple/*.framework.tar
@@ -79,18 +79,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build / ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: holepunchto/actions/checkout@v1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: lts/*
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 21
       - run: npm install --global cmake-runtime ninja-runtime
       - run: npm install
       - run: ./gradlew aR
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.platform }}
           path: android/build/outputs/aar/*-release.aar
@@ -107,8 +107,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build / ${{ matrix.platform }}-${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: holepunchto/actions/checkout@v1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 20
       - run: |
@@ -120,7 +120,7 @@ jobs:
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
       - run: bare-make build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}
           path: build/linux/*.so
@@ -137,8 +137,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build / ${{ matrix.platform }}-${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: holepunchto/actions/checkout@v1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 20
       - run: choco install llvm --version 20.1.8 --force
@@ -147,7 +147,7 @@ jobs:
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols
       - run: bare-make build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}
           path: |
@@ -163,16 +163,16 @@ jobs:
       - windows
     name: Merge
     steps:
-      - uses: actions/checkout@v6
+      - uses: holepunchto/actions/checkout@v1
         with:
           sparse-checkout: |
             prebuilds/Makefile
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: prebuilds
       - run: make
         working-directory: prebuilds
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: prebuilds
           path: |
@@ -199,8 +199,8 @@ jobs:
     needs: merge
     name: Publish
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
+      - uses: holepunchto/actions/checkout@v1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: prebuilds
           skip-decompress: true
