@@ -2,6 +2,7 @@
 #include <jni.h>
 #include <stdlib.h>
 
+#include "../../../../shared/android/jvm.h"
 #include "../../../../shared/worklet.h"
 
 typedef struct {
@@ -17,6 +18,12 @@ typedef struct {
 JNIEXPORT jobject JNICALL
 Java_to_holepunch_bare_kit_Worklet_init(JNIEnv *env, jobject self, jint jmemory_limit, jobject jassets) {
   int err;
+
+  JavaVM *vm;
+  err = (*env)->GetJavaVM(env, &vm);
+  assert(err == JNI_OK);
+
+  bare_kit__jvm_set(vm);
 
   bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
 

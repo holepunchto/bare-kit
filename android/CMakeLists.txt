@@ -12,6 +12,7 @@ target_sources(
   bare_kit
   PRIVATE
     src/main/jni/IPC.c
+    src/main/jni/OnLoad.c
     src/main/jni/Worklet.c
 )
 

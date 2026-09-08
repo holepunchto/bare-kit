@@ -33,6 +33,8 @@ if(ANDROID)
     bare_worklet
     PRIVATE
       android/events.c
+      android/jvm.c
+      android/jvm.h
   )
 else()
   target_sources(
@@ -93,13 +95,11 @@ if(ANDROID)
       android/suspension.h
   )
 
-  use_java()
-
   target_link_libraries(
     bare_worklet
     PRIVATE
       android
-      JNI::NativeHelper
+      dl
   )
 
   target_compile_definitions(
