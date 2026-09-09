@@ -56,7 +56,7 @@ bare_kit__on_thread_enter(bare_worklet_state_t *state) {
   int err;
 
   JavaVM *vm = bare_kit__jvm_get();
-  if (vm == NULL) return;
+  assert(vm != NULL);
 
   JNIEnv *env;
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
@@ -79,11 +79,10 @@ bare_kit__on_thread_exit(bare_worklet_state_t *state) {
   int err;
 
   JavaVM *vm = bare_kit__jvm_get();
-  if (vm == NULL) return;
+  assert(vm != NULL);
 
   JNIEnv *env;
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
-  if (err == JNI_EDETACHED) return;
   assert(err == JNI_OK);
 
   err = (*vm)->DetachCurrentThread(vm);
