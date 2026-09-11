@@ -564,22 +564,21 @@ bare_worklet__on_thread(void *opaque) {
   err = js_create_object(env, &native);
   assert(err == 0);
 
-#define BARE_WORKLET_IPC_FN(name, cb) \
-  do { \
+#define V(name, cb) \
+  { \
     js_value_t *fn; \
     err = js_create_function(env, name, -1, cb, ipc_port, &fn); \
     assert(err == 0); \
     err = js_set_named_property(env, native, name, fn); \
     assert(err == 0); \
-  } while (0)
+  }
 
-  BARE_WORKLET_IPC_FN("read", bare_worklet__on_ipc_read);
-  BARE_WORKLET_IPC_FN("write", bare_worklet__on_ipc_write);
-  BARE_WORKLET_IPC_FN("close", bare_worklet__on_ipc_close);
-  BARE_WORKLET_IPC_FN("ref", bare_worklet__on_ipc_ref);
-  BARE_WORKLET_IPC_FN("unref", bare_worklet__on_ipc_unref);
-
-#undef BARE_WORKLET_IPC_FN
+  V("read", bare_worklet__on_ipc_read);
+  V("write", bare_worklet__on_ipc_write);
+  V("close", bare_worklet__on_ipc_close);
+  V("ref", bare_worklet__on_ipc_ref);
+  V("unref", bare_worklet__on_ipc_unref);
+#undef V
 
   js_value_t *open_ipc;
   err = js_get_named_property(env, exports, "openIPC", &open_ipc);
