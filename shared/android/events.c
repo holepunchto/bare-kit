@@ -3,18 +3,7 @@
 #include <stddef.h>
 
 #include "../events.h"
-
-static JavaVM *
-bare_kit__get_java_vm(void) {
-  JavaVM *vm;
-  jsize len;
-
-  jint err = JNI_GetCreatedJavaVMs(&vm, 1, &len);
-  assert(err == JNI_OK);
-  assert(len == 1);
-
-  return vm;
-}
+#include "jvm.h"
 
 static void
 bare_kit__set_context_class_loader(JNIEnv *env) {
@@ -66,7 +55,8 @@ void
 bare_kit__on_thread_enter(bare_worklet_state_t *state) {
   int err;
 
-  JavaVM *vm = bare_kit__get_java_vm();
+  JavaVM *vm = bare_kit__jvm_get();
+  assert(vm != NULL);
 
   JNIEnv *env;
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
@@ -88,7 +78,8 @@ void
 bare_kit__on_thread_exit(bare_worklet_state_t *state) {
   int err;
 
-  JavaVM *vm = bare_kit__get_java_vm();
+  JavaVM *vm = bare_kit__jvm_get();
+  assert(vm != NULL);
 
   JNIEnv *env;
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
