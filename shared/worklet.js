@@ -12,9 +12,13 @@ const Console = require('bare-console')
 const IPC = require('bare-ipc')
 const unpack = require('bare-unpack')
 
+const { protocol } = module
+
 global.console = new Console(new SystemLog())
 
 const ports = IPC.open()
+
+exports.port = ports[1]
 
 const ipc = new IPC(ports[0])
 
@@ -39,7 +43,6 @@ class BareKit extends EventEmitter {
 }
 
 exports.BareKit = new BareKit()
-exports.port = ports[1]
 
 Object.defineProperty(global, 'BareKit', {
   value: exports.BareKit,
@@ -89,7 +92,7 @@ exports.start = async function start(filename, source, assets) {
 
   if (url === null) url = pathToFileURL(filename)
 
-  if (source === null) source = Module.protocol.read(url)
+  if (source === null) source = protocol.readSync(url)
   else source = Buffer.from(source)
 
   if (assets !== null && path.extname(url.href) === '.bundle') {
@@ -122,7 +125,7 @@ exports.start = async function start(filename, source, assets) {
     }
   }
 
-  return Module.load(url, source)
+  return Module.loadSync(url, source, { protocol })
 }
 
 function noop() {}
