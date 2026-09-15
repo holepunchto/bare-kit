@@ -14,6 +14,7 @@
 #include <utf.h>
 #include <uv.h>
 
+#include "context.h"
 #include "events.h"
 #include "suspension.h"
 #include "worklet.bundle.h"
@@ -387,6 +388,8 @@ bare_worklet__on_thread(void *opaque) {
   js_env_t *env;
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
+
+  bare_kit__publish_context(bare);
 
   err = bare_on_suspend(bare, bare_worklet__on_suspend, state);
   assert(err == 0);
