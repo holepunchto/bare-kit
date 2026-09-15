@@ -139,7 +139,7 @@ jobs:
       - uses: holepunchto/actions/setup-node@v1
         with:
           version: 20
-      - run: choco install llvm --version 20.1.8 --force
+      - run: choco install llvm --version 22.1.8 --force
       - run: choco install nasm
       - run: npm install --global bare-make
       - run: npm install

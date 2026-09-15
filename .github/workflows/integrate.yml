@@ -120,7 +120,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: lts/*
-      - run: choco install llvm --version 20.1.8 --force
+      - run: choco install llvm --version 22.1.8 --force
       - run: choco install nasm
       - run: npm install --global bare-make
       - run: npm install
