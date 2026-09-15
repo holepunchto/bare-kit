@@ -18,6 +18,7 @@ set_target_properties(
 target_sources(
   bare_worklet
   PRIVATE
+    context.h
     events.h
     ipc.h
     ipc.c
@@ -32,6 +33,7 @@ if(ANDROID)
   target_sources(
     bare_worklet
     PRIVATE
+      android/context.c
       android/events.c
       android/jvm.c
       android/jvm.h
@@ -40,6 +42,7 @@ else()
   target_sources(
     bare_worklet
     PRIVATE
+      context.c
       events.c
   )
 endif()
