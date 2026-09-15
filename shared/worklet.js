@@ -12,9 +12,9 @@ const Console = require('bare-console')
 const { Duplex } = require('bare-stream')
 const unpack = require('bare-unpack')
 
-global.console = new Console(new SystemLog())
+const { protocol } = module
 
-let ipc = null
+global.console = new Console(new SystemLog())
 
 // A Duplex over the native in-process queue. The native side provides
 // non-blocking read/write plus ref/unref; a single signal (fed back from the
@@ -121,10 +121,9 @@ Object.defineProperty(global, 'BareKit', {
 // Called by the host runtime with the native queue endpoint before `start`.
 // Returns the signal callback the worklet loop invokes when the queue changes.
 exports.openIPC = function openIPC(native) {
-  ipc = new IPCStream(native)
+  const ipc = new IPCStream(native)
 
-  Bare.IPC = ipc
-  exports.BareKit.IPC = ipc
+  Bare.IPC = exports.BareKit.IPC = ipc
 
   Bare.on('suspend', () => ipc.unref()).on('resume', () => ipc.ref())
 
@@ -172,7 +171,7 @@ exports.start = async function start(filename, source, assets) {
 
   if (url === null) url = pathToFileURL(filename)
 
-  if (source === null) source = Module.protocol.read(url)
+  if (source === null) source = protocol.readSync(url)
   else source = Buffer.from(source)
 
   if (assets !== null && path.extname(url.href) === '.bundle') {
@@ -205,7 +204,7 @@ exports.start = async function start(filename, source, assets) {
     }
   }
 
-  return Module.load(url, source)
+  return Module.loadSync(url, source, { protocol })
 }
 
 function noop() {}
