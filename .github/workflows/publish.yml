@@ -59,8 +59,6 @@ jobs:
     steps:
       - uses: holepunchto/actions/checkout@v1
       - uses: holepunchto/actions/setup-node@v1
-        with:
-          version: 20
       - run: npm install --global bare-make
       - run: npm install
       - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --with-debug-symbols ${{ matrix.flags }}
@@ -107,8 +105,6 @@ jobs:
     steps:
       - uses: holepunchto/actions/checkout@v1
       - uses: holepunchto/actions/setup-node@v1
-        with:
-          version: 20
       - run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -137,8 +133,6 @@ jobs:
     steps:
       - uses: holepunchto/actions/checkout@v1
       - uses: holepunchto/actions/setup-node@v1
-        with:
-          version: 20
       - run: choco install llvm --version 22.1.8 --force
       - run: choco install nasm
       - run: npm install --global bare-make
