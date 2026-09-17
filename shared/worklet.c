@@ -714,6 +714,9 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
     return err;
   }
 
+  err = uv_thread_detach(&worklet->thread);
+  assert(err == 0);
+
   uv_barrier_wait(&worklet->ready);
 
   uv_barrier_destroy(&worklet->ready);
