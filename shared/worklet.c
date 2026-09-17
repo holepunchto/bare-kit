@@ -459,22 +459,29 @@ bare_worklet__on_ipc_unref(js_env_t *env, js_callback_info_t *info) {
   return NULL;
 }
 
+// Owned by the worklet thread, so the signal callback never dereferences the
+// host's worklet, which may be destroyed while the queue is still open.
+typedef struct {
+  js_env_t *env;
+  js_ref_t *signal;
+} bare_worklet__ipc_t;
+
 // Runs on the worklet loop when the host has touched the queue; drives the JS
 // duplex to re-check reads and any pending write.
 static void
 bare_worklet__on_ipc_signal(bare_queue_port_t *port) {
   int err;
 
-  bare_worklet_t *worklet = (bare_worklet_t *) port->data;
+  bare_worklet__ipc_t *ipc = (bare_worklet__ipc_t *) port->data;
 
-  js_env_t *env = worklet->env;
+  js_env_t *env = ipc->env;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
 
   js_value_t *fn;
-  err = js_get_reference_value(env, worklet->ipc_signal, &fn);
+  err = js_get_reference_value(env, ipc->signal, &fn);
   assert(err == 0);
 
   js_value_t *global;
@@ -553,15 +560,20 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_named_property(env, module, "exports", &exports);
   assert(err == 0);
 
-  worklet->env = env;
-
   // Held for the rest of this function: the host may destroy its worklet, and
   // with it every field read from it, the moment this thread hands back control.
   bare_queue_t *queue = worklet->queue;
 
+  // Ours, not the host's: the signal callback runs until we shut the queue down,
+  // which is after the host is free to have destroyed its worklet.
+  bare_worklet__ipc_t *ipc = malloc(sizeof(bare_worklet__ipc_t));
+
+  ipc->env = env;
+  ipc->signal = NULL;
+
   bare_queue_port_t *ipc_port = bare_queue_open_uv(queue, &loop, bare_worklet__on_ipc_signal);
 
-  ipc_port->data = worklet;
+  ipc_port->data = ipc;
 
   js_value_t *native;
   err = js_create_object(env, &native);
@@ -591,10 +603,8 @@ bare_worklet__on_thread(void *opaque) {
   err = js_call_function(env, exports, open_ipc, 1, &native, &on_signal);
   assert(err == 0);
 
-  err = js_create_reference(env, on_signal, 1, &worklet->ipc_signal);
+  err = js_create_reference(env, on_signal, 1, &ipc->signal);
   assert(err == 0);
-
-  js_ref_t *ipc_signal = worklet->ipc_signal;
 
   js_value_t *fn;
   err = js_get_named_property(env, exports, "push", &fn);
@@ -667,8 +677,10 @@ bare_worklet__on_thread(void *opaque) {
   // it. Do this before deleting the reference so no late signal dereferences it.
   bare_queue_shutdown_uv(queue);
 
-  err = js_delete_reference(env, ipc_signal);
+  err = js_delete_reference(env, ipc->signal);
   assert(err == 0);
+
+  free(ipc);
 
   int exit_code;
   err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);

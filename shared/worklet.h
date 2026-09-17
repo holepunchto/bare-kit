@@ -69,9 +69,6 @@ struct bare_worklet_s {
 
   bare_queue_t *queue;
 
-  js_env_t *env;
-  js_ref_t *ipc_signal;
-
   js_threadsafe_function_t *push;
 
   void *data;
