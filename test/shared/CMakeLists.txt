@@ -7,6 +7,7 @@ list(APPEND tests
   worklet-exit-eof
   worklet-ipc
   worklet-ipc-large-write
+  worklet-ipc-write-after-close
   worklet-jsend-eof
   worklet-suspend-resume
   worklet-terminate-after-suspend

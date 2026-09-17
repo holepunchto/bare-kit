@@ -16,6 +16,14 @@ const { protocol } = module
 
 global.console = new Console(new SystemLog())
 
+const errors = {
+  IPC_CLOSED() {
+    const err = new Error('IPC stream closed')
+    err.code = 'IPC_CLOSED'
+    return err
+  }
+}
+
 // A Duplex over the native in-process queue. The native side provides
 // non-blocking read/write plus ref/unref; a single signal (fed back from the
 // worklet loop) means re-check both reads and a pending write.
@@ -58,7 +66,8 @@ class IPCStream extends Duplex {
   _send(chunk, cb) {
     const n = this._native.write(chunk)
 
-    if (n < 0) this._pendingWrite = { chunk, cb }
+    if (n === null) cb(errors.IPC_CLOSED())
+    else if (n < 0) this._pendingWrite = { chunk, cb }
     else if (n < chunk.byteLength) this._pendingWrite = { chunk: chunk.subarray(n), cb }
     else cb(null)
   }

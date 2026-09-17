@@ -393,7 +393,8 @@ bare_worklet__on_ipc_read(js_env_t *env, js_callback_info_t *info) {
   return result;
 }
 
-// native.write(buffer) -> bytes written, or a negative queue status
+// native.write(buffer) -> bytes written, -1 when the queue is full, or null
+// once the peer has closed
 static js_value_t *
 bare_worklet__on_ipc_write(js_env_t *env, js_callback_info_t *info) {
   int err;
@@ -414,7 +415,12 @@ bare_worklet__on_ipc_write(js_env_t *env, js_callback_info_t *info) {
   int n = bare_queue_write(port, data, len);
 
   js_value_t *result;
-  err = js_create_int32(env, n, &result);
+
+  if (n == bare_queue_closed) {
+    err = js_get_null(env, &result);
+  } else {
+    err = js_create_int32(env, n, &result);
+  }
   assert(err == 0);
 
   return result;
