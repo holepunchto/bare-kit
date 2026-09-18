@@ -88,21 +88,29 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
 
-  worklet->incoming = -1;
-  worklet->outgoing = -1;
+  worklet->queue = bare_queue_create();
+
+  if (worklet->queue == NULL) return -1;
 
   return 0;
 }
 
 void
 bare_worklet_destroy(bare_worklet_t *worklet) {
-  int err;
+  if (worklet->thread != 0) {
+    // Stop the worklet if it is still running and wake its loop so the stop
+    // takes effect, then unblock it. The thread is detached and tears itself
+    // down; this function must never block (blocking here causes ANR on
+    // Android). bare_terminate is a no-op if the worklet already exited.
+    bare_terminate(worklet->bare);
+    uv_async_send(&worklet->queue->async);
+    uv_sem_post(worklet->finished);
+  } else {
+    // Nothing ever took ownership of the queue, so it is ours to free.
+    free(worklet->state);
 
-  if (worklet->thread != 0) uv_sem_post(worklet->finished);
-  else free(worklet->state);
-
-  if (worklet->incoming >= 0) close(worklet->incoming);
-  if (worklet->outgoing >= 0) close(worklet->outgoing);
+    bare_queue_destroy(worklet->queue);
+  }
 
   free((char *) worklet->options.assets);
 }
@@ -353,6 +361,147 @@ bare_worklet__on_resume(bare_t *bare, void *data) {
   if (state->callbacks.resume) state->callbacks.resume(bare, state->callbacks.resume_data);
 }
 
+// native.read() -> ArrayBuffer (data) | null (EOF) | undefined (would block)
+static js_value_t *
+bare_worklet__on_ipc_read(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  bare_queue_port_t *port;
+  err = js_get_callback_info(env, info, NULL, NULL, NULL, (void **) &port);
+  assert(err == 0);
+
+  void *data;
+  size_t len;
+  int status = bare_queue_read(port, &data, &len);
+
+  js_value_t *result;
+
+  if (status == bare_queue_would_block) {
+    err = js_get_undefined(env, &result);
+    assert(err == 0);
+  } else if (len == 0) {
+    err = js_get_null(env, &result);
+    assert(err == 0);
+  } else {
+    void *copy;
+    err = js_create_arraybuffer(env, len, &copy, &result);
+    assert(err == 0);
+
+    memcpy(copy, data, len);
+  }
+
+  return result;
+}
+
+// native.write(buffer) -> bytes written, -1 when the queue is full, or null
+// once the peer has closed
+static js_value_t *
+bare_worklet__on_ipc_write(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  bare_queue_port_t *port;
+  err = js_get_callback_info(env, info, &argc, argv, NULL, (void **) &port);
+  assert(err == 0);
+  assert(argc == 1);
+
+  void *data;
+  size_t len;
+  err = js_get_typedarray_info(env, argv[0], NULL, &data, &len, NULL, NULL);
+  assert(err == 0);
+
+  int n = bare_queue_write(port, data, len);
+
+  js_value_t *result;
+
+  if (n == bare_queue_closed) {
+    err = js_get_null(env, &result);
+  } else {
+    err = js_create_int32(env, n, &result);
+  }
+  assert(err == 0);
+
+  return result;
+}
+
+static js_value_t *
+bare_worklet__on_ipc_close(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  bare_queue_port_t *port;
+  err = js_get_callback_info(env, info, NULL, NULL, NULL, (void **) &port);
+  assert(err == 0);
+
+  bare_queue_close(port);
+
+  return NULL;
+}
+
+static js_value_t *
+bare_worklet__on_ipc_ref(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  bare_queue_port_t *port;
+  err = js_get_callback_info(env, info, NULL, NULL, NULL, (void **) &port);
+  assert(err == 0);
+
+  uv_ref((uv_handle_t *) &port->queue->async);
+
+  return NULL;
+}
+
+static js_value_t *
+bare_worklet__on_ipc_unref(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  bare_queue_port_t *port;
+  err = js_get_callback_info(env, info, NULL, NULL, NULL, (void **) &port);
+  assert(err == 0);
+
+  uv_unref((uv_handle_t *) &port->queue->async);
+
+  return NULL;
+}
+
+// Owned by the worklet thread, so the signal callback never dereferences the
+// host's worklet, which may be destroyed while the queue is still open.
+typedef struct {
+  js_env_t *env;
+  js_ref_t *signal;
+} bare_worklet__ipc_t;
+
+// Runs on the worklet loop when the host has touched the queue; drives the JS
+// duplex to re-check reads and any pending write.
+static void
+bare_worklet__on_ipc_signal(bare_queue_port_t *port) {
+  int err;
+
+  bare_worklet__ipc_t *ipc = (bare_worklet__ipc_t *) port->data;
+
+  assert(ipc->signal);
+
+  js_env_t *env = ipc->env;
+
+  js_handle_scope_t *scope;
+  err = js_open_handle_scope(env, &scope);
+  assert(err == 0);
+
+  js_value_t *fn;
+  err = js_get_reference_value(env, ipc->signal, &fn);
+  assert(err == 0);
+
+  js_value_t *global;
+  err = js_get_global(env, &global);
+  assert(err == 0);
+
+  js_call_function(env, global, fn, 0, NULL, NULL);
+
+  err = js_close_handle_scope(env, scope);
+  assert(err == 0);
+}
+
 static void
 bare_worklet__on_thread(void *opaque) {
   uv_once(&bare_worklet__platform_guard, bare_worklet__on_platform_init);
@@ -419,22 +568,50 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_named_property(env, module, "exports", &exports);
   assert(err == 0);
 
-  js_value_t *port;
-  err = js_get_named_property(env, exports, "port", &port);
+  // Held for the rest of this function: the host may destroy its worklet, and
+  // with it every field read from it, the moment this thread hands back control.
+  bare_queue_t *queue = worklet->queue;
+
+  // Ours, not the host's: the signal callback runs until we shut the queue down,
+  // which is after the host is free to have destroyed its worklet.
+  bare_worklet__ipc_t *ipc = malloc(sizeof(bare_worklet__ipc_t));
+
+  ipc->env = env;
+  ipc->signal = NULL;
+
+  bare_queue_port_t *ipc_port = bare_queue_open_uv(queue, &loop, bare_worklet__on_ipc_signal);
+
+  ipc_port->data = ipc;
+
+  js_value_t *native;
+  err = js_create_object(env, &native);
   assert(err == 0);
 
-  js_value_t *incoming;
-  err = js_get_named_property(env, port, "incoming", &incoming);
+#define V(name, cb) \
+  { \
+    js_value_t *fn; \
+    err = js_create_function(env, name, -1, cb, ipc_port, &fn); \
+    assert(err == 0); \
+    err = js_set_named_property(env, native, name, fn); \
+    assert(err == 0); \
+  }
+
+  V("read", bare_worklet__on_ipc_read);
+  V("write", bare_worklet__on_ipc_write);
+  V("close", bare_worklet__on_ipc_close);
+  V("ref", bare_worklet__on_ipc_ref);
+  V("unref", bare_worklet__on_ipc_unref);
+#undef V
+
+  js_value_t *open_ipc;
+  err = js_get_named_property(env, exports, "openIPC", &open_ipc);
   assert(err == 0);
 
-  err = js_get_value_int32(env, incoming, &worklet->incoming);
+  js_value_t *on_signal;
+  err = js_call_function(env, exports, open_ipc, 1, &native, &on_signal);
   assert(err == 0);
 
-  js_value_t *outgoing;
-  err = js_get_named_property(env, port, "outgoing", &outgoing);
-  assert(err == 0);
-
-  err = js_get_value_int32(env, outgoing, &worklet->outgoing);
+  err = js_create_reference(env, on_signal, 1, &ipc->signal);
   assert(err == 0);
 
   js_value_t *fn;
@@ -492,6 +669,11 @@ bare_worklet__on_thread(void *opaque) {
 
   state->finished = true;
 
+  // Signal EOF to the host by closing our end of the queue. This is in-process
+  // (a status flag plus a host wakeup), so it works on every exit path without
+  // pumping the loop or scheduling async work from the exit event.
+  bare_queue_close(ipc_port);
+
   uv_sem_wait(&finished);
 
   uv_sem_destroy(&finished);
@@ -499,12 +681,25 @@ bare_worklet__on_thread(void *opaque) {
   err = js_release_threadsafe_function(push, js_threadsafe_function_release);
   assert(err == 0);
 
+  // Closing the async here stops further signals; teardown's loop run flushes
+  // it. Do this before deleting the reference so no late signal dereferences it.
+  bare_queue_shutdown_uv(queue);
+
+  err = js_delete_reference(env, ipc->signal);
+  assert(err == 0);
+
+  free(ipc);
+
   int exit_code;
   err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);
   assert(err == 0);
 
   err = uv_loop_close(&loop);
   assert(err == 0);
+
+  // Ours since the host started us, and nothing may reach it now: the host was
+  // required to retire its end before signalling us to be destroyed.
+  bare_queue_destroy(queue);
 
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
