@@ -480,6 +480,8 @@ bare_worklet__on_ipc_signal(bare_queue_port_t *port) {
 
   bare_worklet__ipc_t *ipc = (bare_worklet__ipc_t *) port->data;
 
+  assert(ipc->signal);
+
   js_env_t *env = ipc->env;
 
   js_handle_scope_t *scope;

@@ -52,7 +52,7 @@ main() {
   bare_ipc_destroy(&ipc);
 
   // Give the worklet time to retry that write against the closed peer.
-  uv_sleep(100);
+  uv_sleep(300);
 
   uv_buf_t payload = uv_buf_init("status", 6);
 
