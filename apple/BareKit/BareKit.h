@@ -82,8 +82,17 @@
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet;
 
+/**
+ * Reads whatever is available without blocking. Returns `nil` when nothing is
+ * ready yet, and empty data at end-of-stream, once the worklet has closed its
+ * end. Wait for `readable` before retrying a `nil`.
+ */
 - (NSData *_Nullable)read;
 
+/**
+ * Reads once something is available, waiting for `readable` as needed. Delivers
+ * `nil` data at end-of-stream, once the worklet has closed its end.
+ */
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
 
 - (NSInteger)write:(NSData *_Nonnull)data;

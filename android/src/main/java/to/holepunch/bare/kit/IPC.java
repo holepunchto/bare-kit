@@ -87,6 +87,11 @@ public class IPC implements Closeable {
     update();
   }
 
+  /**
+   * Reads whatever is available without blocking. Returns null when nothing is
+   * ready yet, and an empty buffer at end-of-stream, once the worklet has
+   * closed its end. Wait for readable() before retrying a null.
+   */
   public ByteBuffer
   read() {
     ByteBuffer buffer = read(handle);
@@ -102,6 +107,10 @@ public class IPC implements Closeable {
     return copy;
   }
 
+  /**
+   * Reads once something is available, waiting for readable() as needed.
+   * Delivers null data at end-of-stream, once the worklet has closed its end.
+   */
   public void
   read(ReadCallback callback) {
     ByteBuffer data1 = read();
