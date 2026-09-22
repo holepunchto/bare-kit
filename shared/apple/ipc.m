@@ -119,9 +119,11 @@ bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
 
 void
 bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
-  bare_ipc_t *ipc = poll->ipc;
+  int err;
+  err = bare_ipc_poll_stop(poll);
+  assert(err == 0);
 
-  atomic_store(&poll->cb, NULL);
+  bare_ipc_t *ipc = poll->ipc;
 
   ipc->poll = NULL;
 

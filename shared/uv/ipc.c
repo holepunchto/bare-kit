@@ -178,15 +178,16 @@ bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
 
 void
 bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
+  int err;
+  err = bare_ipc_poll_stop(poll);
+  assert(err == 0);
+
   bare_ipc_t *ipc = poll->ipc;
 
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
   // Under the lock, so the caller may free the poll as soon as this returns.
   bare_ipc__lock(signal);
-
-  poll->events = 0;
-  poll->cb = NULL;
 
   ipc->poll = NULL;
 
