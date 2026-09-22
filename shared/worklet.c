@@ -69,15 +69,23 @@ int
 bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options) {
   uv_once(&bare_worklet__init_guard, bare_worklet__on_init);
 
-  int err;
-
   worklet->thread = 0;
 
   bare_worklet_state_t *state = malloc(sizeof(bare_worklet_state_t));
 
+  if (state == NULL) return -1;
+
   state->finished = false;
 
   memset(&state->callbacks, 0, sizeof(state->callbacks));
+
+  worklet->queue = bare_queue_create();
+
+  if (worklet->queue == NULL) {
+    free(state);
+
+    return -1;
+  }
 
   worklet->state = state;
 
@@ -87,10 +95,6 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
     worklet->options.memory_limit = options->memory_limit;
     worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
   }
-
-  worklet->queue = bare_queue_create();
-
-  if (worklet->queue == NULL) return -1;
 
   return 0;
 }
