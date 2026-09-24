@@ -101,6 +101,10 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
 void
 bare_worklet_destroy(bare_worklet_t *worklet) {
+  // The host retires its ipc first: from here the queue is the worklet's and may
+  // be freed at any moment.
+  assert(!worklet->queue->thread_open || worklet->queue->thread_closed);
+
   if (worklet->thread != 0) {
     // Stop the worklet if it is still running and wake its loop so the stop
     // takes effect, then unblock it. The thread is detached and tears itself
