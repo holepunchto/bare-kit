@@ -51,6 +51,9 @@ public class Worklet implements Closeable {
 
   ByteBuffer handle;
 
+  // Unowned: the IPC holds this worklet and clears this when it closes.
+  IPC ipc;
+
   public Worklet(Options options) {
     if (options == null) options = new Options();
 
@@ -158,6 +161,8 @@ public class Worklet implements Closeable {
 
   public void
   terminate() {
+    if (ipc != null) ipc.close();
+
     terminate(handle);
 
     handle = null;

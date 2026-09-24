@@ -85,7 +85,7 @@
 /**
  * Reads whatever is available without blocking. Returns `nil` when nothing is
  * ready yet, and empty data at end-of-stream, once the worklet has closed its
- * end. Wait for `readable` before retrying a `nil`.
+ * end or this ipc is closed. Wait for `readable` before retrying a `nil`.
  */
 - (NSData *_Nullable)read;
 
@@ -95,11 +95,19 @@
  */
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
 
+/**
+ * Writes whatever fits without blocking, returning the number of bytes taken,
+ * or -1 once this ipc is closed.
+ */
 - (NSInteger)write:(NSData *_Nonnull)data;
 
 - (void)write:(NSData *_Nonnull)data
    completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
 
+/**
+ * Retires this ipc, which must happen before its worklet is destroyed.
+ * `terminate` does it for you, and closing twice is a no-op.
+ */
 - (void)close;
 
 @end

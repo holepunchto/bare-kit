@@ -1,6 +1,7 @@
 package to.holepunch.bare.kit;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,6 +39,8 @@ public class IPC implements Closeable {
     this.worklet = worklet;
 
     handle = init(worklet.handle);
+
+    worklet.ipc = this;
   }
 
   private native ByteBuffer
@@ -60,6 +63,8 @@ public class IPC implements Closeable {
 
   private void
   update() {
+    if (handle == null) return;
+
     update(handle, readable != null, writable != null);
   }
 
@@ -90,10 +95,13 @@ public class IPC implements Closeable {
   /**
    * Reads whatever is available without blocking. Returns null when nothing is
    * ready yet, and an empty buffer at end-of-stream, once the worklet has
-   * closed its end. Wait for readable() before retrying a null.
+   * closed its end or this IPC is closed. Wait for readable() before retrying
+   * a null.
    */
   public ByteBuffer
   read() {
+    if (handle == null) return ByteBuffer.allocateDirect(0);
+
     ByteBuffer buffer = read(handle);
 
     if (buffer == null) {
@@ -134,6 +142,8 @@ public class IPC implements Closeable {
 
   public int
   write(ByteBuffer data) {
+    if (handle == null) return -1;
+
     ByteBuffer buffer;
 
     if (data.isDirect()) {
@@ -149,6 +159,12 @@ public class IPC implements Closeable {
 
   public void
   write(ByteBuffer data, WriteCallback callback) {
+    if (handle == null) {
+      callback.apply(new IOException("IPC closed"));
+
+      return;
+    }
+
     ByteBuffer buffer;
 
     if (data.isDirect()) {
@@ -186,8 +202,18 @@ public class IPC implements Closeable {
     }
   }
 
+  /**
+   * Retires this IPC, which must happen before its worklet is destroyed.
+   * terminate() does it for you, and closing twice is a no-op.
+   */
   public void
   close() {
+    if (handle == null) return;
+
     destroy(handle);
+
+    handle = null;
+
+    worklet.ipc = null;
   }
 }

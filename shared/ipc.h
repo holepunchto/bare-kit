@@ -7,9 +7,8 @@ extern "C" {
 
 #include <stddef.h>
 
+#include "queue.h"
 #include "worklet.h"
-
-#define BARE_IPC_READ_BUFFER_SIZE 64 * 1024
 
 typedef struct bare_ipc_s bare_ipc_t;
 typedef struct bare_ipc_poll_s bare_ipc_poll_t;
@@ -26,6 +25,32 @@ enum {
   bare_ipc_error = -2,
 };
 
+struct bare_ipc_s {
+  bare_queue_port_t *port;
+  bare_ipc_poll_t *poll;
+
+  // The primitive that hops a queue change onto the host run loop. Owned here,
+  // for the lifetime of the port, because the worklet signals through it: a poll
+  // comes and goes underneath.
+  void *signal;
+};
+
+// Per platform. `signal` runs on the worklet thread, so it may only touch state
+// owned by the ipc.
+int
+bare_ipc__signal_init(bare_ipc_t *ipc);
+
+void
+bare_ipc__signal_destroy(bare_ipc_t *ipc);
+
+void
+bare_ipc__signal(bare_ipc_t *ipc);
+
+// Which of the events a poll asked for are ready right now. A wake says the
+// queue changed, not how, so the platform asks after each one.
+int
+bare_ipc__ready(bare_ipc_t *ipc, int events);
+
 #if defined(BARE_KIT_DARWIN) || defined(BARE_KIT_IOS)
 #include "apple/ipc.h"
 #endif
@@ -34,14 +59,10 @@ enum {
 #include "android/ipc.h"
 #endif
 
-#if defined(BARE_KIT_LINUX)
-#include "linux/ipc.h"
-#endif
-
-#if defined(BARE_KIT_WINDOWS)
-#include "win32/ipc.h"
-#else
-#include "posix/ipc.h"
+// Neither Linux nor Windows hands us a host run loop to post to, so both wake on
+// a loop of their own.
+#if defined(BARE_KIT_LINUX) || defined(BARE_KIT_WINDOWS)
+#include "uv/ipc.h"
 #endif
 
 int
@@ -50,14 +71,11 @@ bare_ipc_alloc(bare_ipc_t **result);
 int
 bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet);
 
+// Retires the host end. Must be called before `bare_worklet_destroy`: the queue
+// belongs to the worklet, which may free it as soon as the host has signalled it
+// to be destroyed. A host that keeps an ipc must therefore keep its worklet.
 void
 bare_ipc_destroy(bare_ipc_t *ipc);
-
-int
-bare_ipc_get_incoming(bare_ipc_t *ipc);
-
-int
-bare_ipc_get_outgoing(bare_ipc_t *ipc);
 
 int
 bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len);
