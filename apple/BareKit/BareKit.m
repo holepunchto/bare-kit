@@ -103,6 +103,9 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 @implementation BareWorklet {
 @public
   bare_worklet_t _worklet;
+
+  // Unowned: the ipc retains this worklet and clears this when it closes.
+  BareIPC *_ipc;
 }
 
 + (void)optimizeForMemory:(BOOL)enabled {
@@ -234,6 +237,8 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 }
 
 - (void)terminate {
+  [_ipc close];
+
   int err;
   err = bare_worklet_terminate(&_worklet);
   assert(err == 0);
@@ -303,6 +308,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 
   bare_ipc_t _ipc;
   bare_ipc_poll_t _poll;
+
+  bool _closed;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
@@ -320,6 +327,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
     assert(err == 0);
 
     _poll.data = (__bridge void *) self;
+
+    worklet->_ipc = self;
   }
 
   return self;
@@ -347,6 +356,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (void)update {
+  if (_closed) return;
+
   int events = 0;
 
   if (_readable) events |= bare_ipc_readable;
@@ -369,6 +380,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (NSData *_Nullable)read {
+  if (_closed) return [NSData data];
+
   int err;
 
   void *data;
@@ -384,6 +397,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
+  if (_closed) return completion(nil, nil);
+
   int err;
 
   void *data;
@@ -411,6 +426,8 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (NSInteger)write:(NSData *_Nonnull)data {
+  if (_closed) return -1;
+
   int err;
   err = bare_ipc_write(&_ipc, data.bytes, data.length);
   assert(err >= 0 || err == bare_ipc_would_block);
@@ -424,6 +441,13 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 
 - (void)write:(NSData *_Nonnull)data
    completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
+  if (_closed) {
+    return completion([NSError
+      errorWithDomain:@"to.holepunch.bare.kit"
+                 code:-1
+             userInfo:@{NSLocalizedDescriptionKey : @"IPC closed"}]);
+  }
+
   NSInteger written = [self write:data];
 
   if (written == data.length) {
@@ -457,11 +481,19 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (void)close {
+  if (_closed) return;
+
+  _closed = true;
+
+  _worklet->_ipc = nil;
+
   bare_ipc_poll_destroy(&_poll);
   bare_ipc_destroy(&_ipc);
 }
 
 - (void)dealloc {
+  [self close];
+
   [_worklet release];
 
   [super dealloc];
