@@ -20,10 +20,14 @@ bare_suspension_start(bare_suspension_t *suspension, int timeout) {
 
   if (app == nil) return timeout < 0 ? 30000 : timeout;
 
-  UIBackgroundTaskIdentifier next = [app beginBackgroundTaskWithName:@"Suspending Bare"
-                                                   expirationHandler:^{
-                                                     [app endBackgroundTask:next];
-                                                   }];
+  __block UIBackgroundTaskIdentifier next = [app beginBackgroundTaskWithName:@"Suspending Bare"
+                                                           expirationHandler:^{
+                                                             UIBackgroundTaskIdentifier expected = next;
+
+                                                             atomic_compare_exchange_strong(&suspension->task, &expected, UIBackgroundTaskInvalid);
+
+                                                             [app endBackgroundTask:next];
+                                                           }];
 
   UIBackgroundTaskIdentifier prev = atomic_exchange(&suspension->task, next);
 
