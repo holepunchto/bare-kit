@@ -7,6 +7,7 @@ list(APPEND tests
   worklet-ipc
   worklet-ipc-large-write
   worklet-suspend-resume
+  worklet-suspend-resume-suspend
   worklet-terminate-after-suspend
 )
 
