@@ -326,9 +326,6 @@ bare_worklet_teardown(void) {
   return 0;
 }
 
-uv_mutex_unlock(&bare_worklet__platform_lock);
-}
-
 // Whether the push is still pending, which is compared by address alone, as a
 // push is freed once it has settled. Called with the lock held.
 static bool
