@@ -20,104 +20,74 @@ jobs:
     steps:
       - uses: holepunchto/actions/node-base@v1
       - run: npm run lint
-  apple:
-    strategy:
-      matrix:
-        include:
-          - os: macos-26-intel
-            platform: darwin
-            arch: x64
-          - os: macos-26
-            platform: darwin
-            arch: arm64
-          - os: macos-26
-            platform: ios
-            arch: arm64
-          - os: macos-26
-            platform: ios
-            arch: arm64
-            tags: -simulator
-            flags: --simulator
-          - os: macos-26
-            platform: ios
-            arch: x64
-            tags: -simulator
-            flags: --simulator
-    runs-on: ${{ matrix.os }}
-    name: Test / ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
-    steps:
-      - uses: holepunchto/actions/checkout@v1
-      - uses: holepunchto/actions/setup-node@v1
-      - run: npm install --global bare-make
-      - run: npm install
-      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} ${{ matrix.flags }} --debug
-      - run: bare-make build
-      - run: bare-make test
-        if: ${{ matrix.platform == 'darwin' }}
-  android:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            platform: android
-    runs-on: ${{ matrix.os }}
-    name: Test / ${{ matrix.platform }}
-    steps:
-      - uses: holepunchto/actions/checkout@v1
-      - uses: holepunchto/actions/setup-node@v1
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          distribution: temurin
-          java-version: 21
-      - run: npm install --global cmake-runtime ninja-runtime
-      - run: npm install
-      - run: ./gradlew aR
-  linux:
+  test:
     strategy:
       matrix:
         include:
           - os: ubuntu-22.04
             platform: linux
             arch: x64
+            flags: --sanitize address
           - os: ubuntu-22.04-arm
             platform: linux
             arch: arm64
-    runs-on: ${{ matrix.os }}
-    name: Test / ${{ matrix.platform }}-${{ matrix.arch }}
-    steps:
-      - uses: holepunchto/actions/checkout@v1
-      - uses: holepunchto/actions/setup-node@v1
-      - run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 22
-        if: ${{ matrix.platform == 'linux' }}
-      - run: npm install --global bare-make
-      - run: npm install
-      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --debug
-      - run: bare-make build
-      - run: bare-make test
-  windows:
-    strategy:
-      matrix:
-        include:
+            flags: --sanitize address
+          - os: ubuntu-24.04
+            platform: android
+            arch: x64
+            flags: -D ANDROID_STL=c++_static
+          - os: ubuntu-24.04
+            platform: android
+            arch: ia32
+            flags: -D ANDROID_STL=c++_static
+          - os: ubuntu-24.04
+            platform: android
+            arch: arm64
+            flags: -D ANDROID_STL=c++_static
+          - os: ubuntu-24.04
+            platform: android
+            arch: arm
+            flags: -D ANDROID_STL=c++_static
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+            flags: --sanitize address
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+            flags: --sanitize address
+          - os: macos-15
+            platform: ios
+            arch: arm64
+          - os: macos-15
+            platform: ios
+            arch: arm64
+            tags: -simulator
+            flags: --simulator
+          - os: macos-15
+            platform: ios
+            arch: x64
+            tags: -simulator
+            flags: --simulator
           - os: windows-2022
             platform: win32
             arch: x64
+            flags: --sanitize address
           - os: windows-11-arm
             platform: win32
             arch: arm64
     runs-on: ${{ matrix.os }}
-    name: Test / ${{ matrix.platform }}-${{ matrix.arch }}
+    name: Test / ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
     steps:
-      - uses: holepunchto/actions/checkout@v1
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: holepunchto/actions/node-base@v1
+      - uses: holepunchto/actions/compile-prebuilds@v1
         with:
-          node-version: lts/*
-      - run: choco install llvm --version 22.1.8 --force
-      - run: choco install nasm
-      - run: npm install --global bare-make
-      - run: npm install
-      - run: bare-make generate --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --debug
-      - run: bare-make build
+          platform: ${{ matrix.platform }}
+          arch: ${{ matrix.arch }}
+          flags: ${{ matrix.flags }}
+          tags: ${{ matrix.tags}}
       - run: bare-make test
+        env:
+          ASAN_OPTIONS: detect_leaks=${{ matrix.platform == 'win32' && '0' || '1' }}
+          LSAN_OPTIONS: suppressions=test/leaks.txt
+        if: ${{ matrix.platform == 'linux' || matrix.platform == 'darwin' || matrix.platform == 'win32' }}

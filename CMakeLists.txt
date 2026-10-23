@@ -15,23 +15,7 @@ endif()
 
 fetch_package("github:holepunchto/bare@1.33.5" SOURCE_DIR bare)
 
-add_subdirectory(shared)
-
-if(APPLE)
-  add_subdirectory(apple)
-endif()
-
-if(ANDROID)
-  add_subdirectory(android)
-endif()
-
-if(LINUX)
-  add_subdirectory(linux)
-endif()
-
-if(WIN32)
-  add_subdirectory(win32)
-endif()
+add_subdirectory(src)
 
 if(PROJECT_IS_TOP_LEVEL)
   enable_testing()
