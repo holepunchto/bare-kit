@@ -23,7 +23,12 @@
 struct bare_worklet_state_s {
   bool finished;
 
+  uv_mutex_t lock;
+
   bare_suspension_t suspension;
+
+  bool suspended;
+  bool resuming;
 
   struct {
     bare_suspend_cb suspend;
@@ -69,6 +74,8 @@ int
 bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options) {
   uv_once(&bare_worklet__init_guard, bare_worklet__on_init);
 
+  int err;
+
   worklet->thread = 0;
 
   bare_worklet_state_t *state = malloc(sizeof(bare_worklet_state_t));
@@ -76,12 +83,19 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   if (state == NULL) return -1;
 
   state->finished = false;
+  state->suspended = false;
+  state->resuming = false;
+
+  err = uv_mutex_init(&state->lock);
+  assert(err == 0);
 
   memset(&state->callbacks, 0, sizeof(state->callbacks));
 
   worklet->queue = bare_queue_create();
 
   if (worklet->queue == NULL) {
+    uv_mutex_destroy(&state->lock);
+
     free(state);
 
     return -1;
@@ -115,6 +129,8 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
     uv_sem_post(worklet->finished);
   } else {
     // Nothing ever took ownership of the queue, so it is ours to free.
+    uv_mutex_destroy(&worklet->state->lock);
+
     free(worklet->state);
 
     bare_queue_destroy(worklet->queue);
@@ -347,8 +363,16 @@ bare_worklet__on_idle(bare_t *bare, void *data) {
 
   bare_worklet_state_t *state = data;
 
-  err = bare_suspension_end(&state->suspension);
-  assert(err == 0);
+  uv_mutex_lock(&state->lock);
+
+  // A pending resume means the current suspension, if any, was started after
+  // this idle was reached and so is not ours to end.
+  if (!state->resuming) {
+    err = bare_suspension_end(&state->suspension);
+    assert(err == 0);
+  }
+
+  uv_mutex_unlock(&state->lock);
 
   if (state->finished) return;
 
@@ -357,12 +381,13 @@ bare_worklet__on_idle(bare_t *bare, void *data) {
 
 static void
 bare_worklet__on_resume(bare_t *bare, void *data) {
-  int err;
-
   bare_worklet_state_t *state = data;
 
-  err = bare_suspension_end(&state->suspension);
-  assert(err == 0);
+  uv_mutex_lock(&state->lock);
+
+  state->resuming = false;
+
+  uv_mutex_unlock(&state->lock);
 
   if (state->finished) return;
 
@@ -709,10 +734,16 @@ bare_worklet__on_thread(void *opaque) {
   // required to retire its end before signalling us to be destroyed.
   bare_queue_destroy(queue);
 
+  uv_mutex_lock(&state->lock);
+
   err = bare_suspension_end(&state->suspension);
   assert(err == 0);
 
+  uv_mutex_unlock(&state->lock);
+
   bare_kit__on_thread_exit(state);
+
+  uv_mutex_destroy(&state->lock);
 
   free(state);
 }
@@ -754,25 +785,53 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
-  int err;
+  bare_worklet_state_t *state = worklet->state;
 
-  linger = bare_suspension_start(&worklet->state->suspension, linger);
+  uv_mutex_lock(&state->lock);
+
+  linger = bare_suspension_start(&state->suspension, linger);
   assert(linger >= 0);
+
+  state->suspended = true;
+
+  uv_mutex_unlock(&state->lock);
 
   return bare_suspend(worklet->bare, linger);
 }
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
+  int err;
+
+  bare_worklet_state_t *state = worklet->state;
+
+  uv_mutex_lock(&state->lock);
+
+  err = bare_suspension_end(&state->suspension);
+  assert(err == 0);
+
+  // Only a resume that follows a suspend is guaranteed to be observed by the
+  // worklet thread, as Bare ignores resuming a worklet that is already active.
+  if (state->suspended) {
+    state->suspended = false;
+    state->resuming = true;
+  }
+
+  uv_mutex_unlock(&state->lock);
+
   return bare_resume(worklet->bare);
 }
 
 int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
-  int err;
+  bare_worklet_state_t *state = worklet->state;
 
-  deadline = bare_suspension_start(&worklet->state->suspension, deadline);
+  uv_mutex_lock(&state->lock);
+
+  deadline = bare_suspension_start(&state->suspension, deadline);
   assert(deadline >= 0);
+
+  uv_mutex_unlock(&state->lock);
 
   return bare_wakeup(worklet->bare, deadline);
 }
