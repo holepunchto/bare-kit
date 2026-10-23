@@ -21,6 +21,7 @@ list(APPEND tests
   worklet-push-terminate
   worklet-suspend-resume
   worklet-suspend-resume-suspend
+  worklet-teardown
   worklet-terminate-after-suspend
   worklet-terminate-before-start
 )

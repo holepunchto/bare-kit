@@ -27,4 +27,7 @@ main() {
   assert(e == 0);
 
   bare_worklet_destroy(worklet);
+
+  e = bare_worklet_teardown();
+  assert(e == 0);
 }

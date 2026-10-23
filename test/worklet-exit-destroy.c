@@ -43,4 +43,7 @@ main() {
   uv_sleep(100);
 
   assert(atomic_load(&exits) == 1);
+
+  e = bare_worklet_teardown();
+  assert(e == 0);
 }

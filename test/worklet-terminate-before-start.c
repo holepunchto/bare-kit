@@ -52,4 +52,7 @@ main() {
   assert(e == bare_ipc_error);
 
   bare_ipc_destroy(ipc);
+
+  e = bare_worklet_teardown();
+  assert(e == 0);
 }

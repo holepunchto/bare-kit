@@ -1,5 +1,6 @@
 EXPORTS
   bare_worklet_optimize_for_memory
+  bare_worklet_teardown
   bare_worklet_create
   bare_worklet_destroy
   bare_worklet_on_suspend

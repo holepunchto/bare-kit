@@ -52,6 +52,12 @@ struct bare_worklet_state_s {
 
 static uv_once_t bare_worklet__init_guard = UV_ONCE_INIT;
 
+// The worklets of the process that have started but not yet torn down.
+static uv_mutex_t bare_worklet__running_lock;
+static uv_cond_t bare_worklet__running_idle;
+static int bare_worklet__running = 0;
+static bool bare_worklet__torn_down = false;
+
 // The state of the worklet whose thread this is, for replies, which carry only
 // their push.
 static uv_key_t bare_worklet__state;
@@ -61,6 +67,12 @@ bare_worklet__on_init(void) {
   int err;
 
   err = uv_key_create(&bare_worklet__state);
+  assert(err == 0);
+
+  err = uv_mutex_init(&bare_worklet__running_lock);
+  assert(err == 0);
+
+  err = uv_cond_init(&bare_worklet__running_idle);
   assert(err == 0);
 
 #ifdef SIGPIPE
@@ -217,6 +229,8 @@ bare_worklet_optimize_for_memory(bool enabled) {
   return 0;
 }
 
+// Shared by the worklets of the process. It can only be created once, so it lives
+// until `bare_worklet_teardown()`, which waits for every running worklet first.
 static uv_once_t bare_worklet__platform_guard = UV_ONCE_INIT;
 static uv_thread_t bare_worklet__platform_thread;
 static uv_async_t bare_worklet__platform_shutdown;
@@ -275,6 +289,44 @@ bare_worklet__on_platform_init(void) {
   uv_barrier_wait(&bare_worklet__platform_ready);
 
   uv_barrier_destroy(&bare_worklet__platform_ready);
+}
+
+static void
+bare_worklet__on_stopped(void) {
+  uv_mutex_lock(&bare_worklet__running_lock);
+
+  if (--bare_worklet__running == 0) uv_cond_signal(&bare_worklet__running_idle);
+
+  uv_mutex_unlock(&bare_worklet__running_lock);
+}
+
+int
+bare_worklet_teardown(void) {
+  uv_once(&bare_worklet__init_guard, bare_worklet__on_init);
+
+  int err;
+
+  uv_mutex_lock(&bare_worklet__running_lock);
+
+  bare_worklet__torn_down = true;
+
+  while (bare_worklet__running > 0)
+    uv_cond_wait(&bare_worklet__running_idle, &bare_worklet__running_lock);
+
+  uv_mutex_unlock(&bare_worklet__running_lock);
+
+  if (bare_worklet__platform) {
+    err = uv_async_send(&bare_worklet__platform_shutdown);
+    assert(err == 0);
+
+    err = uv_thread_join(&bare_worklet__platform_thread);
+    assert(err == 0);
+  }
+
+  return 0;
+}
+
+uv_mutex_unlock(&bare_worklet__platform_lock);
 }
 
 // Whether the push is still pending, which is compared by address alone, as a
@@ -817,6 +869,8 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
+  bare_worklet__on_stopped();
+
   bare_suspension_destroy(&state->suspension);
 
   if (state->callbacks.exit) state->callbacks.exit(exit_code, state->callbacks.exit_data);
@@ -850,6 +904,16 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *so
     worklet->source.type = bare_worklet_source_none;
   }
 
+  uv_mutex_lock(&bare_worklet__running_lock);
+
+  bool torn_down = bare_worklet__torn_down;
+
+  if (!torn_down) bare_worklet__running++;
+
+  uv_mutex_unlock(&bare_worklet__running_lock);
+
+  if (torn_down) return -1;
+
   err = uv_barrier_init(&worklet->ready, 2);
   assert(err == 0);
 
@@ -858,6 +922,8 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *so
     uv_barrier_destroy(&worklet->ready);
 
     worklet->thread = 0;
+
+    bare_worklet__on_stopped();
 
     return err;
   }

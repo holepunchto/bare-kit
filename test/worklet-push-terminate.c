@@ -45,4 +45,7 @@ main() {
 
   assert(replies == 0);
   assert(errors == 10);
+
+  e = bare_worklet_teardown();
+  assert(e == 0);
 }

@@ -72,4 +72,7 @@ main() {
   bare_ipc_destroy(ipc);
 
   bare_worklet_destroy(worklet);
+
+  e = bare_worklet_teardown();
+  assert(e == 0);
 }
