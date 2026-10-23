@@ -63,6 +63,8 @@ main() {
   bare_ipc_poll_destroy(poll);
   bare_ipc_destroy(ipc);
   bare_worklet_destroy(worklet);
+
+  bare_worklet_teardown();
 }
 ```
 
@@ -79,6 +81,8 @@ The API is documented in [`include/bare-kit.h`](include/bare-kit.h).
 Once the worklet has exited and torn down, the exit callback is called exactly once on the worklet thread with the exit code. This also happens when the host destroys a running worklet, so the callback is the place to release whatever the host associated with it. By then, any IPC of the worklet has reached the end of the stream, and suspending, resuming, waking up, or terminating the worklet does nothing.
 
 `bare_worklet_destroy()` never blocks. It terminates the worklet if it is still running and hands it over to tear itself down, and it may be called before or after destroying its IPC.
+
+The worklets of a process share a single JavaScript platform, which can only be created once. A host that is done with Bare Kit for good calls `bare_worklet_teardown()` once its worklets have been terminated or destroyed: it waits for any worklet still tearing down and then destroys the platform, after which no worklet may start. A host that runs worklets for as long as it lives need not call it.
 
 ## IPC
 
