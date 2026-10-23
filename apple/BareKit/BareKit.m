@@ -66,8 +66,9 @@ bare_kit__error(NSString *message) {
 static void
 bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
   @autoreleasepool {
-    // Owned by the request since the push, and retained by the operation below
-    // for as long as it needs the handler.
+    // Owned by the request since the push and released here rather than by the
+    // operation below, as a queue releases its finished operations at no set
+    // time.
     BareWorkletPushContext *context = (__bridge BareWorkletPushContext *) req->data;
 
     NSError *error;
@@ -87,8 +88,10 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
       data = nil;
     }
 
+    BareWorkletPushHandler handler = context.handler;
+
     [context.queue addOperationWithBlock:^{
-      context.handler(data, error);
+      handler(data, error);
     }];
 
     [context release];
