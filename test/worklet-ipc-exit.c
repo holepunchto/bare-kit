@@ -12,7 +12,7 @@
 static atomic_int exit_code = -1;
 
 static void
-on_exit(int code, void *data) {
+on_worklet_exit(int code, void *data) {
   atomic_store(&exit_code, code);
 }
 
@@ -24,7 +24,7 @@ main() {
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);
 
-  e = bare_worklet_on_exit(worklet, on_exit, NULL);
+  e = bare_worklet_on_exit(worklet, on_worklet_exit, NULL);
   assert(e == 0);
 
   bare_ipc_t *ipc;

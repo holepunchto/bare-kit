@@ -12,7 +12,7 @@
 static atomic_int exit_code = -1;
 
 static void
-on_exit(int code, void *data) {
+on_worklet_exit(int code, void *data) {
   bare_ipc_t *ipc = (bare_ipc_t *) data;
 
   char buffer[BARE_IPC_READ_BUFFER_SIZE];
@@ -34,7 +34,7 @@ main() {
   e = bare_ipc_create(worklet, &ipc);
   assert(e == 0);
 
-  e = bare_worklet_on_exit(worklet, on_exit, ipc);
+  e = bare_worklet_on_exit(worklet, on_worklet_exit, ipc);
   assert(e == 0);
 
   char *code = "setTimeout(() => Bare.exit(42), 50)";

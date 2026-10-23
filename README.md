@@ -13,7 +13,7 @@ Bare Kit is a C library that embeds Bare in a host application, running each Jav
 static uv_sem_t exited;
 
 static void
-on_exit(int exit_code, void *data) {
+on_worklet_exit(int exit_code, void *data) {
   printf("Exited with code %d\n", exit_code);
 
   uv_sem_post(&exited);
@@ -43,7 +43,7 @@ main() {
   bare_worklet_t *worklet;
   bare_worklet_create(&options, &worklet);
 
-  bare_worklet_on_exit(worklet, on_exit, NULL);
+  bare_worklet_on_exit(worklet, on_worklet_exit, NULL);
 
   bare_ipc_t *ipc;
   bare_ipc_create(worklet, &ipc);

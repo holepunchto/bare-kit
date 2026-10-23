@@ -13,7 +13,7 @@
 static atomic_int exits = 0;
 
 static void
-on_exit(int code, void *data) {
+on_worklet_exit(int code, void *data) {
   free(data);
 
   atomic_fetch_add(&exits, 1);
@@ -27,7 +27,7 @@ main() {
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);
 
-  e = bare_worklet_on_exit(worklet, on_exit, malloc(1));
+  e = bare_worklet_on_exit(worklet, on_worklet_exit, malloc(1));
   assert(e == 0);
 
   char *code = "setInterval(() => {}, 1000)";
