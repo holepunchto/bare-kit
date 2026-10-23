@@ -1,0 +1,256 @@
+add_bare_bundle(
+  bare_kit_bundle
+  ENTRY src/worklet.js
+  OUT src/worklet.bundle.h
+  BUILTINS src/builtins.json
+  WORKING_DIRECTORY ..
+)
+
+add_library(bare_kit OBJECT)
+
+set_target_properties(
+  bare_kit
+  PROPERTIES
+  C_STANDARD 11
+  POSITION_INDEPENDENT_CODE ON
+)
+
+target_sources(
+  bare_kit
+  INTERFACE
+    ../include/bare-kit.h
+  PRIVATE
+    context.h
+    events.h
+    ipc.h
+    ipc.c
+    queue.h
+    queue.c
+    worklet.c
+    worklet.bundle.h
+    worklet.h
+)
+
+if(ANDROID)
+  target_sources(
+    bare_kit
+    PRIVATE
+      android/context.c
+      android/events.c
+      android/jvm.c
+      android/jvm.h
+  )
+else()
+  target_sources(
+    bare_kit
+    PRIVATE
+      context.c
+      events.c
+  )
+endif()
+
+target_include_directories(
+  bare_kit
+  PUBLIC
+    ../include
+    $<TARGET_PROPERTY:bare,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+if(APPLE)
+  target_sources(
+    bare_kit
+    PRIVATE
+      apple/ipc.h
+      apple/ipc.m
+      apple/suspension.h
+      apple/suspension.m
+  )
+
+  if(IOS)
+    target_link_libraries(
+      bare_kit
+      PUBLIC
+        "-framework UIKit"
+    )
+
+    target_compile_definitions(
+      bare_kit
+      PUBLIC
+        BARE_KIT_IOS
+    )
+  else()
+    target_compile_definitions(
+      bare_kit
+      PUBLIC
+        BARE_KIT_DARWIN
+    )
+  endif()
+endif()
+
+if(ANDROID)
+  target_sources(
+    bare_kit
+    PRIVATE
+      standalone/ipc.c
+      standalone/ipc.h
+      android/suspension.c
+      android/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_kit
+    PUBLIC
+      BARE_KIT_ANDROID
+  )
+endif()
+
+if(LINUX)
+  target_sources(
+    bare_kit
+    PRIVATE
+      standalone/ipc.c
+      standalone/ipc.h
+      linux/suspension.c
+      linux/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_kit
+    PUBLIC
+      BARE_KIT_LINUX
+  )
+endif()
+
+if(WIN32)
+  target_sources(
+    bare_kit
+    PRIVATE
+      standalone/ipc.c
+      standalone/ipc.h
+      win32/suspension.c
+      win32/suspension.h
+  )
+
+  target_compile_definitions(
+    bare_kit
+    PUBLIC
+      BARE_KIT_WINDOWS
+  )
+endif()
+
+target_link_libraries(
+  bare_kit
+  INTERFACE
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,bare_static>
+  PUBLIC
+    rlimit_static
+)
+
+link_bare_modules(bare_kit WORKING_DIRECTORY ..)
+
+add_library(bare_kit_shared SHARED)
+
+set_target_properties(
+  bare_kit_shared
+  PROPERTIES
+  OUTPUT_NAME bare-kit
+)
+
+if(WIN32)
+  target_sources(
+    bare_kit_shared
+    PUBLIC
+      win32/bare-kit.def
+  )
+endif()
+
+target_include_directories(
+  bare_kit_shared
+  INTERFACE
+    $<TARGET_PROPERTY:bare_kit,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+target_link_libraries(
+  bare_kit_shared
+  PRIVATE
+    bare_kit
+)
+
+if(ANDROID)
+  target_link_options(
+    bare_kit_shared
+    PRIVATE
+      "-Wl,-z,global"
+  )
+endif()
+
+if(LINUX)
+  target_link_options(
+    bare_kit_shared
+    PUBLIC
+      "-Wl,-z,now" # Use eager binding
+  )
+endif()
+
+add_library(bare_kit_static STATIC)
+
+set_target_properties(
+  bare_kit_static
+  PROPERTIES
+  OUTPUT_NAME bare-kit
+  PREFIX lib
+)
+
+if(WIN32)
+  target_sources(
+    bare_kit_static
+    PUBLIC
+      win32/bare-kit.def
+  )
+endif()
+
+target_include_directories(
+  bare_kit_static
+  INTERFACE
+    $<TARGET_PROPERTY:bare_kit,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+target_link_libraries(
+  bare_kit_static
+  PRIVATE
+    bare_kit
+)
+
+if(WIN32)
+  # A prebuilt addon delay-loads `bare.dll` and resolves it against the host
+  # executable, so a host embedding the runtime here has to re-export these
+  # symbols for any addon to load. Ship the forwarders next to the library so that
+  # a host passes `/DEF:` at this file instead of deriving the list itself.
+  set(exports
+    "${bare}/src/bare.def"
+    "${bare}/src/js.def"
+    "${bare}/src/napi.def"
+    "${bare}/src/uv.def"
+    "${CMAKE_CURRENT_LIST_DIR}/win32/bare-kit.def"
+  )
+
+  set(forwarders "EXPORTS\n")
+
+  foreach(export ${exports})
+    file(STRINGS "${export}" symbols)
+
+    foreach(symbol ${symbols})
+      string(STRIP "${symbol}" symbol)
+
+      if(symbol MATCHES "^[A-Za-z_][A-Za-z0-9_]*$" AND NOT symbol STREQUAL "EXPORTS")
+        string(APPEND forwarders "\t${symbol} = bare-kit.${symbol}\n")
+      endif()
+    endforeach()
+  endforeach()
+
+  file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/bare-kit.def" CONTENT "${forwarders}")
+endif()
+
+install(TARGETS bare_kit_shared bare_kit_static)
+
+install(FILES ../include/bare-kit.h DESTINATION include)

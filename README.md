@@ -1,317 +1,114 @@
 # bare-kit
 
-Bare for native application development. The kit provides a web worker-like API to start and manage isolated Bare threads, called worklets[^1], that expose an IPC abstraction with bindings for various languages.
+Bare Kit is a C library that embeds Bare in a host application, running each JavaScript entry point in an isolated thread, called a worklet, with an in-process IPC channel to the host. It aims to be a "one size fits most" embedder that language bindings build on rather than embedding Bare themselves.
 
-[^1]: This term was chosen to avoid ambiguity with worker threads as implemented by <https://github.com/holepunchto/bare-worker>.
+## Usage
 
-## Worklet
+```c
+#include <bare-kit.h>
+#include <stdio.h>
+#include <string.h>
+#include <uv.h>
 
-In this section, we will learn how to create a worklet both iOS and Android.
+static uv_sem_t exited;
 
-### iOS
+static void
+on_worklet_exit(int exit_code, void *data) {
+  printf("Exited with code %d\n", exit_code);
 
-This is a basic example of how to create a worklet in Objective-C:
+  uv_sem_post(&exited);
+}
 
-```objc
-#import <BareKit/BareKit.h>
-#import <Foundation/Foundation.h>
+static void
+on_readable(bare_ipc_poll_t *poll, int events) {
+  bare_ipc_t *ipc = bare_ipc_poll_get_ipc(poll);
+
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+
+  int len = bare_ipc_read(ipc, data, sizeof(data));
+
+  if (len > 0) printf("%.*s\n", len, data);
+  else if (len == 0) bare_ipc_close(ipc);
+}
 
 int
 main() {
-  BareWorkletConfiguration *options = [BareWorkletConfiguration defaultWorkletConfiguration];
-  options.memoryLimit = 1024 * 1024 * 24; // 24 MiB
+  uv_sem_init(&exited, 0);
 
-  BareWorklet *worklet = [[BareWorklet alloc] initWithConfiguration:options];
+  bare_worklet_options_t options = {
+    .version = 0,
+    .memory_limit = 24 * 1024 * 1024,
+  };
 
-  NSString *source = @"console.log('hello from the worklet')";
+  bare_worklet_t *worklet;
+  bare_worklet_create(&options, &worklet);
 
-  [worklet start:@"/app.js" source:[source dataUsingEncoding:NSUTF8StringEncoding] arguments:@[]];
+  bare_worklet_on_exit(worklet, on_worklet_exit, NULL);
 
-  [[NSRunLoop currentRunLoop] run];
+  bare_ipc_t *ipc;
+  bare_ipc_create(worklet, &ipc);
+
+  bare_ipc_poll_t *poll;
+  bare_ipc_poll_create(ipc, &poll);
+  bare_ipc_poll_start(poll, bare_ipc_readable, on_readable);
+
+  char *code = "Bare.IPC.on('data', (data) => Bare.IPC.end(data))";
+
+  bare_worklet_start(worklet, "/app.js", code, strlen(code), 0, NULL);
+
+  bare_ipc_write(ipc, "Hello world", 11);
+
+  uv_sem_wait(&exited);
+
+  bare_ipc_poll_destroy(poll);
+  bare_ipc_destroy(ipc);
+  bare_worklet_destroy(worklet);
+
+  bare_worklet_teardown();
 }
 ```
 
-You can create a `BareWorkletConfiguration` to optionally set the memory limit or attach assets. This step is optional.
+The worklet echoes what the host writes and then ends its side of the IPC. The host prints the echo, closes its own side once it reads the end of the stream, and waits for the worklet to exit.
 
-The configuration is then passed to the `BareWorklet`, which represents the running worklet instance.
+If `source` is `NULL`, the contents of `filename` are instead read at runtime. A `.bundle` file with assets has them unpacked into the directory given by the `assets` option before it runs.
 
-Available actions on a worklet include:
+The API is documented in [`include/bare-kit.h`](include/bare-kit.h).
 
-- `[worklet start]`: starts the worklet
-- `[worklet suspend]`: suspends the execution of the worklet
-- `[worklet suspendWithLinger]`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
-- `[worklet resume]`: resumes a suspended worklet
-- `[worklet terminate]`: terminates the worklet
+## Lifecycle
 
-> [!TIP]
-> For a full API reference, see [`apple/BareKit/BareKit.h`](apple/BareKit/BareKit.h).
+`bare_worklet_start()` runs the worklet on a thread of its own. The worklet exits when its event loop runs out of work, when it calls `Bare.exit()`, or when the host calls `bare_worklet_terminate()`. An open IPC keeps the worklet running until both the worklet and the host have ended their side of it, just like a pipe would.
 
-### Android
+Once the worklet has exited and torn down, the exit callback is called exactly once on the worklet thread with the exit code. This also happens when the host destroys a running worklet, so the callback is the place to release whatever the host associated with it. By then, any IPC of the worklet has reached the end of the stream, and suspending, resuming, waking up, or terminating the worklet does nothing.
 
-This is a basic example of how to create a worklet in Java:
+`bare_worklet_destroy()` never blocks. It terminates the worklet if it is still running and hands it over to tear itself down, and it may be called before or after destroying its IPC.
 
-```java
-import to.holepunch.bare.kit.Worklet;
-import java.nio.charset.StandardCharsets;
-
-Worklet.Options options = new Worklet.Options()
-  .memoryLimit(24 * 1024 * 1024); // 24 MiB
-
-Worklet worklet = new Worklet(options);
-
-String source = "console.log('hello from the worklet')";
-
-worklet.start("/app.js", source, StandardCharsets.UTF_8, null);
-```
-
-You can create a `Worklet.Options` to optionally set the memory limit or attach assets. This step is optional.
-
-The configuration is then passed to the `Worklet`, which represents the running worklet instance.
-
-Available actions on a worklet include:
-
-- `worklet.start()`: starts the worklet
-- `worklet.suspend()`: suspends the execution of the worklet
-- `worklet.suspend(linger)`: suspends the worklet for a specified duration; the linger integer (in milliseconds) defines how long to keep the process alive before it fully exits
-- `worklet.resume()`: resumes a suspended worklet
-- `worklet.terminate()`: terminates the worklet
-
-> [!TIP]
-> For a full API reference, see [`android/src/main/java/to/holepunch/bare/kit/Worklet.java`](android/src/main/java/to/holepunch/bare/kit/Worklet.java).
+The worklets of a process share a single JavaScript platform, which can only be created once. A host that is done with Bare Kit for good calls `bare_worklet_teardown()` once its worklets have been terminated or destroyed: it waits for any worklet still tearing down and then destroys the platform, after which no worklet may start. A host that runs worklets for as long as it lives need not call it.
 
 ## IPC
 
-Bare Kit provides an IPC (Inter-Process Communication) abstraction that allows communication between the main application and worklets. The IPC interface provides both synchronous and asynchronous read/write operations with callback-based event handling.
+The worklet side of the IPC is a duplex stream available as `Bare.IPC`. The host side is read and written with `bare_ipc_read()` and `bare_ipc_write()`, which never block: they return `bare_ipc_would_block` when there is nothing to read or no room to write. A poll calls the host back when the IPC becomes readable or writable. Ending either side is a half-close, so the other side reads the end of the stream but may keep writing.
 
-> [!IMPORTANT]
-> IPC operations are **non-blocking** regardless of whether you use synchronous or asynchronous APIs. They may return partial results (e.g., writing fewer bytes than requested) and require polling to complete the operation.
+Poll callbacks run on a thread owned by the IPC rather than the thread that started the poll, on every platform. A callback may stop or destroy its poll, or the IPC itself.
 
-### iOS
+## Suspension
 
-#### Polling IPC
-
-The `BareIPC` class provides these methods for polling IPC:
-
-- `ipc.readable`: callback property for when data is available to read
-- `ipc.writable`: callback property for when data can be written
-- `[ipc read]`: synchronously reads available data, returns `nil` if no data is available
-- `[ipc write:data]`: synchronously writes data, returns the number of bytes written
-
-```objc
-#import <BareKit/BareKit.h>
-#import <Foundation/Foundation.h>
-
-int
-main() {
-  BareWorkletConfiguration *options = [BareWorkletConfiguration defaultWorkletConfiguration];
-  options.memoryLimit = 1024 * 1024 * 24; // 24 MiB
-
-  BareWorklet *worklet = [[BareWorklet alloc] initWithConfiguration:options];
-
-  NSString *source = @"console.log('hello from the worklet')";
-  [worklet start:@"/app.js" source:[source dataUsingEncoding:NSUTF8StringEncoding] arguments:@[]];
-
-  BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
-
-  // Set up readable callback
-  ipc.readable = ^(BareIPC *ipc) {
-    NSData *data = [ipc read];
-    if (data) {
-      NSString *message = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-      NSLog(@"Received: %@", message);
-    }
-  };
-
-  // Set up writable callback and write data
-  NSString *message = @"Hello from main thread";
-  NSData *data = [message dataUsingEncoding:NSUTF8StringEncoding];
-
-  ipc.writable = ^(BareIPC *ipc) {
-    NSInteger written = [ipc write:data];
-    NSLog(@"Written %ld bytes", (long)written);
-    ipc.writable = nil; // Clear the callback after writing
-  };
-
-  [[NSRunLoop currentRunLoop] run];
-}
-```
-
-> [!NOTE]
-> On iOS, IPC callbacks run on a dedicated queue, so callers must be mindful of synchronization when accessing shared resources from these callbacks.
-
-#### Async IPC
-
-The `BareIPC` class provides these methods for async IPC:
-
-- `[ipc read:completion]`: asynchronously reads data with a completion callback
-- `[ipc write:data completion:]`: asynchronously writes data with a completion callback
-
-```objc
-#import <BareKit/BareKit.h>
-#import <Foundation/Foundation.h>
-
-int
-main() {
-  BareWorkletConfiguration *options = [BareWorkletConfiguration defaultWorkletConfiguration];
-  options.memoryLimit = 1024 * 1024 * 24; // 24 MiB
-
-  BareWorklet *worklet = [[BareWorklet alloc] initWithConfiguration:options];
-  BareIPC *ipc = [[BareIPC alloc] initWithWorklet:worklet];
-
-  NSString *source = @"console.log('hello from the worklet')";
-  [worklet start:@"/app.js" source:[source dataUsingEncoding:NSUTF8StringEncoding] arguments:@[]];
-
-  // Read data asynchronously
-  [ipc read:^(NSData *data, NSError *error) {
-    if (error) {
-      NSLog(@"Read error: %@", error);
-    } else if (data) {
-      NSString *message = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-      NSLog(@"Received: %@", message);
-    }
-  }];
-
-  // Write data asynchronously
-  NSString *message = @"Hello from main thread";
-  NSData *data = [message dataUsingEncoding:NSUTF8StringEncoding];
-  [ipc write:data completion:^(NSError *error) {
-    if (error) {
-      NSLog(@"Write error: %@", error);
-    } else {
-      NSLog(@"Message sent successfully");
-    }
-  }];
-
-  [[NSRunLoop currentRunLoop] run];
-}
-```
-
-**Utility methods**
-
-- `[ipc close]`: closes the IPC connection
-
-> [!TIP]
-> For a full API reference, see [`apple/BareKit/BareKit.h`](apple/BareKit/BareKit.h).
-
-### Android
-
-#### Polling IPC
-
-The `IPC` class provides these methods for polling IPC:
-
-- `ipc.readable(callback)`: sets a callback for when data is available to read
-- `ipc.writable(callback)`: sets a callback for when data can be written
-- `ipc.read()`: synchronously reads available data, returns `null` if no data is available
-- `ipc.write(data)`: synchronously writes data, returns the number of bytes written
-
-```java
-import to.holepunch.bare.kit.Worklet;
-import to.holepunch.bare.kit.IPC;
-import java.nio.charset.StandardCharsets;
-import java.nio.ByteBuffer;
-
-Worklet.Options options = new Worklet.Options()
-  .memoryLimit(24 * 1024 * 1024); // 24 MiB
-
-Worklet worklet = new Worklet(options);
-IPC ipc = new IPC(worklet);
-
-String source = "console.log('hello from the worklet')";
-worklet.start("/app.js", source, StandardCharsets.UTF_8, null);
-
-  // Set up readable callback
-  ipc.readable(() -> {
-    ByteBuffer data = ipc.read();
-    if (data != null) {
-      byte[] bytes = new byte[data.remaining()];
-      data.get(bytes);
-      String message = new String(bytes, StandardCharsets.UTF_8);
-      System.out.println("Received: " + message);
-    }
-  });
-
-  // Set up writable callback and write data
-  String message = "Hello from main thread";
-  ByteBuffer data = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
-
-  ipc.writable(() -> {
-    int written = ipc.write(data);
-    System.out.println("Written " + written + " bytes");
-    ipc.writable(null); // Clear the callback after writing
-  });
-```
-
-#### Async IPC
-
-The `IPC` class provides these methods for async IPC:
-
-- `ipc.read(callback)`: asynchronously reads data with a callback
-- `ipc.write(data, callback)`: asynchronously writes data with a callback
-
-```java
-import to.holepunch.bare.kit.Worklet;
-import to.holepunch.bare.kit.IPC;
-import java.nio.charset.StandardCharsets;
-import java.nio.ByteBuffer;
-
-Worklet.Options options = new Worklet.Options()
-  .memoryLimit(24 * 1024 * 1024); // 24 MiB
-
-Worklet worklet = new Worklet(options);
-IPC ipc = new IPC(worklet);
-
-String source = "console.log('hello from the worklet')";
-worklet.start("/app.js", source, StandardCharsets.UTF_8, null);
-
-// Read data asynchronously
-ipc.read((data, exception) -> {
-  if (exception != null) {
-    System.err.println("Read error: " + exception.getMessage());
-  } else if (data != null) {
-    byte[] bytes = new byte[data.remaining()];
-    data.get(bytes);
-    String message = new String(bytes, StandardCharsets.UTF_8);
-    System.out.println("Received: " + message);
-  }
-});
-
-// Write data asynchronously
-String message = "Hello from main thread";
-ByteBuffer data = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
-ipc.write(data, (exception) -> {
-  if (exception != null) {
-    System.err.println("Write error: " + exception.getMessage());
-  } else {
-    System.out.println("Message sent successfully");
-  }
-});
-```
-
-**Utility methods**
-
-- `ipc.close()`: closes the IPC connection
-
-> [!TIP]
-> For a full API reference, see [`android/src/main/java/to/holepunch/bare/kit/IPC.java`](android/src/main/java/to/holepunch/bare/kit/IPC.java).
+`bare_worklet_suspend()`, `bare_worklet_resume()`, and `bare_worklet_wakeup()` forward the lifecycle of the host application to the worklet, which observes them as the `suspend`, `resume`, and `wakeup` events of `Bare`. A suspension may linger for a number of milliseconds before the worklet goes idle. On iOS, the worklet holds a background task for as long as it lingers.
 
 ## Error handling
 
-A worklet runs as a thread inside the host process, so it follows Bare's default handling of uncaught errors: an uncaught exception or unhandled promise rejection in worklet JavaScript is printed to `stderr` and the process is aborted. Because the worklet shares the host's process, this takes the **host** down with it. This is by design.
+A worklet runs as a thread inside the host process, so it follows Bare's default handling of uncaught errors: an uncaught exception or unhandled promise rejection in the worklet is printed and the process is aborted. Because the worklet shares the process of the host, this takes the host down with it. This is by design.
 
-To keep a worklet error from aborting the host, register an `uncaughtException` (and/or `unhandledRejection`) listener inside the worklet. Adding a listener overrides the default abort and lets the worklet decide how to respond:
+To keep a worklet error from aborting the host, register an `uncaughtException` and an `unhandledRejection` listener inside the worklet, and report the error to the host before exiting:
 
 ```js
 Bare.on('uncaughtException', (err) => {
-  // The host no longer aborts. Report the error to the host (for example over
-  // Bare.IPC) and exit or recover as appropriate.
-  console.error(err)
+  Bare.IPC.write(String(err))
+
+  Bare.exit(1)
 })
 ```
 
-> [!IMPORTANT]
-> The handler runs inside the worklet, not in the host - the host cannot catch a worklet exception directly. Surface it yourself, for example by sending a message over IPC from the handler before the worklet exits.
-
-See Bare's [`uncaughtException`](https://github.com/holepunchto/bare#bareonuncaughtexception-err) and [`unhandledRejection`](https://github.com/holepunchto/bare#bareonunhandledrejection-reason-promise) for the underlying behavior.
+See [`uncaughtException`](https://github.com/holepunchto/bare#bareonuncaughtexception-err) and [`unhandledRejection`](https://github.com/holepunchto/bare#bareonunhandledrejection-reason-promise) for the underlying behavior.
 
 ## License
 
