@@ -1,0 +1,4 @@
+# https://clang.llvm.org/docs/LeakSanitizer.html#suppressions
+
+# The pages the Objective-C runtime keeps for the autorelease pools of a thread.
+leak:objc_autoreleasePoolPush

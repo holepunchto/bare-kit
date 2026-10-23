@@ -6,8 +6,8 @@
 
 #include <bare-kit.h>
 
-// Tearing down waits for the worklets that are still running, after which no
-// worklet may start.
+// Tearing down waits for destroyed worklets that are still tearing down, after
+// which no worklet may start.
 
 static atomic_bool exited = false;
 
@@ -32,12 +32,12 @@ main() {
   e = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(e == 0);
 
+  bare_worklet_destroy(worklet);
+
   e = bare_worklet_teardown();
   assert(e == 0);
 
   assert(atomic_load(&exited));
-
-  bare_worklet_destroy(worklet);
 
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);

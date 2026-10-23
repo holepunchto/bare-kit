@@ -31,10 +31,6 @@ bare_ipc__signal_init(bare_ipc_t *ipc) {
 
   dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
 
-  dispatch_source_set_cancel_handler(source, ^{
-    dispatch_release(source);
-  });
-
   dispatch_source_set_event_handler(source, ^{
     @autoreleasepool {
       bare_ipc__dispatch(ipc);
@@ -62,10 +58,28 @@ void
 bare_ipc__signal_destroy(bare_ipc_t *ipc) {
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-  dispatch_source_cancel(signal->source);
+  dispatch_source_t source = signal->source;
 
-  bare_ipc__sync(signal, ^{
-                 });
+  if (dispatch_get_specific(bare_ipc_signal_queue) == signal) {
+    // A handler cannot wait for the cancellation it is itself part of.
+    dispatch_source_cancel(source);
+  } else {
+    // Waited for, so that the handlers are released along with the source
+    // rather than at some later point.
+    dispatch_semaphore_t cancelled = dispatch_semaphore_create(0);
+
+    dispatch_source_set_cancel_handler(source, ^{
+      dispatch_semaphore_signal(cancelled);
+    });
+
+    dispatch_source_cancel(source);
+
+    dispatch_semaphore_wait(cancelled, DISPATCH_TIME_FOREVER);
+
+    dispatch_release(cancelled);
+  }
+
+  dispatch_release(source);
 
   dispatch_release(signal->queue);
 

@@ -66,10 +66,10 @@ int
 bare_worklet_optimize_for_memory(bool enabled);
 
 /**
- * Tear down the state shared by the worklets of the process, waiting for any
- * worklet that is still running to tear down first. Must be called at most
- * once, after which starting a worklet fails. A host that runs worklets for as
- * long as it lives need not call it.
+ * Tear down the state shared by the worklets of the process. Every worklet must
+ * have been terminated or destroyed first, and those still tearing down are
+ * waited for. Must be called at most once, after which starting a worklet
+ * fails. A host that runs worklets for as long as it lives need not call it.
  */
 int
 bare_worklet_teardown(void);
