@@ -38,6 +38,8 @@ main() {
     assert(err >= 0);
     assert(uv_received == 1);
 
+    bare_queue_close(producer);
+
     bare_queue_shutdown_uv(q);
     err = uv_run(loop, UV_RUN_DEFAULT);
     assert(err == 0);
@@ -52,8 +54,10 @@ main() {
     assert(bare_queue_write(producer, "early", 5) == 5);
 
     int before = signaled;
-    bare_queue_open_thread(q, on_signal, NULL);
+    bare_queue_port_t *consumer = bare_queue_open_thread(q, on_signal, NULL);
     assert(signaled == before + 1);
+
+    bare_queue_close(consumer);
 
     bare_queue_shutdown_uv(q);
     err = uv_run(loop, UV_RUN_DEFAULT);
@@ -106,6 +110,8 @@ main() {
     assert(bare_queue_read(u, &data, &len) == bare_queue_ok);
     assert(len == 4 && memcmp(data, "late", 4) == 0);
     free(data);
+
+    bare_queue_close(t);
 
     bare_queue_shutdown_uv(q);
     err = uv_run(loop, UV_RUN_DEFAULT);
