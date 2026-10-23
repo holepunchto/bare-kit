@@ -31,7 +31,8 @@ main() {
   e = bare_worklet_on_resume(&worklet, on_resume, NULL);
   assert(e == 0);
 
-  char *code = "console.log('Hello world')";
+  // Keep Bare.IPC open so suspend/resume exercise the queue's ref/unref.
+  char *code = "BareKit.IPC.on('data', () => {})";
 
   uv_buf_t source = uv_buf_init(code, strlen(code));
 
