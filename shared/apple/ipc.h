@@ -6,16 +6,13 @@ extern "C" {
 #endif
 
 #include <stdatomic.h>
-#include <stdbool.h>
-
-#include <dispatch/dispatch.h>
 
 #include "../ipc.h"
 
 struct bare_ipc_poll_s {
   bare_ipc_t *ipc;
 
-  int events;
+  _Atomic int events;
 
   _Atomic bare_ipc_poll_cb cb;
 

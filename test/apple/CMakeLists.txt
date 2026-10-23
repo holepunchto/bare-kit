@@ -1,10 +1,15 @@
 list(APPEND tests
+  ipc-close-releases
+  ipc-handler-clears-writable
+  ipc-release-during-handler
   ipc-retains-worklet
   worklet-ipc
   worklet-ipc-eof
   worklet-ipc-large-write
   worklet-push
   worklet-push-error
+  worklet-push-releases
+  worklet-terminated
 )
 
 foreach(test IN LISTS tests)

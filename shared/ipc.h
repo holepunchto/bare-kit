@@ -10,6 +10,8 @@ extern "C" {
 #include "queue.h"
 #include "worklet.h"
 
+#define BARE_IPC_READ_BUFFER_SIZE (64 * 1024)
+
 typedef struct bare_ipc_s bare_ipc_t;
 typedef struct bare_ipc_poll_s bare_ipc_poll_t;
 
@@ -26,17 +28,23 @@ enum {
 };
 
 struct bare_ipc_s {
+  // NULL once closed, as closing gives up the ipc's share of the queue.
   bare_queue_port_t *port;
+  uv_mutex_t lock;
+
+  // The rest of a message too large for the last read.
+  bare_queue_message_t pending;
+  size_t offset;
+
   bare_ipc_poll_t *poll;
 
-  // The primitive that hops a queue change onto the host run loop. Owned here,
-  // for the lifetime of the port, because the worklet signals through it: a poll
-  // comes and goes underneath.
+  // Owned by the ipc rather than the poll, as the worklet signals it for as long
+  // as the port is open.
   void *signal;
 };
 
-// Per platform. `signal` runs on the worklet thread, so it may only touch state
-// owned by the ipc.
+// Implemented per platform. `bare_ipc__signal` may run on the worklet thread, so
+// it may only touch state owned by the ipc.
 int
 bare_ipc__signal_init(bare_ipc_t *ipc);
 
@@ -46,10 +54,10 @@ bare_ipc__signal_destroy(bare_ipc_t *ipc);
 void
 bare_ipc__signal(bare_ipc_t *ipc);
 
-// Which of the events a poll asked for are ready right now. A wake says the
-// queue changed, not how, so the platform asks after each one.
-int
-bare_ipc__ready(bare_ipc_t *ipc, int events);
+// Calls the poll back with whichever of its events are ready, as a signal says
+// that the queue changed but not how. Platforms call it on each wake.
+void
+bare_ipc__dispatch(bare_ipc_t *ipc);
 
 #if defined(BARE_KIT_DARWIN) || defined(BARE_KIT_IOS)
 #include "apple/ipc.h"
@@ -59,8 +67,7 @@ bare_ipc__ready(bare_ipc_t *ipc, int events);
 #include "android/ipc.h"
 #endif
 
-// Neither Linux nor Windows hands us a host run loop to post to, so both wake on
-// a loop of their own.
+// Linux and Windows have no host run loop to post to, so they run their own.
 #if defined(BARE_KIT_LINUX) || defined(BARE_KIT_WINDOWS)
 #include "uv/ipc.h"
 #endif
@@ -68,21 +75,30 @@ bare_ipc__ready(bare_ipc_t *ipc, int events);
 int
 bare_ipc_alloc(bare_ipc_t **result);
 
+// Fails if the worklet already has an ipc.
 int
 bare_ipc_init(bare_ipc_t *ipc, bare_worklet_t *worklet);
 
-// Retires the host end. Must be called before `bare_worklet_destroy`: the queue
-// belongs to the worklet, which may free it as soon as the host has signalled it
-// to be destroyed. A host that keeps an ipc must therefore keep its worklet.
+// Closes the host end, after which reads return EOF and writes fail. Closing
+// twice is a no-op.
+void
+bare_ipc_close(bare_ipc_t *ipc);
+
+// May be called before or after `bare_worklet_destroy`, and from a poll callback
+// of the ipc itself.
 void
 bare_ipc_destroy(bare_ipc_t *ipc);
 
+// Reads up to `len` bytes, which must not be 0, into the caller's `data`.
+// Returns the number of bytes read, 0 at EOF, or `bare_ipc_would_block`.
 int
-bare_ipc_read(bare_ipc_t *ipc, void **data, size_t *len);
+bare_ipc_read(bare_ipc_t *ipc, void *data, size_t len);
 
 int
 bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len);
 
+// On Android, a poll must be started, stopped and destroyed on the thread that
+// initialized it, whose looper runs its callback.
 int
 bare_ipc_poll_alloc(bare_ipc_poll_t **result);
 

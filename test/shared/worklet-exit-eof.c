@@ -3,9 +3,8 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
-// When the worklet exits on its own (Bare.exit()), Bare.IPC is closed as part
-// of process exit, so the host read reaches EOF (returns 0) without the host
-// having to call terminate/destroy first.
+// When the worklet exits on its own, the host reads EOF without having to
+// terminate or destroy it first.
 
 int
 main() {
@@ -26,14 +25,14 @@ main() {
   e = bare_ipc_init(&ipc, &worklet);
   assert(e == 0);
 
-  void *data;
-  size_t len;
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+  int len;
 
   bool eof = false;
   for (int i = 0; i < 200; i++) {
-    e = bare_ipc_read(&ipc, &data, &len);
-    assert(e == 0 || e == bare_ipc_would_block);
-    if (e == 0 && len == 0) {
+    len = bare_ipc_read(&ipc, data, sizeof(data));
+    assert(len >= 0 || len == bare_ipc_would_block);
+    if (len == 0) {
       eof = true;
       break;
     }

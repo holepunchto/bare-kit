@@ -14,3 +14,6 @@ int
 bare_suspension_end(bare_suspension_t *suspension) {
   return 0;
 }
+
+void
+bare_suspension_destroy(bare_suspension_t *suspension) {}

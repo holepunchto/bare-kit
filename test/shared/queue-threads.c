@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <uv.h>
 
 #include "../../shared/queue.h"
@@ -34,12 +35,14 @@ on_recv_uv(bare_queue_port_t *port) {
     assert(len == sizeof(int));
     assert(*(int *) data == received);
     received++;
+
+    free(data);
   }
 }
 
 static void
 on_thread(void *arg) {
-  bare_queue_open_uv(queue, &loop, on_recv_uv);
+  bare_queue_open_uv(queue, &loop, on_recv_uv, NULL);
 
   uv_sem_post(&opened);
 
@@ -59,7 +62,7 @@ main() {
   err = uv_sem_init(&opened, 0);
   assert(err == 0);
 
-  bare_queue_port_t *thread = bare_queue_open_thread(queue, NULL);
+  bare_queue_port_t *thread = bare_queue_open_thread(queue, NULL, NULL);
 
   uv_thread_t consumer;
   err = uv_thread_create(&consumer, on_thread, NULL);
@@ -83,7 +86,6 @@ main() {
 
   // The consumer only unref'd the async; close it and pump once to finish.
   bare_queue_shutdown_uv(queue);
-  bare_queue_shutdown_thread(queue);
 
   err = uv_run(&loop, UV_RUN_DEFAULT);
   assert(err == 0);

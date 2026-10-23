@@ -6,11 +6,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(BARE_KIT_WINDOWS)
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 #include <utf.h>
 #include <uv.h>
 
@@ -23,7 +18,11 @@
 struct bare_worklet_state_s {
   bool finished;
 
+  // Guards the suspension state as well as the pushes.
   uv_mutex_t lock;
+
+  bool stopped;
+  bare_worklet_push_t *pushes;
 
   bare_suspension_t suspension;
 
@@ -47,9 +46,16 @@ struct bare_worklet_state_s {
 
 static uv_once_t bare_worklet__init_guard = UV_ONCE_INIT;
 
+// The state of the worklet whose thread this is, for replies, which carry only
+// their push.
+static uv_key_t bare_worklet__state;
+
 static void
 bare_worklet__on_init(void) {
   int err;
+
+  err = uv_key_create(&bare_worklet__state);
+  assert(err == 0);
 
 #ifdef SIGPIPE
   signal(SIGPIPE, SIG_IGN);
@@ -83,6 +89,8 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   if (state == NULL) return -1;
 
   state->finished = false;
+  state->stopped = false;
+  state->pushes = NULL;
   state->suspended = false;
   state->resuming = false;
 
@@ -102,6 +110,7 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
   }
 
   worklet->state = state;
+  worklet->bare = NULL;
 
   memset(&worklet->options, 0, sizeof(worklet->options));
 
@@ -115,24 +124,19 @@ bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options
 
 void
 bare_worklet_destroy(bare_worklet_t *worklet) {
-  // The host retires its ipc first: from here the queue is the worklet's and may
-  // be freed at any moment.
-  assert(!worklet->queue->thread_open || worklet->queue->thread_closed);
-
   if (worklet->thread != 0) {
-    // Stop the worklet if it is still running and wake its loop so the stop
-    // takes effect, then unblock it. The thread is detached and tears itself
-    // down; this function must never block (blocking here causes ANR on
-    // Android). bare_terminate is a no-op if the worklet already exited.
+    // This must not block, as that causes an ANR on Android, so the detached
+    // thread tears itself down.
     bare_terminate(worklet->bare);
-    uv_async_send(&worklet->queue->async);
     uv_sem_post(worklet->finished);
   } else {
-    // Nothing ever took ownership of the queue, so it is ours to free.
+    // Never started, so the worklet's share of the queue is still ours. Closing
+    // its end lets an open ipc see EOF.
     uv_mutex_destroy(&worklet->state->lock);
 
     free(worklet->state);
 
+    bare_queue_close(&worklet->queue->uv_port);
     bare_queue_destroy(worklet->queue);
   }
 
@@ -256,6 +260,25 @@ bare_worklet__on_platform_init(void) {
   uv_barrier_destroy(&bare_worklet__platform_ready);
 }
 
+// Whether the push is still pending, which is compared by address alone, as the
+// host may already have freed a push that has settled. Called with the lock held.
+static bool
+bare_worklet__push_pending(bare_worklet_state_t *state, bare_worklet_push_t *push) {
+  for (bare_worklet_push_t *next = state->pushes; next; next = next->next) {
+    if (next == push) return true;
+  }
+
+  return false;
+}
+
+static void
+bare_worklet__push_unlink(bare_worklet_state_t *state, bare_worklet_push_t *push) {
+  if (push->previous) push->previous->next = push->next;
+  else state->pushes = push->next;
+
+  if (push->next) push->next->previous = push->previous;
+}
+
 static js_value_t *
 bare_worklet__on_push_reply(js_env_t *env, js_callback_info_t *info) {
   int err;
@@ -267,6 +290,18 @@ bare_worklet__on_push_reply(js_env_t *env, js_callback_info_t *info) {
 
   err = js_get_callback_info(env, info, &argc, argv, NULL, (void **) &push);
   assert(err == 0);
+
+  bare_worklet_state_t *state = uv_key_get(&bare_worklet__state);
+
+  uv_mutex_lock(&state->lock);
+
+  bool pending = bare_worklet__push_pending(state, push);
+
+  if (pending) bare_worklet__push_unlink(state, push);
+
+  uv_mutex_unlock(&state->lock);
+
+  if (!pending) return NULL;
 
   assert(argc == 1 || argc == 2);
 
@@ -316,7 +351,17 @@ static void
 bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *data) {
   int err;
 
+  bare_worklet_state_t *state = (bare_worklet_state_t *) context;
+
   bare_worklet_push_t *push = (bare_worklet_push_t *) data;
+
+  uv_mutex_lock(&state->lock);
+
+  bool pending = bare_worklet__push_pending(state, push);
+
+  uv_mutex_unlock(&state->lock);
+
+  if (!pending) return;
 
   uv_buf_t payload = push->payload;
 
@@ -394,6 +439,11 @@ bare_worklet__on_resume(bare_t *bare, void *data) {
   if (state->callbacks.resume) state->callbacks.resume(bare, state->callbacks.resume_data);
 }
 
+static void
+bare_worklet__on_ipc_finalize(js_env_t *env, void *data, void *finalize_hint) {
+  free(data);
+}
+
 // native.read() -> ArrayBuffer (data) | null (EOF) | undefined (would block)
 static js_value_t *
 bare_worklet__on_ipc_read(js_env_t *env, js_callback_info_t *info) {
@@ -416,18 +466,14 @@ bare_worklet__on_ipc_read(js_env_t *env, js_callback_info_t *info) {
     err = js_get_null(env, &result);
     assert(err == 0);
   } else {
-    void *copy;
-    err = js_create_arraybuffer(env, len, &copy, &result);
+    err = js_create_external_arraybuffer(env, data, len, bare_worklet__on_ipc_finalize, NULL, &result);
     assert(err == 0);
-
-    memcpy(copy, data, len);
   }
 
   return result;
 }
 
-// native.write(buffer) -> bytes written, -1 when the queue is full, or null
-// once the peer has closed
+// native.write(buffer) -> number (written) | -1 (would block) | null (closed)
 static js_value_t *
 bare_worklet__on_ipc_write(js_env_t *env, js_callback_info_t *info) {
   int err;
@@ -460,14 +506,14 @@ bare_worklet__on_ipc_write(js_env_t *env, js_callback_info_t *info) {
 }
 
 static js_value_t *
-bare_worklet__on_ipc_close(js_env_t *env, js_callback_info_t *info) {
+bare_worklet__on_ipc_end(js_env_t *env, js_callback_info_t *info) {
   int err;
 
   bare_queue_port_t *port;
   err = js_get_callback_info(env, info, NULL, NULL, NULL, (void **) &port);
   assert(err == 0);
 
-  bare_queue_close(port);
+  bare_queue_end(port);
 
   return NULL;
 }
@@ -498,15 +544,11 @@ bare_worklet__on_ipc_unref(js_env_t *env, js_callback_info_t *info) {
   return NULL;
 }
 
-// Owned by the worklet thread, so the signal callback never dereferences the
-// host's worklet, which may be destroyed while the queue is still open.
 typedef struct {
   js_env_t *env;
   js_ref_t *signal;
 } bare_worklet__ipc_t;
 
-// Runs on the worklet loop when the host has touched the queue; drives the JS
-// duplex to re-check reads and any pending write.
 static void
 bare_worklet__on_ipc_signal(bare_queue_port_t *port) {
   int err;
@@ -546,6 +588,8 @@ bare_worklet__on_thread(void *opaque) {
   bare_worklet_state_t *state = worklet->state;
 
   bare_kit__on_thread_enter(state);
+
+  uv_key_set(&bare_worklet__state, state);
 
   uv_sem_t finished;
   err = uv_sem_init(&finished, 0);
@@ -601,20 +645,14 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_named_property(env, module, "exports", &exports);
   assert(err == 0);
 
-  // Held for the rest of this function: the host may destroy its worklet, and
-  // with it every field read from it, the moment this thread hands back control.
+  // Copied out, as `worklet` is owned by the host and may be destroyed once
+  // signalled. The ipc state lives here, on the worklet thread, for the same
+  // reason.
   bare_queue_t *queue = worklet->queue;
 
-  // Ours, not the host's: the signal callback runs until we shut the queue down,
-  // which is after the host is free to have destroyed its worklet.
-  bare_worklet__ipc_t *ipc = malloc(sizeof(bare_worklet__ipc_t));
+  bare_worklet__ipc_t ipc = {env, NULL};
 
-  ipc->env = env;
-  ipc->signal = NULL;
-
-  bare_queue_port_t *ipc_port = bare_queue_open_uv(queue, &loop, bare_worklet__on_ipc_signal);
-
-  ipc_port->data = ipc;
+  bare_queue_port_t *ipc_port = bare_queue_open_uv(queue, &loop, bare_worklet__on_ipc_signal, &ipc);
 
   js_value_t *native;
   err = js_create_object(env, &native);
@@ -631,7 +669,7 @@ bare_worklet__on_thread(void *opaque) {
 
   V("read", bare_worklet__on_ipc_read);
   V("write", bare_worklet__on_ipc_write);
-  V("close", bare_worklet__on_ipc_close);
+  V("end", bare_worklet__on_ipc_end);
   V("ref", bare_worklet__on_ipc_ref);
   V("unref", bare_worklet__on_ipc_unref);
 #undef V
@@ -644,7 +682,7 @@ bare_worklet__on_thread(void *opaque) {
   err = js_call_function(env, exports, open_ipc, 1, &native, &on_signal);
   assert(err == 0);
 
-  err = js_create_reference(env, on_signal, 1, &ipc->signal);
+  err = js_create_reference(env, on_signal, 1, &ipc.signal);
   assert(err == 0);
 
   js_value_t *fn;
@@ -652,7 +690,7 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   js_threadsafe_function_t *push;
-  err = js_create_threadsafe_function(env, fn, 64, 1, NULL, NULL, (void *) worklet, bare_worklet__on_push, &push);
+  err = js_create_threadsafe_function(env, fn, 0, 1, NULL, NULL, (void *) state, bare_worklet__on_push, &push);
   assert(err == 0);
 
   err = js_unref_threadsafe_function(env, push);
@@ -702,26 +740,40 @@ bare_worklet__on_thread(void *opaque) {
 
   state->finished = true;
 
-  // Signal EOF to the host by closing our end of the queue. This is in-process
-  // (a status flag plus a host wakeup), so it works on every exit path without
-  // pumping the loop or scheduling async work from the exit event.
+  // Settled before parking, as the pushes belong to the host.
+  uv_mutex_lock(&state->lock);
+
+  state->stopped = true;
+
+  bare_worklet_push_t *pushes = state->pushes;
+
+  state->pushes = NULL;
+
+  uv_mutex_unlock(&state->lock);
+
+  err = js_release_threadsafe_function(push, js_threadsafe_function_release);
+  assert(err == 0);
+
+  while (pushes) {
+    bare_worklet_push_t *next = pushes->next;
+
+    pushes->cb(pushes, "Worklet terminated", NULL);
+
+    pushes = next;
+  }
+
+  // Closed natively rather than from JS, so the host sees EOF on every exit path.
   bare_queue_close(ipc_port);
 
   uv_sem_wait(&finished);
 
   uv_sem_destroy(&finished);
 
-  err = js_release_threadsafe_function(push, js_threadsafe_function_release);
-  assert(err == 0);
-
-  // Closing the async here stops further signals; teardown's loop run flushes
-  // it. Do this before deleting the reference so no late signal dereferences it.
+  // Before deleting the reference, so no late signal reaches it.
   bare_queue_shutdown_uv(queue);
 
-  err = js_delete_reference(env, ipc->signal);
+  err = js_delete_reference(env, ipc.signal);
   assert(err == 0);
-
-  free(ipc);
 
   int exit_code;
   err = bare_teardown(bare, UV_RUN_DEFAULT, &exit_code);
@@ -730,8 +782,6 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
-  // Ours since the host started us, and nothing may reach it now: the host was
-  // required to retire its end before signalling us to be destroyed.
   bare_queue_destroy(queue);
 
   uv_mutex_lock(&state->lock);
@@ -740,6 +790,8 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   uv_mutex_unlock(&state->lock);
+
+  bare_suspension_destroy(&state->suspension);
 
   bare_kit__on_thread_exit(state);
 
@@ -770,6 +822,8 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
   if (err < 0) {
     uv_barrier_destroy(&worklet->ready);
 
+    worklet->thread = 0;
+
     return err;
   }
 
@@ -785,6 +839,8 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
+  if (worklet->thread == 0) return 0;
+
   bare_worklet_state_t *state = worklet->state;
 
   uv_mutex_lock(&state->lock);
@@ -801,6 +857,8 @@ bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
+  if (worklet->thread == 0) return 0;
+
   int err;
 
   bare_worklet_state_t *state = worklet->state;
@@ -824,6 +882,8 @@ bare_worklet_resume(bare_worklet_t *worklet) {
 
 int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
+  if (worklet->thread == 0) return 0;
+
   bare_worklet_state_t *state = worklet->state;
 
   uv_mutex_lock(&state->lock);
@@ -838,16 +898,40 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
+  if (worklet->thread == 0) return 0;
+
   return bare_terminate(worklet->bare);
 }
 
 int
 bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb) {
+  if (worklet->thread == 0) return -1;
+
   req->worklet = worklet;
   req->payload = *payload;
   req->cb = cb;
+  req->previous = NULL;
 
-  return js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_blocking);
+  bare_worklet_state_t *state = worklet->state;
+
+  uv_mutex_lock(&state->lock);
+
+  int err = -1;
+
+  // The queue is unbounded, so this never blocks while holding the lock.
+  if (!state->stopped) err = js_call_threadsafe_function(worklet->push, (void *) req, js_threadsafe_function_nonblocking);
+
+  if (err == 0) {
+    req->next = state->pushes;
+
+    if (state->pushes) state->pushes->previous = req;
+
+    state->pushes = req;
+  }
+
+  uv_mutex_unlock(&state->lock);
+
+  return err;
 }
 
 void *

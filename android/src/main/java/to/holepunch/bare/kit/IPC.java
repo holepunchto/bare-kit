@@ -1,5 +1,7 @@
 package to.holepunch.bare.kit;
 
+import android.os.Handler;
+import android.os.Looper;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,23 +30,45 @@ public class IPC implements Closeable {
 
   ByteBuffer handle;
 
-  // An IPC is opened on a worklet and is meaningless without it, so it must not
-  // outlive it. Held here to keep it reachable for as long as this is.
+  // Held to keep the worklet reachable, as an IPC is meaningless without it.
   private final Worklet worklet;
 
-  private PollCallback readable;
-  private PollCallback writable;
+  private volatile PollCallback readable;
+  private volatile PollCallback writable;
 
+  private final ByteBuffer buffer = ByteBuffer.allocateDirect(64 * 1024);
+
+  // The looper of the opening thread, on which the callbacks run and the poll is
+  // changed.
+  private final Handler handler;
+
+  /**
+   * Must be called on a thread with a looper, on which the callbacks then run.
+   * Throws if the worklet has terminated or already has an open IPC.
+   */
   public IPC(Worklet worklet) {
+    Looper looper = Looper.myLooper();
+
+    if (looper == null) throw new IllegalStateException("IPC must be opened on a looper thread");
+
     this.worklet = worklet;
 
-    handle = init(worklet.handle);
+    handler = new Handler(looper);
 
-    worklet.ipc = this;
+    synchronized (worklet) {
+      if (worklet.handle == null) throw new IllegalStateException("Worklet terminated");
+
+      handle = init(worklet.handle);
+    }
+
+    if (handle == null) throw new IllegalStateException("Could not open worklet IPC");
   }
 
   private native ByteBuffer
   init(ByteBuffer handle);
+
+  private native void
+  close(ByteBuffer handle);
 
   private native void
   destroy(ByteBuffer handle);
@@ -52,8 +76,8 @@ public class IPC implements Closeable {
   private native ByteBuffer
   message();
 
-  private native ByteBuffer
-  read(ByteBuffer handle);
+  private native int
+  read(ByteBuffer handle, ByteBuffer buffer);
 
   private native int
   write(ByteBuffer handle, ByteBuffer data, int len);
@@ -63,19 +87,32 @@ public class IPC implements Closeable {
 
   private void
   update() {
+    if (handler.getLooper().isCurrentThread()) updateOnLooper();
+    else handler.post(this::updateOnLooper);
+  }
+
+  private synchronized void
+  updateOnLooper() {
     if (handle == null) return;
 
     update(handle, readable != null, writable != null);
   }
 
+  // Called from native code. The callbacks are taken afresh for each event, as
+  // the previous one may have changed them.
   private void
-  readable() {
-    if (readable != null) readable.apply();
-  }
+  poll(boolean readable, boolean writable) {
+    if (readable) {
+      PollCallback callback = this.readable;
 
-  private void
-  writable() {
-    if (writable != null) writable.apply();
+      if (callback != null) callback.apply();
+    }
+
+    if (writable) {
+      PollCallback callback = this.writable;
+
+      if (callback != null) callback.apply();
+    }
   }
 
   public void
@@ -98,26 +135,29 @@ public class IPC implements Closeable {
    * closed its end or this IPC is closed. Wait for readable() before retrying
    * a null.
    */
-  public ByteBuffer
+  public synchronized ByteBuffer
   read() {
     if (handle == null) return ByteBuffer.allocateDirect(0);
 
-    ByteBuffer buffer = read(handle);
+    int len = read(handle, buffer);
 
-    if (buffer == null) {
-      return null;
-    }
+    if (len < 0) return null;
 
-    ByteBuffer copy = ByteBuffer.allocateDirect(buffer.limit());
-    copy.put(buffer);
-    copy.flip();
+    buffer.limit(len);
 
-    return copy;
+    ByteBuffer data = ByteBuffer.allocateDirect(len);
+    data.put(buffer);
+    data.flip();
+
+    buffer.clear();
+
+    return data;
   }
 
   /**
    * Reads once something is available, waiting for readable() as needed.
-   * Delivers null data at end-of-stream, once the worklet has closed its end.
+   * Delivers null data at end-of-stream, once the worklet has closed its end or
+   * this IPC is closed.
    */
   public void
   read(ReadCallback callback) {
@@ -140,7 +180,11 @@ public class IPC implements Closeable {
     }
   }
 
-  public int
+  /**
+   * Writes whatever fits without blocking, returning the number of bytes taken,
+   * or -1 once this IPC is closed or the worklet has exited.
+   */
+  public synchronized int
   write(ByteBuffer data) {
     if (handle == null) return -1;
 
@@ -159,12 +203,6 @@ public class IPC implements Closeable {
 
   public void
   write(ByteBuffer data, WriteCallback callback) {
-    if (handle == null) {
-      callback.apply(new IOException("IPC closed"));
-
-      return;
-    }
-
     ByteBuffer buffer;
 
     if (data.isDirect()) {
@@ -177,7 +215,9 @@ public class IPC implements Closeable {
 
     int written1 = write(buffer);
 
-    if (written1 == buffer.limit()) {
+    if (written1 < 0) {
+      callback.apply(new IOException("IPC closed"));
+    } else if (written1 == buffer.limit()) {
       callback.apply(null);
     } else {
       buffer.position(written1);
@@ -189,7 +229,11 @@ public class IPC implements Closeable {
 
         int written2 = write(slice);
 
-        if (written2 == slice.limit()) {
+        if (written2 < 0) {
+          writable(null);
+
+          callback.apply(new IOException("IPC closed"));
+        } else if (written2 == slice.limit()) {
           writable(null);
 
           callback.apply(null);
@@ -203,17 +247,24 @@ public class IPC implements Closeable {
   }
 
   /**
-   * Retires this IPC, which must happen before its worklet is destroyed.
-   * terminate() does it for you, and closing twice is a no-op.
+   * Closing twice is a no-op.
    */
   public void
   close() {
-    if (handle == null) return;
+    ByteBuffer handle;
 
-    destroy(handle);
+    synchronized (this) {
+      handle = this.handle;
 
-    handle = null;
+      if (handle == null) return;
 
-    worklet.ipc = null;
+      this.handle = null;
+
+      close(handle);
+    }
+
+    // The poll belongs to the looper, so it is torn down there.
+    if (handler.getLooper().isCurrentThread()) destroy(handle);
+    else handler.post(() -> destroy(handle));
   }
 }

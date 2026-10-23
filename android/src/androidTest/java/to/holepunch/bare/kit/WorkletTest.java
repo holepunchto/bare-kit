@@ -125,4 +125,102 @@ public class WorkletTest {
 
     thread.quit();
   }
+
+  @Test
+  public void
+  IPCAfterTerminate() throws InterruptedException {
+    HandlerThread thread = new HandlerThread("IPCAfterTerminate");
+    thread.start();
+
+    Handler handler = new Handler(thread.getLooper());
+
+    CountDownLatch latch = new CountDownLatch(1);
+
+    handler.post(() -> {
+      Worklet worklet = new Worklet(null);
+      worklet.start("/app.js", "", StandardCharsets.UTF_8, null);
+      worklet.terminate();
+
+      try {
+        new IPC(worklet);
+      } catch (IllegalStateException exception) {
+        latch.countDown();
+      }
+    });
+
+    latch.await();
+
+    thread.quit();
+  }
+
+  @Test
+  public void
+  IPCCloseOffLooper() throws InterruptedException {
+    HandlerThread thread = new HandlerThread("IPCCloseOffLooper");
+    thread.start();
+
+    Handler handler = new Handler(thread.getLooper());
+
+    CountDownLatch opened = new CountDownLatch(1);
+    CountDownLatch closed = new CountDownLatch(1);
+
+    final Worklet[] worklet = new Worklet[1];
+    final IPC[] ipc = new IPC[1];
+
+    handler.post(() -> {
+      worklet[0] = new Worklet(null);
+      worklet[0].start("/app.js", "BareKit.IPC.on('data', () => {})", StandardCharsets.UTF_8, null);
+
+      ipc[0] = new IPC(worklet[0]);
+
+      ipc[0].readable(() -> {});
+
+      opened.countDown();
+    });
+
+    opened.await();
+
+    ipc[0].close();
+    ipc[0].close();
+
+    handler.post(() -> {
+      ByteBuffer data = ipc[0].read();
+
+      if (data != null && data.limit() == 0) closed.countDown();
+
+      worklet[0].terminate();
+    });
+
+    closed.await();
+
+    thread.quit();
+  }
+
+  @Test
+  public void
+  PushAfterTerminate() throws InterruptedException {
+    HandlerThread thread = new HandlerThread("PushAfterTerminate");
+    thread.start();
+
+    Handler handler = new Handler(thread.getLooper());
+
+    CountDownLatch latch = new CountDownLatch(1);
+
+    handler.post(() -> {
+      Looper looper = Looper.myLooper();
+
+      Worklet worklet = new Worklet(null);
+      worklet.start("/app.js", "", StandardCharsets.UTF_8, null);
+      worklet.terminate();
+      worklet.terminate();
+
+      worklet.push("Push message", StandardCharsets.UTF_8, looper, (reply, exception) -> {
+        if (exception != null) latch.countDown();
+      });
+    });
+
+    latch.await();
+
+    thread.quit();
+  }
 }

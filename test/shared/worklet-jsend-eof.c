@@ -3,9 +3,8 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
-// The host EOF comes from the JS side: when the worklet ends its Bare.IPC, its
-// end of the in-process queue closes and the host read returns 0 (EOF) - the
-// signal the bindings turn into (nil, nil).
+// Ending Bare.IPC from JS reaches the host as EOF, which the bindings turn into
+// (nil, nil).
 
 int
 main() {
@@ -26,15 +25,15 @@ main() {
   e = bare_ipc_init(&ipc, &worklet);
   assert(e == 0);
 
-  void *data;
-  size_t len;
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+  int len;
 
   // Poll for up to ~2s for EOF. Expect read to return 0 once the worklet ends.
   bool eof = false;
   for (int i = 0; i < 200; i++) {
-    e = bare_ipc_read(&ipc, &data, &len);
-    assert(e == 0 || e == bare_ipc_would_block);
-    if (e == 0 && len == 0) {
+    len = bare_ipc_read(&ipc, data, sizeof(data));
+    assert(len >= 0 || len == bare_ipc_would_block);
+    if (len == 0) {
       eof = true;
       break;
     }

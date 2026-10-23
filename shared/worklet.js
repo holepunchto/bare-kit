@@ -24,9 +24,7 @@ const errors = {
   }
 }
 
-// A Duplex over the native in-process queue. The native side provides
-// non-blocking read/write plus ref/unref; a single signal (fed back from the
-// worklet loop) means re-check both reads and a pending write.
+// A signal from the queue means re-check both reads and a pending write.
 class IPCStream extends Duplex {
   constructor(native) {
     super()
@@ -81,10 +79,10 @@ class IPCStream extends Duplex {
     this._send(chunk, cb)
   }
 
-  // end() closes our end of the queue so the host read reaches EOF. streamx
-  // only calls _final once outstanding writes have drained, so ordering holds.
+  // A half-close: the host reads EOF but may keep writing. streamx only calls
+  // _final once pending writes have drained.
   _final(cb) {
-    this._native.close()
+    this._native.end()
     cb(null)
   }
 
@@ -127,8 +125,7 @@ Object.defineProperty(global, 'BareKit', {
   configurable: true
 })
 
-// Called by the host runtime with the native queue endpoint before `start`.
-// Returns the signal callback the worklet loop invokes when the queue changes.
+// Returns the callback the worklet loop invokes when the queue signals.
 exports.openIPC = function openIPC(native) {
   const ipc = new IPCStream(native)
 

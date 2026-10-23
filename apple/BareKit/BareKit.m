@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 #import <assert.h>
 #import <string.h>
@@ -44,22 +45,36 @@ typedef void (^BareWorkletPushHandler)(NSData *_Nullable reply, NSError *_Nullab
   return self;
 }
 
+- (void)dealloc {
+  [_handler release];
+  [_payload release];
+  [_queue release];
+
+  [super dealloc];
+}
+
 @end
+
+static NSError *
+bare_kit__error(NSString *message) {
+  return [NSError
+    errorWithDomain:@"to.holepunch.bare.kit"
+               code:-1
+           userInfo:@{NSLocalizedDescriptionKey : message}];
+}
 
 static void
 bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t *reply) {
   @autoreleasepool {
+    // Owned by the request since the push and released here rather than by the
+    // operation below, as a queue releases its finished operations at no set
+    // time.
     BareWorkletPushContext *context = (__bridge BareWorkletPushContext *) req->data;
-
-    [context.payload release];
 
     NSError *error;
 
     if (err) {
-      error = [NSError
-        errorWithDomain:@"to.holepunch.bare.kit"
-                   code:-1
-               userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithUTF8String:err]}];
+      error = bare_kit__error([NSString stringWithUTF8String:err]);
 
     } else {
       error = nil;
@@ -73,11 +88,13 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
       data = nil;
     }
 
+    BareWorkletPushHandler handler = context.handler;
+
     [context.queue addOperationWithBlock:^{
-      context.handler(data, error);
+      handler(data, error);
     }];
 
-    [context.queue release];
+    [context release];
   }
 }
 
@@ -104,8 +121,7 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 @public
   bare_worklet_t _worklet;
 
-  // Unowned: the ipc retains this worklet and clears this when it closes.
-  BareIPC *_ipc;
+  bool _terminated;
 }
 
 + (void)optimizeForMemory:(BOOL)enabled {
@@ -140,29 +156,12 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 
 - (void)start:(NSString *_Nonnull)filename
     arguments:(NSArray<NSString *> *_Nullable)arguments {
-  int err;
-
-  const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
-
-  int argc = arguments == nil ? 0 : [arguments count];
-
-  const char **argv = calloc(argc, sizeof(char *));
-
-  for (int i = 0; i < argc; i++) {
-    argv[i] = [arguments[i] UTF8String];
-  }
-
-  err = bare_worklet_start(&_worklet, _filename, nil, argc, argv);
-  assert(err == 0);
-
-  free(argv);
+  [self start:filename source:nil arguments:arguments];
 }
 
 - (void)start:(NSString *_Nonnull)filename
        source:(NSData *_Nullable)source
     arguments:(NSArray<NSString *> *_Nullable)arguments {
-  int err;
-
   const char *_filename = [filename cStringUsingEncoding:NSUTF8StringEncoding];
 
   int argc = arguments == nil ? 0 : [arguments count];
@@ -173,17 +172,19 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
     argv[i] = [arguments[i] UTF8String];
   }
 
-  if (source == nil) {
-    err = bare_worklet_start(&_worklet, _filename, nil, argc, argv);
-    assert(err == 0);
-  } else {
-    uv_buf_t _source = uv_buf_init((char *) source.bytes, source.length);
+  uv_buf_t _source;
 
-    err = bare_worklet_start(&_worklet, _filename, &_source, argc, argv);
-    assert(err == 0);
+  if (source) _source = uv_buf_init((char *) source.bytes, source.length);
+
+  int err;
+
+  @synchronized(self) {
+    err = _terminated ? -1 : bare_worklet_start(&_worklet, _filename, source ? &_source : NULL, argc, argv);
   }
 
   free(argv);
+
+  if (err < 0) [NSException raise:NSInternalInconsistencyException format:@"Worklet could not be started"];
 }
 
 - (void)start:(NSString *_Nonnull)filename
@@ -224,26 +225,46 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   [self suspendWithLinger:-1];
 }
 
+// The lifecycle methods are serialized, as terminating destroys the worklet the
+// others use.
 - (void)suspendWithLinger:(int)linger {
-  int err;
-  err = bare_worklet_suspend(&_worklet, linger);
-  assert(err == 0);
+  @synchronized(self) {
+    if (_terminated) return;
+
+    int err;
+    err = bare_worklet_suspend(&_worklet, linger);
+    assert(err == 0);
+  }
 }
 
 - (void)resume {
-  int err;
-  err = bare_worklet_resume(&_worklet);
-  assert(err == 0);
+  @synchronized(self) {
+    if (_terminated) return;
+
+    int err;
+    err = bare_worklet_resume(&_worklet);
+    assert(err == 0);
+  }
 }
 
 - (void)terminate {
-  [_ipc close];
+  @synchronized(self) {
+    if (_terminated) return;
 
-  int err;
-  err = bare_worklet_terminate(&_worklet);
-  assert(err == 0);
+    _terminated = true;
 
-  bare_worklet_destroy(&_worklet);
+    int err;
+    err = bare_worklet_terminate(&_worklet);
+    assert(err == 0);
+
+    bare_worklet_destroy(&_worklet);
+  }
+}
+
+- (void)dealloc {
+  [self terminate];
+
+  [super dealloc];
 }
 
 - (void)push:(NSData *_Nonnull)payload
@@ -257,8 +278,12 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
   uv_buf_t buf = uv_buf_init((char *) payload.bytes, payload.length);
 
   int err;
-  err = bare_worklet_push(&_worklet, &context->_req, &buf, bare_worklet__on_push);
-  assert(err == 0);
+
+  @synchronized(self) {
+    err = _terminated ? -1 : bare_worklet_push(&_worklet, &context->_req, &buf, bare_worklet__on_push);
+  }
+
+  if (err < 0) bare_worklet__on_push(&context->_req, "Worklet is not running", NULL);
 }
 
 - (void)push:(NSData *_Nonnull)payload
@@ -294,22 +319,23 @@ bare_worklet__on_push(bare_worklet_push_t *req, const char *err, const uv_buf_t 
 static void
 bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   @autoreleasepool {
-    BareIPC *ipc = (__bridge BareIPC *) poll->data;
+    // Nil once the ipc has begun deallocating. Otherwise held until the pool
+    // drains, so dealloc never runs, or waits, while a handler does.
+    BareIPC *ipc = objc_loadWeak((id *) poll->data);
 
     [ipc poll:events];
   }
 }
 
 @implementation BareIPC {
-  // Retained: an IPC is opened on a worklet and is meaningless without it, so it
-  // must not outlive it. This file is manual reference counting, so the retain
-  // and the release below are what actually hold it.
+  // Retained, as an IPC is meaningless without its worklet. Nil if init failed,
+  // in which case there is nothing to destroy.
   BareWorklet *_worklet;
 
   bare_ipc_t _ipc;
   bare_ipc_poll_t _poll;
 
-  bool _closed;
+  id _weak;
 }
 
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet {
@@ -318,95 +344,116 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   if (self) {
     int err;
 
-    _worklet = [worklet retain];
+    @synchronized(worklet) {
+      err = worklet->_terminated ? -1 : bare_ipc_init(&_ipc, &worklet->_worklet);
+    }
 
-    err = bare_ipc_init(&_ipc, &worklet->_worklet);
-    assert(err == 0);
+    if (err < 0) {
+      [self release];
+
+      return nil;
+    }
+
+    _worklet = [worklet retain];
 
     err = bare_ipc_poll_init(&_poll, &_ipc);
     assert(err == 0);
 
-    _poll.data = (__bridge void *) self;
+    objc_storeWeak(&_weak, self);
 
-    worklet->_ipc = self;
+    _poll.data = &_weak;
   }
 
   return self;
 }
 
+// The handlers run on the poll queue while the setters may run anywhere, so
+// they are swapped and taken under a lock, and only released outside it.
 - (void)setReadable:(void (^)(BareIPC *_Nonnull))readable {
-  if (readable == nil) {
-    _readable = nil;
-  } else {
-    _readable = [readable copy];
+  readable = [readable copy];
+
+  @synchronized(self) {
+    void (^previous)(BareIPC *) = _readable;
+    _readable = readable;
+    readable = previous;
   }
+
+  [readable release];
 
   [self update];
 }
 
 - (void)setWritable:(void (^)(BareIPC *_Nonnull))writable {
-  if (writable == nil) {
-    _writable = nil;
+  writable = [writable copy];
 
-  } else {
-    _writable = [writable copy];
+  @synchronized(self) {
+    void (^previous)(BareIPC *) = _writable;
+    _writable = writable;
+    writable = previous;
   }
+
+  [writable release];
 
   [self update];
 }
 
+// Under the lock throughout, so that concurrent updates apply in order.
 - (void)update {
-  if (_closed) return;
+  @synchronized(self) {
+    int events = 0;
 
-  int events = 0;
+    if (_readable) events |= bare_ipc_readable;
+    if (_writable) events |= bare_ipc_writable;
 
-  if (_readable) events |= bare_ipc_readable;
-  if (_writable) events |= bare_ipc_writable;
+    int err;
 
-  int err;
-
-  if (events) {
-    err = bare_ipc_poll_start(&_poll, events, bare_ipc__on_poll);
-    assert(err == 0);
-  } else {
-    err = bare_ipc_poll_stop(&_poll);
-    assert(err == 0);
+    if (events) {
+      err = bare_ipc_poll_start(&_poll, events, bare_ipc__on_poll);
+      assert(err == 0);
+    } else {
+      err = bare_ipc_poll_stop(&_poll);
+      assert(err == 0);
+    }
   }
 }
 
 - (void)poll:(int)events {
-  if (events & bare_ipc_readable) _readable(self);
-  if (events & bare_ipc_writable) _writable(self);
+  if (events & bare_ipc_readable) [self invoke:bare_ipc_readable];
+  if (events & bare_ipc_writable) [self invoke:bare_ipc_writable];
+}
+
+// Taken afresh for each event, as the previous handler may have changed it.
+- (void)invoke:(int)event {
+  void (^handler)(BareIPC *);
+
+  @synchronized(self) {
+    handler = [(event == bare_ipc_readable ? _readable : _writable) retain];
+  }
+
+  if (handler) handler(self);
+
+  [handler release];
 }
 
 - (NSData *_Nullable)read {
-  if (_closed) return [NSData data];
+  NSMutableData *data = [NSMutableData dataWithLength:BARE_IPC_READ_BUFFER_SIZE];
 
-  int err;
+  int len = bare_ipc_read(&_ipc, data.mutableBytes, data.length);
+  assert(len >= 0 || len == bare_ipc_would_block);
 
-  void *data;
-  size_t len;
-  err = bare_ipc_read(&_ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
-
-  if (err == bare_ipc_would_block) {
+  if (len == bare_ipc_would_block) {
     return nil;
   }
 
-  return [[NSData alloc] initWithBytes:data length:len];
+  data.length = len;
+
+  return data;
 }
 
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion {
-  if (_closed) return completion(nil, nil);
+  NSData *data = [self read];
 
-  int err;
-
-  void *data;
-  size_t len;
-  err = bare_ipc_read(&_ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
-
-  if (err == bare_ipc_would_block) {
+  if (data == nil) {
     self.readable = ^(BareIPC *ipc) {
       self.readable = nil;
 
@@ -418,39 +465,26 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 
   // A successful read of zero bytes is end-of-stream; signal it as nil rather
   // than an empty buffer so consumers can detect a closed IPC.
-  if (len == 0) {
-    completion(nil, nil);
-  } else {
-    completion([[NSData alloc] initWithBytes:data length:len], nil);
-  }
+  completion(data.length == 0 ? nil : data, nil);
 }
 
 - (NSInteger)write:(NSData *_Nonnull)data {
-  if (_closed) return -1;
-
   int err;
   err = bare_ipc_write(&_ipc, data.bytes, data.length);
-  assert(err >= 0 || err == bare_ipc_would_block);
 
-  if (err == bare_ipc_would_block) {
-    return 0;
-  }
+  if (err == bare_ipc_would_block) return 0;
+  if (err < 0) return -1;
 
   return err;
 }
 
 - (void)write:(NSData *_Nonnull)data
    completion:(void (^_Nonnull)(NSError *_Nullable error))completion {
-  if (_closed) {
-    return completion([NSError
-      errorWithDomain:@"to.holepunch.bare.kit"
-                 code:-1
-             userInfo:@{NSLocalizedDescriptionKey : @"IPC closed"}]);
-  }
-
   NSInteger written = [self write:data];
 
-  if (written == data.length) {
+  if (written < 0) {
+    completion(bare_kit__error(@"IPC closed"));
+  } else if (written == data.length) {
     completion(nil);
   } else {
     data = [data subdataWithRange:NSMakeRange(written, data.length - written)];
@@ -462,12 +496,12 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
     self.writable = ^(BareIPC *ipc) {
       NSInteger written = [self write:remaining];
 
-      if (written == remaining.length) {
+      if (written < 0 || written == remaining.length) {
         [remaining release];
 
         self.writable = nil;
 
-        completion(nil);
+        completion(written < 0 ? bare_kit__error(@"IPC closed") : nil);
       } else {
         NSData *data = [remaining subdataWithRange:NSMakeRange(written, remaining.length - written)];
 
@@ -481,20 +515,21 @@ bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
 }
 
 - (void)close {
-  if (_closed) return;
-
-  _closed = true;
-
-  _worklet->_ipc = nil;
-
-  bare_ipc_poll_destroy(&_poll);
-  bare_ipc_destroy(&_ipc);
+  bare_ipc_close(&_ipc);
 }
 
 - (void)dealloc {
-  [self close];
+  if (_worklet) {
+    bare_ipc_poll_destroy(&_poll);
+    bare_ipc_destroy(&_ipc);
 
-  [_worklet release];
+    [_worklet release];
+  }
+
+  [_readable release];
+  [_writable release];
+
+  objc_storeWeak(&_weak, nil);
 
   [super dealloc];
 }
