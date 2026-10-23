@@ -82,6 +82,10 @@ struct bare_worklet_push_s {
   uv_buf_t payload;
 
   void *data;
+
+  // Private: the worklet's list of pending pushes.
+  bare_worklet_push_t *previous;
+  bare_worklet_push_t *next;
 };
 
 /**
@@ -97,9 +101,8 @@ bare_worklet_alloc(bare_worklet_t **result);
 int
 bare_worklet_init(bare_worklet_t *worklet, const bare_worklet_options_t *options);
 
-// Signals the worklet to stop and returns immediately; it never blocks, and the
-// thread tears itself down. Any ipc opened on this worklet must already have been
-// destroyed, because from here the queue is the worklet's alone.
+// Terminates the worklet if it is still running and hands it over to tear
+// itself down, without blocking.
 void
 bare_worklet_destroy(bare_worklet_t *worklet);
 
@@ -124,6 +127,8 @@ bare_worklet_set_data(bare_worklet_t *worklet, void *data);
 int
 bare_worklet_start(bare_worklet_t *worklet, const char *filename, const uv_buf_t *source, int argc, const char *argv[]);
 
+// Suspending, resuming, waking up or terminating a worklet that has not started
+// is a no-op.
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger);
 
@@ -136,6 +141,10 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline);
 int
 bare_worklet_terminate(bare_worklet_t *worklet);
 
+// Fails if the worklet has not started or its loop has stopped, in which case
+// `cb` is not called. Otherwise `cb` is called exactly once on the worklet
+// thread, with the reply or with an error if the worklet stops first, and `req`
+// must be kept until then.
 int
 bare_worklet_push(bare_worklet_t *worklet, bare_worklet_push_t *req, const uv_buf_t *payload, bare_worklet_push_cb cb);
 

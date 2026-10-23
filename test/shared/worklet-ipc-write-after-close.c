@@ -6,9 +6,7 @@
 #include "../../shared/ipc.h"
 #include "../../shared/worklet.h"
 
-// The host retires its IPC while the worklet still has a write outstanding. The
-// worklet's queue end then reports closed, which must surface as a stream error
-// rather than a write that never completes; the worklet reports which it saw.
+// A pending worklet write must error, not hang, once the host closes its ipc.
 
 static bool replied = false;
 static char reply_buf[64];
@@ -64,7 +62,7 @@ main() {
     uv_sleep(10);
 
   assert(replied);
-  assert(strcmp(reply_buf, "errored") == 0); // not "wedged": the write completed
+  assert(strcmp(reply_buf, "errored") == 0);
 
   bare_worklet_destroy(&worklet);
 }

@@ -20,6 +20,10 @@
 
 - (_Nullable instancetype)initWithConfiguration:(BareWorkletConfiguration *_Nullable)options;
 
+/**
+ * Raises `NSInternalInconsistencyException` if the worklet has terminated or
+ * could not be started.
+ */
 - (void)start:(NSString *_Nonnull)filename
     arguments:(NSArray<NSString *> *_Nullable)arguments;
 
@@ -80,6 +84,9 @@
 @property(nonatomic, copy, nullable) void (^readable)(BareIPC *_Nonnull);
 @property(nonatomic, copy, nullable) void (^writable)(BareIPC *_Nonnull);
 
+/**
+ * Returns `nil` if the worklet has terminated or already has an open ipc.
+ */
 - (_Nullable instancetype)initWithWorklet:(BareWorklet *_Nonnull)worklet;
 
 /**
@@ -91,22 +98,28 @@
 
 /**
  * Reads once something is available, waiting for `readable` as needed. Delivers
- * `nil` data at end-of-stream, once the worklet has closed its end.
+ * `nil` data at end-of-stream, once the worklet has closed its end or this ipc
+ * is closed. A pending read keeps this ipc alive until it completes, which
+ * closing does.
  */
 - (void)read:(void (^_Nonnull)(NSData *_Nullable data, NSError *_Nullable error))completion;
 
 /**
  * Writes whatever fits without blocking, returning the number of bytes taken,
- * or -1 once this ipc is closed.
+ * or -1 once this ipc is closed or the worklet has exited.
  */
 - (NSInteger)write:(NSData *_Nonnull)data;
 
+/**
+ * Writes all of the data, waiting for `writable` as needed. A pending write
+ * keeps this ipc alive until it completes, which closing does.
+ */
 - (void)write:(NSData *_Nonnull)data
    completion:(void (^_Nonnull)(NSError *_Nullable error))completion;
 
 /**
- * Retires this ipc, which must happen before its worklet is destroyed.
- * `terminate` does it for you, and closing twice is a no-op.
+ * Closes this ipc, after which reads return end-of-stream and writes fail.
+ * Closing twice is a no-op.
  */
 - (void)close;
 

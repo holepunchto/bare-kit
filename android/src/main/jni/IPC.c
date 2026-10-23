@@ -26,19 +26,34 @@ Java_to_holepunch_bare_kit_IPC_init(JNIEnv *env, jobject self, jobject handle) {
 
   bare_ipc_context_t *context = malloc(sizeof(bare_ipc_context_t));
 
-  context->poll.data = (void *) context;
-
   context->env = env;
   context->class = (*env)->NewGlobalRef(env, (*env)->GetObjectClass(env, self));
   context->self = (*env)->NewGlobalRef(env, self);
 
   err = bare_ipc_init(&context->ipc, worklet);
-  assert(err == 0);
+
+  if (err < 0) {
+    (*env)->DeleteGlobalRef(env, context->class);
+    (*env)->DeleteGlobalRef(env, context->self);
+
+    free(context);
+
+    return NULL;
+  }
 
   err = bare_ipc_poll_init(&context->poll, &context->ipc);
   assert(err == 0);
 
+  context->poll.data = (void *) context;
+
   return (*env)->NewDirectByteBuffer(env, (void *) context, sizeof(bare_ipc_context_t));
+}
+
+JNIEXPORT void JNICALL
+Java_to_holepunch_bare_kit_IPC_close(JNIEnv *env, jobject self, jobject handle) {
+  bare_ipc_context_t *context = (bare_ipc_context_t *) (*env)->GetDirectBufferAddress(env, handle);
+
+  bare_ipc_close(&context->ipc);
 }
 
 JNIEXPORT void JNICALL
@@ -54,22 +69,17 @@ Java_to_holepunch_bare_kit_IPC_destroy(JNIEnv *env, jobject self, jobject handle
   free(context);
 }
 
-JNIEXPORT jobject JNICALL
-Java_to_holepunch_bare_kit_IPC_read(JNIEnv *env, jobject self, jobject handle) {
-  int err;
-
+JNIEXPORT jint JNICALL
+Java_to_holepunch_bare_kit_IPC_read(JNIEnv *env, jobject self, jobject handle, jobject jbuffer) {
   bare_ipc_t *ipc = (bare_ipc_t *) (*env)->GetDirectBufferAddress(env, handle);
 
-  void *data;
-  size_t len;
-  err = bare_ipc_read(ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
+  void *data = (*env)->GetDirectBufferAddress(env, jbuffer);
+  size_t len = (size_t) (*env)->GetDirectBufferCapacity(env, jbuffer);
 
-  if (err == bare_ipc_would_block) {
-    return NULL;
-  }
+  int read = bare_ipc_read(ipc, data, len);
+  assert(read >= 0 || read == bare_ipc_would_block);
 
-  return (*env)->NewDirectByteBuffer(env, data, len);
+  return read;
 }
 
 JNIEXPORT jint JNICALL
@@ -81,32 +91,24 @@ Java_to_holepunch_bare_kit_IPC_write(JNIEnv *env, jobject self, jobject handle, 
   void *data = (*env)->GetDirectBufferAddress(env, jsource);
   int len = (int) jlen;
   err = bare_ipc_write(ipc, data, len);
-  assert(err >= 0 || err == bare_ipc_would_block);
 
-  if (err == bare_ipc_would_block) {
-    return 0;
-  }
+  if (err == bare_ipc_would_block) return 0;
+  if (err < 0) return -1;
 
   return err;
 }
 
+// A single call into Java, as the handlers it runs may close the IPC and free
+// the context.
 static void
 bare_ipc__on_poll(bare_ipc_poll_t *poll, int events) {
   bare_ipc_context_t *context = (bare_ipc_context_t *) poll->data;
 
   JNIEnv *env = context->env;
 
-  if (events & bare_ipc_readable) {
-    jmethodID readable = (*env)->GetMethodID(env, context->class, "readable", "()V");
+  jmethodID method = (*env)->GetMethodID(env, context->class, "poll", "(ZZ)V");
 
-    (*env)->CallVoidMethod(env, context->self, readable);
-  }
-
-  if (events & bare_ipc_writable) {
-    jmethodID writable = (*env)->GetMethodID(env, context->class, "writable", "()V");
-
-    (*env)->CallVoidMethod(env, context->self, writable);
-  }
+  (*env)->CallVoidMethod(env, context->self, method, (jboolean) ((events & bare_ipc_readable) != 0), (jboolean) ((events & bare_ipc_writable) != 0));
 }
 
 JNIEXPORT void JNICALL

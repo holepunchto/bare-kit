@@ -178,5 +178,6 @@ Java_to_holepunch_bare_kit_Worklet_push(JNIEnv *env, jobject self, jobject handl
   context->callback = (*env)->NewGlobalRef(env, jcallback);
 
   err = bare_worklet_push(worklet, &context->req, &payload, bare_worklet__on_push);
-  assert(err == 0);
+
+  if (err < 0) bare_worklet__on_push(&context->req, "Worklet is not running", NULL);
 }

@@ -9,15 +9,15 @@ uv_async_t finished;
 void
 on_poll(bare_ipc_poll_t *poll, int events) {
   int err;
-  void *data;
-  size_t len;
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+  int len;
 
   err = bare_ipc_poll_stop(poll);
   assert(err == 0);
 
   if ((events & bare_ipc_readable) != 0) {
-    err = bare_ipc_read(poll->ipc, &data, &len);
-    assert(err == 0);
+    len = bare_ipc_read(poll->ipc, data, sizeof(data));
+    assert(len > 0);
 
     if (strncmp(data, response, len) == 0) {
       printf("%.*s", (int) len, (char *) data);
@@ -30,10 +30,10 @@ on_poll(bare_ipc_poll_t *poll, int events) {
       assert(err >= 0 || err == bare_ipc_would_block);
 
       if (err != bare_ipc_would_block) {
-        err = bare_ipc_read(poll->ipc, &data, &len);
-        assert(err == 0 || err == bare_ipc_would_block);
+        len = bare_ipc_read(poll->ipc, data, sizeof(data));
+        assert(len >= 0 || len == bare_ipc_would_block);
 
-        if (err != bare_ipc_would_block) {
+        if (len != bare_ipc_would_block) {
           assert(strncmp(data, response, len) == 0);
           printf("%.*s\n", (int) len, (char *) data);
           uv_async_send(&finished);
@@ -53,10 +53,10 @@ on_poll(bare_ipc_poll_t *poll, int events) {
     err = bare_ipc_write(poll->ipc, response, strlen(response));
     assert(err >= 0);
 
-    err = bare_ipc_read(poll->ipc, &data, &len);
-    assert(err == 0 || err == bare_ipc_would_block);
+    len = bare_ipc_read(poll->ipc, data, sizeof(data));
+    assert(len >= 0 || len == bare_ipc_would_block);
 
-    if (err != bare_ipc_would_block) {
+    if (len != bare_ipc_would_block) {
       assert(strncmp(data, response, len) == 0);
       printf("%.*s\n", (int) len, (char *) data);
       uv_async_send(&finished);
@@ -98,22 +98,22 @@ main() {
   err = bare_ipc_poll_init(&poll, &ipc);
   assert(err == 0);
 
-  void *data;
-  size_t len;
-  err = bare_ipc_read(&ipc, &data, &len);
-  assert(err == 0 || err == bare_ipc_would_block);
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+  int len;
+  len = bare_ipc_read(&ipc, data, sizeof(data));
+  assert(len >= 0 || len == bare_ipc_would_block);
 
-  if (err != bare_ipc_would_block) {
+  if (len != bare_ipc_would_block) {
     printf("%.*s\n", (int) len, (char *) data);
 
     err = bare_ipc_write(&ipc, response, strlen(response));
     assert(err >= 0 || err == bare_ipc_would_block);
 
     if (err != bare_ipc_would_block) {
-      err = bare_ipc_read(&ipc, &data, &len);
-      assert(err == 0 || err == bare_ipc_would_block);
+      len = bare_ipc_read(&ipc, data, sizeof(data));
+      assert(len >= 0 || len == bare_ipc_would_block);
 
-      if (err != bare_ipc_would_block) {
+      if (len != bare_ipc_would_block) {
         assert(strncmp(data, response, len) == 0);
         printf("%.*s\n", (int) len, (char *) data);
       } else {

@@ -52,8 +52,8 @@ main() {
   queue = bare_queue_create();
   assert(queue != NULL);
 
-  bare_queue_port_t *uv = bare_queue_open_uv(queue, &loop, on_recv_uv);
-  bare_queue_open_thread(queue, on_signal);
+  bare_queue_port_t *uv = bare_queue_open_uv(queue, &loop, on_recv_uv, NULL);
+  bare_queue_open_thread(queue, on_signal, NULL);
 
   uv_thread_t producer;
   err = uv_thread_create(&producer, on_thread, (void *) uv);
@@ -74,7 +74,6 @@ main() {
   assert(locked_during_callback);
 
   bare_queue_shutdown_uv(queue);
-  bare_queue_shutdown_thread(queue);
 
   err = uv_run(&loop, UV_RUN_DEFAULT);
   assert(err == 0);

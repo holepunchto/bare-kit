@@ -5,13 +5,12 @@
 extern "C" {
 #endif
 
-#include <stdatomic.h>
-
 #include "../suspension.h"
 
 struct bare_suspension_s {
 #if defined(BARE_KIT_IOS)
-  _Atomic unsigned long task;
+  // Retained, as an expiration handler may outlive the suspension.
+  void *task;
 #endif
 };
 

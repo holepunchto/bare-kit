@@ -51,9 +51,6 @@ public class Worklet implements Closeable {
 
   ByteBuffer handle;
 
-  // Unowned: the IPC holds this worklet and clears this when it closes.
-  IPC ipc;
-
   public Worklet(Options options) {
     if (options == null) options = new Options();
 
@@ -78,8 +75,10 @@ public class Worklet implements Closeable {
   private native void
   push(ByteBuffer handle, ByteBuffer payload, int len, NativePushCallback callback);
 
-  private void
+  private synchronized void
   start(String filename, ByteBuffer source, int len, String[] arguments) {
+    if (handle == null) throw new IllegalStateException("Worklet terminated");
+
     start(handle, filename, source, len, arguments);
   }
 
@@ -147,32 +146,46 @@ public class Worklet implements Closeable {
     suspend(-1);
   }
 
-  public void
+  public synchronized void
   suspend(int linger) {
+    if (handle == null) return;
+
     if (linger < 0) linger = 30000;
 
     suspend(handle, linger);
   }
 
-  public void
+  public synchronized void
   resume() {
+    if (handle == null) return;
+
     resume(handle);
   }
 
-  public void
+  /**
+   * Terminating twice is a no-op, as are later calls to suspend() and resume().
+   * Later pushes fail.
+   */
+  public synchronized void
   terminate() {
-    if (ipc != null) ipc.close();
+    if (handle == null) return;
 
     terminate(handle);
 
     handle = null;
   }
 
+  private synchronized void
+  push(ByteBuffer payload, int len, NativePushCallback callback) {
+    if (handle == null) callback.apply(null, "Worklet is not running");
+    else push(handle, payload, len, callback);
+  }
+
   private void
   push(ByteBuffer payload, int len, Looper looper, PushCallback<ByteBuffer> callback) {
     Handler handler = Handler.createAsync(looper);
 
-    push(handle, payload, len, (reply, error) -> {
+    push(payload, len, (reply, error) -> {
       if (reply != null) {
         ByteBuffer buffer = ByteBuffer.allocateDirect(reply.limit());
         buffer.put(reply);
@@ -196,7 +209,7 @@ public class Worklet implements Closeable {
     final AtomicReference<ByteBuffer> result = new AtomicReference<>();
     final AtomicReference<Error> exception = new AtomicReference<>();
 
-    push(handle, payload, len, (reply, error) -> {
+    push(payload, len, (reply, error) -> {
       if (reply != null) {
         ByteBuffer buffer = ByteBuffer.allocateDirect(reply.limit());
         buffer.put(reply);

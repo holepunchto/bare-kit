@@ -32,6 +32,9 @@ bare_suspension_start(bare_suspension_t *suspension, int timeout);
 int
 bare_suspension_end(bare_suspension_t *suspension);
 
+void
+bare_suspension_destroy(bare_suspension_t *suspension);
+
 #ifdef __cplusplus
 }
 #endif

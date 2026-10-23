@@ -27,14 +27,14 @@ on_poll(bare_ipc_poll_t *poll, int events) {
 void
 read_continuosly(bare_ipc_poll_t *poll) {
   int err;
-  void *data;
-  size_t len;
+  char data[BARE_IPC_READ_BUFFER_SIZE];
+  int len;
 
   while (received != BARE_IPC_LARGE_BUF_LEN) {
-    err = bare_ipc_read(poll->ipc, &data, &len);
-    assert(err == 0 || err == bare_ipc_would_block);
+    len = bare_ipc_read(poll->ipc, data, sizeof(data));
+    assert(len >= 0 || len == bare_ipc_would_block);
 
-    if (err != bare_ipc_would_block) {
+    if (len != bare_ipc_would_block) {
       received += len;
     } else {
       err = bare_ipc_poll_start(poll, bare_ipc_readable, on_poll);

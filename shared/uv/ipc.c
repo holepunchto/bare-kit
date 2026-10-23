@@ -5,10 +5,9 @@
 
 #include "ipc.h"
 
-// A loop of our own, on a thread of our own: the callback runs there, and hosts
-// marshal to their UI thread themselves. `running` is held across the callback so
-// a poll cannot be torn down underneath one, and the key marks the thread that
-// holds it, for a poll that stops or destroys itself from inside its callback.
+// Polls run on the signal thread. `running` is held across a callback so a poll
+// cannot be torn down underneath it, and is recursive so the callback can stop
+// or destroy its own poll, or its ipc.
 typedef struct {
   uv_loop_t loop;
 
@@ -16,49 +15,30 @@ typedef struct {
   uv_async_t close;
 
   uv_thread_t thread;
-  uv_key_t key;
   uv_mutex_t running;
+
+  // NULL once the ipc is destroyed.
+  bare_ipc_t *ipc;
+
+  // Set when the ipc is destroyed from a callback, in which case the thread
+  // frees the signal once its loop is done.
+  bool detached;
 } bare_ipc_signal_t;
-
-static inline bool
-bare_ipc__reentrant(bare_ipc_signal_t *signal) {
-  return uv_key_get(&signal->key) == (void *) signal;
-}
-
-static inline void
-bare_ipc__lock(bare_ipc_signal_t *signal) {
-  if (!bare_ipc__reentrant(signal)) uv_mutex_lock(&signal->running);
-}
-
-static inline void
-bare_ipc__unlock(bare_ipc_signal_t *signal) {
-  if (!bare_ipc__reentrant(signal)) uv_mutex_unlock(&signal->running);
-}
 
 static void
 bare_ipc__on_wake(uv_async_t *handle) {
-  bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) handle);
-
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) uv_handle_get_data((uv_handle_t *) handle);
 
   uv_mutex_lock(&signal->running);
 
-  bare_ipc_poll_t *poll = ipc->poll;
-
-  if (poll != NULL && poll->cb != NULL) {
-    int ready = bare_ipc__ready(ipc, poll->events);
-
-    if (ready != 0) poll->cb(poll, ready);
-  }
+  if (signal->ipc) bare_ipc__dispatch(signal->ipc);
 
   uv_mutex_unlock(&signal->running);
 }
 
 static void
 bare_ipc__on_close(uv_async_t *handle) {
-  bare_ipc_t *ipc = (bare_ipc_t *) uv_handle_get_data((uv_handle_t *) handle);
-
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) uv_handle_get_data((uv_handle_t *) handle);
 
   uv_close((uv_handle_t *) &signal->wake, NULL);
   uv_close((uv_handle_t *) &signal->close, NULL);
@@ -66,11 +46,7 @@ bare_ipc__on_close(uv_async_t *handle) {
 
 static void
 bare_ipc__signal_thread(void *data) {
-  bare_ipc_t *ipc = (bare_ipc_t *) data;
-
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
-
-  uv_key_set(&signal->key, (void *) signal);
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) data;
 
   int err;
 
@@ -79,6 +55,12 @@ bare_ipc__signal_thread(void *data) {
 
   err = uv_loop_close(&signal->loop);
   assert(err == 0);
+
+  if (signal->detached) {
+    uv_mutex_destroy(&signal->running);
+
+    free(signal);
+  }
 }
 
 int
@@ -95,24 +77,22 @@ bare_ipc__signal_init(bare_ipc_t *ipc) {
   err = uv_async_init(&signal->loop, &signal->wake, bare_ipc__on_wake);
   assert(err == 0);
 
-  uv_handle_set_data((uv_handle_t *) &signal->wake, (void *) ipc);
+  uv_handle_set_data((uv_handle_t *) &signal->wake, (void *) signal);
 
   err = uv_async_init(&signal->loop, &signal->close, bare_ipc__on_close);
   assert(err == 0);
 
-  uv_handle_set_data((uv_handle_t *) &signal->close, (void *) ipc);
+  uv_handle_set_data((uv_handle_t *) &signal->close, (void *) signal);
 
-  err = uv_key_create(&signal->key);
+  err = uv_mutex_init_recursive(&signal->running);
   assert(err == 0);
 
-  err = uv_mutex_init(&signal->running);
-  assert(err == 0);
+  signal->ipc = ipc;
+  signal->detached = false;
 
   ipc->signal = signal;
 
-  // The loop and its handles are up, so a signal arriving the moment the port
-  // opens has somewhere to land.
-  err = uv_thread_create(&signal->thread, bare_ipc__signal_thread, (void *) ipc);
+  err = uv_thread_create(&signal->thread, bare_ipc__signal_thread, (void *) signal);
   assert(err == 0);
 
   return 0;
@@ -132,30 +112,33 @@ bare_ipc__signal_destroy(bare_ipc_t *ipc) {
 
   int err;
 
+  uv_mutex_lock(&signal->running);
+
+  signal->ipc = NULL;
+
+  uv_mutex_unlock(&signal->running);
+
   err = uv_async_send(&signal->close);
   assert(err == 0);
 
-  err = uv_thread_join(&signal->thread);
-  assert(err == 0);
+  uv_thread_t self = uv_thread_self();
 
-  uv_mutex_destroy(&signal->running);
+  if (uv_thread_equal(&self, &signal->thread)) {
+    // Destroyed from a poll callback, and a thread cannot join itself.
+    signal->detached = true;
 
-  uv_key_delete(&signal->key);
+    err = uv_thread_detach(&signal->thread);
+    assert(err == 0);
+  } else {
+    err = uv_thread_join(&signal->thread);
+    assert(err == 0);
 
-  free(signal);
+    uv_mutex_destroy(&signal->running);
+
+    free(signal);
+  }
 
   ipc->signal = NULL;
-}
-
-int
-bare_ipc_poll_alloc(bare_ipc_poll_t **result) {
-  bare_ipc_poll_t *poll = malloc(sizeof(bare_ipc_poll_t));
-
-  if (poll == NULL) return -1;
-
-  *result = poll;
-
-  return 0;
 }
 
 int
@@ -167,11 +150,11 @@ bare_ipc_poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
 
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-  bare_ipc__lock(signal);
+  uv_mutex_lock(&signal->running);
 
   ipc->poll = poll;
 
-  bare_ipc__unlock(signal);
+  uv_mutex_unlock(&signal->running);
 
   return 0;
 }
@@ -186,27 +169,12 @@ bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
 
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-  // Under the lock, so the caller may free the poll as soon as this returns.
-  bare_ipc__lock(signal);
+  // So the caller may free the poll once this returns.
+  uv_mutex_lock(&signal->running);
 
   ipc->poll = NULL;
 
-  bare_ipc__unlock(signal);
-}
-
-void *
-bare_ipc_poll_get_data(bare_ipc_poll_t *poll) {
-  return poll->data;
-}
-
-void
-bare_ipc_poll_set_data(bare_ipc_poll_t *poll, void *data) {
-  poll->data = data;
-}
-
-bare_ipc_t *
-bare_ipc_poll_get_ipc(bare_ipc_poll_t *poll) {
-  return poll->ipc;
+  uv_mutex_unlock(&signal->running);
 }
 
 int
@@ -217,14 +185,14 @@ bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
 
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-  bare_ipc__lock(signal);
+  uv_mutex_lock(&signal->running);
 
   poll->events = events;
   poll->cb = cb;
 
-  bare_ipc__unlock(signal);
+  uv_mutex_unlock(&signal->running);
 
-  // Level-triggered: re-check in case data or space is already there.
+  // Level-triggered: signal once in case the events are already ready.
   bare_ipc__signal(ipc);
 
   return 0;
@@ -234,12 +202,12 @@ int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) poll->ipc->signal;
 
-  bare_ipc__lock(signal);
+  uv_mutex_lock(&signal->running);
 
   poll->events = 0;
   poll->cb = NULL;
 
-  bare_ipc__unlock(signal);
+  uv_mutex_unlock(&signal->running);
 
   return 0;
 }

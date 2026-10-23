@@ -6,12 +6,20 @@ list(APPEND tests
   worklet-destroy-before-start
   worklet-exit-eof
   worklet-ipc
+  worklet-ipc-after-destroy
+  worklet-ipc-destroy-in-callback
+  worklet-ipc-half-close
   worklet-ipc-large-write
+  worklet-ipc-short-read
+  worklet-ipc-single
   worklet-ipc-write-after-close
   worklet-jsend-eof
+  worklet-push-after-exit
+  worklet-push-terminate
   worklet-suspend-resume
   worklet-suspend-resume-suspend
   worklet-terminate-after-suspend
+  worklet-terminate-before-start
 )
 
 execute_process(
