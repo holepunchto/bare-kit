@@ -1,6 +1,6 @@
 # bare-kit
 
-Bare Kit is a C library that embeds Bare in a host application, running each JavaScript entry point in an isolated thread, called a worklet, with an in-process IPC channel to the host. It aims to be a "one size fits most" embedder that language bindings build on it rather than embedding Bare themselves.
+Bare Kit is a C library that embeds Bare in a host application, running each JavaScript entry point in an isolated thread, called a worklet, with an in-process IPC channel to the host. It aims to be a "one size fits most" embedder that language bindings build on rather than embedding Bare themselves.
 
 ## Usage
 
