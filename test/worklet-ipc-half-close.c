@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <string.h>
 #include <uv.h>
@@ -8,17 +9,11 @@
 // Ending Bare.IPC from the worklet is a half-close: the host reads EOF but may
 // keep writing.
 
-static bool replied = false;
-static char reply_buf[64];
+static atomic_int exit_code = -1;
 
 static void
-on_push(const char *error, const void *reply, size_t len, void *data) {
-  assert(error == NULL);
-
-  memcpy(reply_buf, reply, len);
-  reply_buf[len] = '\0';
-
-  replied = true;
+on_worklet_exit(int code, void *data) {
+  atomic_store(&exit_code, code);
 }
 
 int
@@ -29,11 +24,12 @@ main() {
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);
 
+  e = bare_worklet_on_exit(worklet, on_worklet_exit, NULL);
+  assert(e == 0);
+
   char *code =
-    "let received = ''\n"
-    "Bare.IPC.on('data', (data) => { received += data })\n"
-    "Bare.IPC.end()\n"
-    "BareKit.on('push', (data, reply) => reply(null, received))\n";
+    "Bare.IPC.on('data', (data) => Bare.exit(data.toString() === 'hello' ? 0 : 1))\n"
+    "Bare.IPC.end()\n";
 
   e = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(e == 0);
@@ -58,16 +54,10 @@ main() {
   e = bare_ipc_write(ipc, "hello", 5);
   assert(e == 5);
 
-  uv_sleep(100);
-
-  e = bare_worklet_push(worklet, "status", 6, on_push, NULL);
-  assert(e == 0);
-
-  for (int i = 0; i < 200 && !replied; i++)
+  for (int i = 0; i < 200 && atomic_load(&exit_code) == -1; i++)
     uv_sleep(10);
 
-  assert(replied);
-  assert(strcmp(reply_buf, "hello") == 0);
+  assert(atomic_load(&exit_code) == 0);
 
   bare_ipc_destroy(ipc);
 

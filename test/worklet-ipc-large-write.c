@@ -87,7 +87,7 @@ main() {
   err = bare_worklet_create(NULL, &worklet);
   assert(err == 0);
 
-  char *code = "BareKit.IPC.on('data', (data) => BareKit.IPC.write(data))";
+  char *code = "Bare.IPC.on('data', (data) => Bare.IPC.write(data))";
   err = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(err == 0);
 

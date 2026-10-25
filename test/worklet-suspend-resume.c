@@ -35,7 +35,7 @@ main() {
   assert(e == 0);
 
   // Keep Bare.IPC open so suspend/resume exercise the queue's ref/unref.
-  char *code = "BareKit.IPC.on('data', () => {})";
+  char *code = "Bare.IPC.on('data', () => {})";
 
   e = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(e == 0);

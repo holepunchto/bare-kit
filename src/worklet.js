@@ -2,7 +2,6 @@ const path = require('bare-path')
 const fs = require('bare-fs')
 const crypto = require('bare-crypto')
 const { fileURLToPath, pathToFileURL } = require('bare-url')
-const EventEmitter = require('bare-events')
 const URL = require('bare-url')
 const Bundle = require('bare-bundle')
 const Module = require('bare-module')
@@ -109,54 +108,15 @@ class IPCStream extends Duplex {
   }
 }
 
-class BareKit extends EventEmitter {
-  constructor() {
-    super()
-
-    this.IPC = null
-  }
-
-  [Symbol.for('bare.inspect')]() {
-    return {
-      __proto__: { constructor: BareKit }
-    }
-  }
-}
-
-exports.BareKit = new BareKit()
-
-Object.defineProperty(global, 'BareKit', {
-  value: exports.BareKit,
-  enumerable: true,
-  writable: false,
-  configurable: true
-})
-
 // Returns the callback the worklet loop invokes when the queue signals.
 exports.openIPC = function openIPC(native) {
   const ipc = new IPCStream(native)
 
-  Bare.IPC = exports.BareKit.IPC = ipc
+  Bare.IPC = ipc
 
   Bare.on('suspend', () => ipc.unref()).on('resume', () => ipc.ref())
 
   return () => ipc._onsignal()
-}
-
-exports.push = function push(payload, reply) {
-  if (exports.BareKit.emit('push', Buffer.from(payload), replyOnce) === false) {
-    replyOnce(null, null)
-  }
-
-  function replyOnce(err, payload, encoding) {
-    if (err) {
-      reply(String(err), null)
-    } else {
-      reply(null, typeof payload === 'string' ? Buffer.from(payload, encoding) : payload)
-    }
-
-    reply = noop
-  }
 }
 
 exports.start = async function start(filename, source, assets) {
@@ -219,5 +179,3 @@ exports.start = async function start(filename, source, assets) {
 
   return Module.loadSync(url, source, { protocol })
 }
-
-function noop() {}

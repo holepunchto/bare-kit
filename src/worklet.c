@@ -18,14 +18,11 @@
 struct bare_worklet_state_s {
   bool finished;
 
-  // Guards the suspension state and the pushes, as well as `bare`, which is
-  // cleared before the worklet tears down.
+  // Guards the suspension state as well as `bare`, which is cleared before the
+  // worklet tears down.
   uv_mutex_t lock;
 
   bare_t *bare;
-
-  bool stopped;
-  bare_worklet_push_t *pushes;
 
   bare_suspension_t suspension;
 
@@ -58,16 +55,9 @@ static uv_cond_t bare_worklet__running_idle;
 static int bare_worklet__running = 0;
 static bool bare_worklet__torn_down = false;
 
-// The state of the worklet whose thread this is, for replies, which carry only
-// their push.
-static uv_key_t bare_worklet__state;
-
 static void
 bare_worklet__on_init(void) {
   int err;
-
-  err = uv_key_create(&bare_worklet__state);
-  assert(err == 0);
 
   err = uv_mutex_init(&bare_worklet__running_lock);
   assert(err == 0);
@@ -106,8 +96,6 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
 
   state->finished = false;
   state->bare = NULL;
-  state->stopped = false;
-  state->pushes = NULL;
   state->suspended = false;
   state->resuming = false;
 
@@ -326,137 +314,6 @@ bare_worklet_teardown(void) {
   return 0;
 }
 
-// Whether the push is still pending, which is compared by address alone, as a
-// push is freed once it has settled. Called with the lock held.
-static bool
-bare_worklet__push_pending(bare_worklet_state_t *state, bare_worklet_push_t *push) {
-  for (bare_worklet_push_t *next = state->pushes; next; next = next->next) {
-    if (next == push) return true;
-  }
-
-  return false;
-}
-
-static void
-bare_worklet__push_unlink(bare_worklet_state_t *state, bare_worklet_push_t *push) {
-  if (push->previous) push->previous->next = push->next;
-  else state->pushes = push->next;
-
-  if (push->next) push->next->previous = push->previous;
-}
-
-static void
-bare_worklet__push_settle(bare_worklet_push_t *push, const char *error, const void *reply, size_t len) {
-  push->cb(error, reply, len, push->data);
-
-  free(push->payload);
-  free(push);
-}
-
-static js_value_t *
-bare_worklet__on_push_reply(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  bare_worklet_push_t *push;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, (void **) &push);
-  assert(err == 0);
-
-  bare_worklet_state_t *state = uv_key_get(&bare_worklet__state);
-
-  uv_mutex_lock(&state->lock);
-
-  bool pending = bare_worklet__push_pending(state, push);
-
-  if (pending) bare_worklet__push_unlink(state, push);
-
-  uv_mutex_unlock(&state->lock);
-
-  if (!pending) return NULL;
-
-  assert(argc == 1 || argc == 2);
-
-  if (argc == 1) {
-    err = js_get_null(env, &argv[1]);
-    assert(err == 0);
-  }
-
-  char *error;
-
-  bool has_error;
-  err = js_is_string(env, argv[0], &has_error);
-  assert(err == 0);
-
-  if (has_error) {
-    size_t len;
-    err = js_get_value_string_utf8(env, argv[0], NULL, 0, &len);
-    assert(err == 0);
-
-    len += 1 /* NULL */;
-
-    error = malloc(len);
-
-    err = js_get_value_string_utf8(env, argv[0], (utf8_t *) error, len, NULL);
-    assert(err == 0);
-  }
-
-  void *reply = NULL;
-  size_t reply_len = 0;
-
-  bool has_reply;
-  err = js_is_typedarray(env, argv[1], &has_reply);
-  assert(err == 0);
-
-  if (has_reply) {
-    err = js_get_typedarray_info(env, argv[1], NULL, &reply, &reply_len, NULL, NULL);
-    assert(err == 0);
-  }
-
-  bare_worklet__push_settle(push, has_error ? error : NULL, reply, reply_len);
-
-  if (has_error) free(error);
-
-  return NULL;
-}
-
-static void
-bare_worklet__on_push(js_env_t *env, js_value_t *onpush, void *context, void *data) {
-  int err;
-
-  bare_worklet_state_t *state = (bare_worklet_state_t *) context;
-
-  bare_worklet_push_t *push = (bare_worklet_push_t *) data;
-
-  uv_mutex_lock(&state->lock);
-
-  bool pending = bare_worklet__push_pending(state, push);
-
-  uv_mutex_unlock(&state->lock);
-
-  if (!pending) return;
-
-  js_value_t *args[2];
-
-  void *copy;
-  err = js_create_arraybuffer(env, push->len, &copy, &args[0]);
-  assert(err == 0);
-
-  memcpy(copy, push->payload, push->len);
-
-  err = js_create_function(env, "reply", -1, bare_worklet__on_push_reply, data, &args[1]);
-  assert(err == 0);
-
-  js_value_t *global;
-  err = js_get_global(env, &global);
-  assert(err == 0);
-
-  err = js_call_function(env, global, onpush, 2, args, NULL);
-  assert(err == 0);
-}
-
 static void
 bare_worklet__on_suspend(bare_t *bare, int linger, void *data) {
   bare_worklet_state_t *state = data;
@@ -662,8 +519,6 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_kit__on_thread_enter(state);
 
-  uv_key_set(&bare_worklet__state, state);
-
   uv_sem_t finished;
   err = uv_sem_init(&finished, 0);
   assert(err == 0);
@@ -762,19 +617,6 @@ bare_worklet__on_thread(void *opaque) {
   err = js_create_reference(env, on_signal, 1, &ipc.signal);
   assert(err == 0);
 
-  js_value_t *fn;
-  err = js_get_named_property(env, exports, "push", &fn);
-  assert(err == 0);
-
-  js_threadsafe_function_t *push;
-  err = js_create_threadsafe_function(env, fn, 0, 1, NULL, NULL, (void *) state, bare_worklet__on_push, &push);
-  assert(err == 0);
-
-  err = js_unref_threadsafe_function(env, push);
-  assert(err == 0);
-
-  worklet->push = push;
-
   js_value_t *start;
   err = js_get_named_property(env, exports, "start", &start);
   assert(err == 0);
@@ -816,28 +658,6 @@ bare_worklet__on_thread(void *opaque) {
   assert(err == 0);
 
   state->finished = true;
-
-  // Settled before parking, as the pushes belong to the host.
-  uv_mutex_lock(&state->lock);
-
-  state->stopped = true;
-
-  bare_worklet_push_t *pushes = state->pushes;
-
-  state->pushes = NULL;
-
-  uv_mutex_unlock(&state->lock);
-
-  err = js_release_threadsafe_function(push, js_threadsafe_function_release);
-  assert(err == 0);
-
-  while (pushes) {
-    bare_worklet_push_t *next = pushes->next;
-
-    bare_worklet__push_settle(pushes, "Worklet terminated", NULL, 0);
-
-    pushes = next;
-  }
 
   // Closed natively rather than from JS, so the host sees EOF on every exit path.
   bare_queue_close(ipc_port);
@@ -1023,56 +843,6 @@ bare_worklet_terminate(bare_worklet_t *worklet) {
   if (state->bare) err = bare_terminate(state->bare);
 
   uv_mutex_unlock(&state->lock);
-
-  return err;
-}
-
-int
-bare_worklet_push(bare_worklet_t *worklet, const void *payload, size_t len, bare_worklet_push_cb cb, void *data) {
-  if (worklet->thread == 0) return -1;
-
-  bare_worklet_push_t *push = malloc(sizeof(bare_worklet_push_t));
-
-  if (push == NULL) return -1;
-
-  push->payload = malloc(len);
-
-  if (push->payload == NULL && len > 0) {
-    free(push);
-
-    return -1;
-  }
-
-  memcpy(push->payload, payload, len);
-
-  push->len = len;
-  push->cb = cb;
-  push->data = data;
-  push->previous = NULL;
-
-  bare_worklet_state_t *state = worklet->state;
-
-  uv_mutex_lock(&state->lock);
-
-  int err = -1;
-
-  // The queue is unbounded, so this never blocks while holding the lock.
-  if (!state->stopped) err = js_call_threadsafe_function(worklet->push, (void *) push, js_threadsafe_function_nonblocking);
-
-  if (err == 0) {
-    push->next = state->pushes;
-
-    if (state->pushes) state->pushes->previous = push;
-
-    state->pushes = push;
-  }
-
-  uv_mutex_unlock(&state->lock);
-
-  if (err < 0) {
-    free(push->payload);
-    free(push);
-  }
 
   return err;
 }

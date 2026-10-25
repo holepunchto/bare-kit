@@ -17,8 +17,6 @@ list(APPEND tests
   worklet-ipc-single
   worklet-ipc-write-after-close
   worklet-jsend-eof
-  worklet-push-after-exit
-  worklet-push-terminate
   worklet-suspend-resume
   worklet-suspend-resume-suspend
   worklet-teardown

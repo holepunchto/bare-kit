@@ -15,7 +15,6 @@ extern "C" {
 #include "suspension.h"
 
 typedef struct bare_worklet_state_s bare_worklet_state_t;
-typedef struct bare_worklet_push_s bare_worklet_push_t;
 
 struct bare_worklet_s {
   bare_worklet_options_t options;
@@ -44,22 +43,7 @@ struct bare_worklet_s {
 
   bare_queue_t *queue;
 
-  js_threadsafe_function_t *push;
-
   void *data;
-};
-
-// Owned by the worklet from the push until its callback has been called.
-struct bare_worklet_push_s {
-  bare_worklet_push_cb cb;
-  void *data;
-
-  void *payload;
-  size_t len;
-
-  // The worklet's list of pending pushes.
-  bare_worklet_push_t *previous;
-  bare_worklet_push_t *next;
 };
 
 #ifdef __cplusplus

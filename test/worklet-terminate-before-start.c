@@ -1,18 +1,11 @@
 #include <assert.h>
-#include <stdbool.h>
 #include <string.h>
 #include <uv.h>
 
 #include <bare-kit.h>
 
-// A worklet that was never started can be suspended, resumed, woken up,
-// terminated and pushed to without crashing, and destroying it gives an open ipc
-// EOF.
-
-static void
-on_push(const char *error, const void *reply, size_t len, void *data) {
-  assert(false);
-}
+// A worklet that was never started can be suspended, resumed, woken up and
+// terminated without crashing, and destroying it gives an open ipc EOF.
 
 int
 main() {
@@ -37,9 +30,6 @@ main() {
 
   e = bare_worklet_terminate(worklet);
   assert(e == 0);
-
-  e = bare_worklet_push(worklet, "ping", 4, on_push, NULL);
-  assert(e < 0);
 
   bare_worklet_destroy(worklet);
 

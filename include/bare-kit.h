@@ -18,7 +18,6 @@ typedef void (*bare_worklet_wakeup_cb)(int deadline, void *data);
 typedef void (*bare_worklet_idle_cb)(void *data);
 typedef void (*bare_worklet_resume_cb)(void *data);
 typedef void (*bare_worklet_exit_cb)(int exit_code, void *data);
-typedef void (*bare_worklet_push_cb)(const char *error, const void *reply, size_t len, void *data);
 typedef void (*bare_ipc_poll_cb)(bare_ipc_poll_t *, int events);
 
 #define BARE_IPC_READ_BUFFER_SIZE (64 * 1024)
@@ -143,15 +142,6 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline);
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet);
-
-/**
- * Push `payload` to the `push` event of `BareKit` in the worklet. The payload
- * is copied. Fails if the worklet has not started or its loop has stopped, in
- * which case `cb` is not called. Otherwise `cb` is called exactly once on the
- * worklet thread, with the reply or with an error if the worklet stops first.
- */
-int
-bare_worklet_push(bare_worklet_t *worklet, const void *payload, size_t len, bare_worklet_push_cb cb, void *data);
 
 /**
  * Create the host end of the ipc of a worklet, which is exposed as `Bare.IPC`
