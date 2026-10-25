@@ -1,0 +1,16 @@
+name: Publish
+on:
+  push:
+    tags:
+      - v*
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    name: Publish
+    steps:
+      - uses: holepunchto/actions/checkout@v1
+      - uses: holepunchto/actions/create-github-release@v1
