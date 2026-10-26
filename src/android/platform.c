@@ -98,9 +98,15 @@ bare_kit__on_thread_exit(void) {
   assert(err == JNI_OK);
 }
 
-void *
-bare_kit__retain_context(void *context) {
+// There is only one JVM per process, so a JVM given by the options replaces the
+// one from `JNI_OnLoad()` for the process.
+void
+bare_kit__retain_context(bare_worklet_options_t *result, const bare_worklet_options_t *options) {
   int err;
+
+  if (options->android.jvm) bare_kit__jvm = options->android.jvm;
+
+  if (options->android.context == NULL) return;
 
   JavaVM *vm = bare_kit__jvm;
   assert(vm != NULL);
@@ -109,14 +115,16 @@ bare_kit__retain_context(void *context) {
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
   assert(err == JNI_OK);
 
-  return (*env)->NewGlobalRef(env, (jobject) context);
+  result->android.context = (*env)->NewGlobalRef(env, (jobject) options->android.context);
 }
 
 // The worklet may be destroyed from a thread that isn't attached to the JVM,
 // in which case the thread is attached for the duration of the call.
 void
-bare_kit__release_context(void *context) {
+bare_kit__release_context(const bare_worklet_options_t *options) {
   int err;
+
+  if (options->android.context == NULL) return;
 
   JavaVM *vm = bare_kit__jvm;
   assert(vm != NULL);
@@ -132,7 +140,7 @@ bare_kit__release_context(void *context) {
 
   assert(err == JNI_OK);
 
-  (*env)->DeleteGlobalRef(env, (jobject) context);
+  (*env)->DeleteGlobalRef(env, (jobject) options->android.context);
 
   if (attached) {
     err = (*vm)->DetachCurrentThread(vm);
