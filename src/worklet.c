@@ -101,6 +101,8 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
     worklet->options.memory_limit = options->memory_limit;
 
     if (options->assets) worklet->options.assets = strdup(options->assets);
+
+    bare_kit__retain_context(&worklet->options, options);
   }
 
   *result = worklet;
@@ -127,6 +129,8 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   }
 
   free((char *) worklet->options.assets);
+
+  bare_kit__release_context(&worklet->options);
 
   free(worklet);
 }
@@ -522,7 +526,7 @@ bare_worklet__on_thread(void *opaque) {
   err = bare_setup(&loop, bare_worklet__platform, &env, worklet->argc, worklet->argv, &options, &bare);
   assert(err == 0);
 
-  bare_kit__publish_context(bare);
+  bare_kit__publish_context(bare, &worklet->options);
 
   err = bare_on_suspend(bare, bare_worklet__on_suspend, state);
   assert(err == 0);

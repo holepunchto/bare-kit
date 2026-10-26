@@ -1,10 +1,11 @@
 #include <assert.h>
 #include <jni.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "../platform.h"
 
-static JavaVM *bare_kit__jvm = NULL;
+static JavaVM *_Atomic bare_kit__jvm = NULL;
 
 JNIEXPORT jint JNICALL
 JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -97,8 +98,63 @@ bare_kit__on_thread_exit(void) {
   assert(err == JNI_OK);
 }
 
+void *
+bare_kit__retain_context(void *context) {
+  int err;
+
+  JavaVM *vm = bare_kit__jvm;
+  assert(vm != NULL);
+
+  JNIEnv *env;
+  err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+  assert(err == JNI_OK);
+
+  return (*env)->NewGlobalRef(env, (jobject) context);
+}
+
+// The worklet may be destroyed from a thread that isn't attached to the JVM,
+// in which case the thread is attached for the duration of the call.
 void
-bare_kit__publish_context(bare_t *bare) {
+bare_kit__release_context(void *context) {
+  int err;
+
+  JavaVM *vm = bare_kit__jvm;
+  assert(vm != NULL);
+
+  JNIEnv *env;
+  err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+
+  bool attached = err == JNI_EDETACHED;
+
+  if (attached) {
+    err = (*vm)->AttachCurrentThread(vm, &env, NULL);
+  }
+
+  assert(err == JNI_OK);
+
+  (*env)->DeleteGlobalRef(env, (jobject) context);
+
+  if (attached) {
+    err = (*vm)->DetachCurrentThread(vm);
+    assert(err == JNI_OK);
+  }
+}
+
+static void
+bare_kit__on_context_destroy(const char *key, void *value) {
+  int err;
+
+  JavaVM *vm = bare_kit__jvm;
+
+  JNIEnv *env;
+  err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+  assert(err == JNI_OK);
+
+  (*env)->DeleteGlobalRef(env, (jobject) value);
+}
+
+void
+bare_kit__publish_context(bare_t *bare, const bare_worklet_options_t *options) {
   int err;
 
   JavaVM *vm = bare_kit__jvm;
@@ -106,4 +162,13 @@ bare_kit__publish_context(bare_t *bare) {
 
   err = bare_context_set(bare, "bare.android.jvm.v1", vm, NULL);
   assert(err == 0);
+
+  if (options->android.context) {
+    JNIEnv *env;
+    err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+    assert(err == JNI_OK);
+
+    err = bare_context_set(bare, "bare.android.context.v1", (*env)->NewGlobalRef(env, (jobject) options->android.context), bare_kit__on_context_destroy);
+    assert(err == 0);
+  }
 }

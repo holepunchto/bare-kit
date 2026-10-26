@@ -55,6 +55,29 @@ struct bare_worklet_options_s {
    * @since 0
    */
   const char *assets;
+
+  /**
+   * Options that only apply on Android, and are ignored on other platforms.
+   *
+   * @since 0
+   */
+  struct {
+    /**
+     * The Java virtual machine, as a `JavaVM *`, which is published to the
+     * addons of the worklet under `bare.android.jvm.v1`. By default, the virtual
+     * machine that loaded Bare Kit through `JNI_OnLoad()` is used, so it must be
+     * given if Bare Kit is loaded by other means. There is only one per process.
+     */
+    void *jvm;
+
+    /**
+     * The application context, as a JNI reference to an `android.content.Context`,
+     * which is published to the addons of the worklet under
+     * `bare.android.context.v1`. The worklet takes a global reference of its
+     * own, so the reference need only be valid for the call.
+     */
+    void *context;
+  } android;
 };
 
 /**
@@ -74,7 +97,9 @@ int
 bare_worklet_teardown(void);
 
 /**
- * Create a worklet. The options are copied and may be `NULL`.
+ * Create a worklet. The options are copied and may be `NULL`. On Android, the
+ * calling thread must be attached to the JVM if an application context is
+ * given.
  */
 int
 bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **result);
