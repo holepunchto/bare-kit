@@ -1,6 +1,4 @@
 #include <assert.h>
-#include <string.h>
-#include <uv.h>
 
 #include <bare-kit.h>
 

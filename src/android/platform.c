@@ -2,8 +2,16 @@
 #include <jni.h>
 #include <stddef.h>
 
-#include "../events.h"
-#include "jvm.h"
+#include "../platform.h"
+
+static JavaVM *bare_kit__jvm = NULL;
+
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM *vm, void *reserved) {
+  bare_kit__jvm = vm;
+
+  return JNI_VERSION_1_6;
+}
 
 static void
 bare_kit__set_context_class_loader(JNIEnv *env) {
@@ -52,10 +60,10 @@ bare_kit__set_context_class_loader(JNIEnv *env) {
 }
 
 void
-bare_kit__on_thread_enter(bare_worklet_state_t *state) {
+bare_kit__on_thread_enter(void) {
   int err;
 
-  JavaVM *vm = bare_kit__jvm_get();
+  JavaVM *vm = bare_kit__jvm;
   assert(vm != NULL);
 
   JNIEnv *env;
@@ -75,10 +83,10 @@ bare_kit__on_thread_enter(bare_worklet_state_t *state) {
 }
 
 void
-bare_kit__on_thread_exit(bare_worklet_state_t *state) {
+bare_kit__on_thread_exit(void) {
   int err;
 
-  JavaVM *vm = bare_kit__jvm_get();
+  JavaVM *vm = bare_kit__jvm;
   assert(vm != NULL);
 
   JNIEnv *env;
@@ -87,4 +95,15 @@ bare_kit__on_thread_exit(bare_worklet_state_t *state) {
 
   err = (*vm)->DetachCurrentThread(vm);
   assert(err == JNI_OK);
+}
+
+void
+bare_kit__publish_context(bare_t *bare) {
+  int err;
+
+  JavaVM *vm = bare_kit__jvm;
+  assert(vm != NULL);
+
+  err = bare_context_set(bare, "bare.android.jvm.v1", vm, NULL);
+  assert(err == 0);
 }

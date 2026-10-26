@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <uv.h>
 
-#include "ipc.h"
+#include "../ipc.h"
 
-// Polls run on the signal thread. `running` is held across a callback so a poll
-// cannot be torn down underneath it, and is recursive so the callback can stop
-// or destroy its own poll, or its ipc.
+// Polls run on a thread of their own rather than a host run loop, so that their
+// callbacks are called the same way on every platform. `running` is held across
+// a callback so a poll cannot be torn down underneath it, and is recursive so the
+// callback can stop or destroy its own poll, or its ipc.
 typedef struct {
   uv_loop_t loop;
 
@@ -141,13 +142,8 @@ bare_ipc__signal_destroy(bare_ipc_t *ipc) {
   ipc->signal = NULL;
 }
 
-int
-bare_ipc__poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
-  poll->ipc = ipc;
-  poll->events = 0;
-  poll->cb = NULL;
-  poll->data = NULL;
-
+void
+bare_ipc__set_poll(bare_ipc_t *ipc, bare_ipc_poll_t *poll) {
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
   uv_mutex_lock(&signal->running);
@@ -155,59 +151,4 @@ bare_ipc__poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
   ipc->poll = poll;
 
   uv_mutex_unlock(&signal->running);
-
-  return 0;
-}
-
-void
-bare_ipc__poll_destroy(bare_ipc_poll_t *poll) {
-  int err;
-  err = bare_ipc_poll_stop(poll);
-  assert(err == 0);
-
-  bare_ipc_t *ipc = poll->ipc;
-
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
-
-  // So the caller may free the poll once this returns.
-  uv_mutex_lock(&signal->running);
-
-  ipc->poll = NULL;
-
-  uv_mutex_unlock(&signal->running);
-}
-
-int
-bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
-  if (events == 0) return bare_ipc_poll_stop(poll);
-
-  bare_ipc_t *ipc = poll->ipc;
-
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
-
-  uv_mutex_lock(&signal->running);
-
-  poll->events = events;
-  poll->cb = cb;
-
-  uv_mutex_unlock(&signal->running);
-
-  // Level-triggered: signal once in case the events are already ready.
-  bare_ipc__signal(ipc);
-
-  return 0;
-}
-
-int
-bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
-  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) poll->ipc->signal;
-
-  uv_mutex_lock(&signal->running);
-
-  poll->events = 0;
-  poll->cb = NULL;
-
-  uv_mutex_unlock(&signal->running);
-
-  return 0;
 }

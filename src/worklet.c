@@ -9,8 +9,7 @@
 #include <utf.h>
 #include <uv.h>
 
-#include "context.h"
-#include "events.h"
+#include "platform.h"
 #include "suspension.h"
 #include "worklet.bundle.h"
 #include "worklet.h"
@@ -79,35 +78,12 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
 
   int err;
 
-  bare_worklet_t *worklet = malloc(sizeof(bare_worklet_t));
+  bare_worklet_t *worklet = calloc(1, sizeof(bare_worklet_t));
+  bare_worklet_state_t *state = calloc(1, sizeof(bare_worklet_state_t));
+  bare_queue_t *queue = bare_queue_create();
 
-  if (worklet == NULL) return -1;
-
-  worklet->thread = 0;
-  worklet->data = NULL;
-
-  bare_worklet_state_t *state = malloc(sizeof(bare_worklet_state_t));
-
-  if (state == NULL) {
-    free(worklet);
-
-    return -1;
-  }
-
-  state->finished = false;
-  state->bare = NULL;
-  state->suspended = false;
-  state->resuming = false;
-
-  err = uv_mutex_init(&state->lock);
-  assert(err == 0);
-
-  memset(&state->callbacks, 0, sizeof(state->callbacks));
-
-  worklet->queue = bare_queue_create();
-
-  if (worklet->queue == NULL) {
-    uv_mutex_destroy(&state->lock);
+  if (worklet == NULL || state == NULL || queue == NULL) {
+    if (queue) bare_queue_destroy(queue);
 
     free(state);
     free(worklet);
@@ -115,13 +91,16 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
     return -1;
   }
 
-  worklet->state = state;
+  err = uv_mutex_init(&state->lock);
+  assert(err == 0);
 
-  memset(&worklet->options, 0, sizeof(worklet->options));
+  worklet->state = state;
+  worklet->queue = queue;
 
   if (options) {
     worklet->options.memory_limit = options->memory_limit;
-    worklet->options.assets = options->assets == NULL ? NULL : strdup(options->assets);
+
+    if (options->assets) worklet->options.assets = strdup(options->assets);
   }
 
   *result = worklet;
@@ -517,7 +496,7 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_worklet_state_t *state = worklet->state;
 
-  bare_kit__on_thread_enter(state);
+  bare_kit__on_thread_enter();
 
   uv_sem_t finished;
   err = uv_sem_init(&finished, 0);
@@ -626,14 +605,12 @@ bare_worklet__on_thread(void *opaque) {
   err = js_create_string_utf8(env, (const utf8_t *) worklet->filename, -1, &args[0]);
   assert(err == 0);
 
-  if (worklet->source.type == bare_worklet_source_buffer) {
-    const uv_buf_t source = worklet->source.buffer;
-
+  if (worklet->source) {
     void *data;
-    err = js_create_arraybuffer(env, source.len, &data, &args[1]);
+    err = js_create_arraybuffer(env, worklet->len, &data, &args[1]);
     assert(err == 0);
 
-    memcpy(data, source.base, source.len);
+    memcpy(data, worklet->source, worklet->len);
   } else {
     err = js_get_null(env, &args[1]);
     assert(err == 0);
@@ -686,11 +663,11 @@ bare_worklet__on_thread(void *opaque) {
   err = uv_loop_close(&loop);
   assert(err == 0);
 
-  bare_worklet__on_stopped();
-
   bare_suspension_destroy(&state->suspension);
 
   if (state->callbacks.exit) state->callbacks.exit(exit_code, state->callbacks.exit_data);
+
+  bare_worklet__on_stopped();
 
   // The host may still open an ipc on the queue until it destroys the worklet.
   uv_sem_wait(&finished);
@@ -699,7 +676,7 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_queue_destroy(queue);
 
-  bare_kit__on_thread_exit(state);
+  bare_kit__on_thread_exit();
 
   uv_mutex_destroy(&state->lock);
 
@@ -711,15 +688,10 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *so
   int err;
 
   worklet->filename = filename;
+  worklet->source = source;
+  worklet->len = len;
   worklet->argc = argc;
   worklet->argv = argv;
-
-  if (source) {
-    worklet->source.type = bare_worklet_source_buffer;
-    worklet->source.buffer = uv_buf_init((char *) source, len);
-  } else {
-    worklet->source.type = bare_worklet_source_none;
-  }
 
   uv_mutex_lock(&bare_worklet__running_lock);
 
@@ -757,8 +729,6 @@ bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *so
 
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
-  if (worklet->thread == 0) return 0;
-
   int err = 0;
 
   bare_worklet_state_t *state = worklet->state;
@@ -781,8 +751,6 @@ bare_worklet_suspend(bare_worklet_t *worklet, int linger) {
 
 int
 bare_worklet_resume(bare_worklet_t *worklet) {
-  if (worklet->thread == 0) return 0;
-
   int err = 0;
 
   bare_worklet_state_t *state = worklet->state;
@@ -810,8 +778,6 @@ bare_worklet_resume(bare_worklet_t *worklet) {
 
 int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
-  if (worklet->thread == 0) return 0;
-
   int err = 0;
 
   bare_worklet_state_t *state = worklet->state;
@@ -832,8 +798,6 @@ bare_worklet_wakeup(bare_worklet_t *worklet, int deadline) {
 
 int
 bare_worklet_terminate(bare_worklet_t *worklet) {
-  if (worklet->thread == 0) return 0;
-
   int err = 0;
 
   bare_worklet_state_t *state = worklet->state;

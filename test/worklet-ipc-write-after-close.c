@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdatomic.h>
 #include <string.h>
 #include <uv.h>
 
@@ -7,16 +6,22 @@
 
 // A pending worklet write must error, not hang, once the host closes its ipc.
 
-static atomic_int exit_code = -1;
+static uv_sem_t exited;
+static int exit_code;
 
 static void
 on_worklet_exit(int code, void *data) {
-  atomic_store(&exit_code, code);
+  exit_code = code;
+
+  uv_sem_post(&exited);
 }
 
 int
 main() {
   int e;
+
+  e = uv_sem_init(&exited, 0);
+  assert(e == 0);
 
   bare_worklet_t *worklet;
   e = bare_worklet_create(NULL, &worklet);
@@ -41,10 +46,9 @@ main() {
 
   bare_ipc_destroy(ipc);
 
-  for (int i = 0; i < 200 && atomic_load(&exit_code) == -1; i++)
-    uv_sleep(10);
+  uv_sem_wait(&exited);
 
-  assert(atomic_load(&exit_code) == 0);
+  assert(exit_code == 0);
 
   bare_worklet_destroy(worklet);
 

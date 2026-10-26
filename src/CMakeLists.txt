@@ -20,34 +20,16 @@ target_sources(
   INTERFACE
     ../include/bare-kit.h
   PRIVATE
-    context.h
-    events.h
     ipc.h
     ipc.c
+    platform.h
     queue.h
     queue.c
+    suspension.h
     worklet.c
     worklet.bundle.h
     worklet.h
 )
-
-if(ANDROID)
-  target_sources(
-    bare_kit
-    PRIVATE
-      android/context.c
-      android/events.c
-      android/jvm.c
-      android/jvm.h
-  )
-else()
-  target_sources(
-    bare_kit
-    PRIVATE
-      context.c
-      events.c
-  )
-endif()
 
 target_include_directories(
   bare_kit
@@ -60,81 +42,53 @@ if(APPLE)
   target_sources(
     bare_kit
     PRIVATE
-      apple/ipc.h
       apple/ipc.m
-      apple/suspension.h
-      apple/suspension.m
   )
-
-  if(IOS)
-    target_link_libraries(
-      bare_kit
-      PUBLIC
-        "-framework UIKit"
-    )
-
-    target_compile_definitions(
-      bare_kit
-      PUBLIC
-        BARE_KIT_IOS
-    )
-  else()
-    target_compile_definitions(
-      bare_kit
-      PUBLIC
-        BARE_KIT_DARWIN
-    )
-  endif()
+else()
+  target_sources(
+    bare_kit
+    PRIVATE
+      standalone/ipc.c
+  )
 endif()
 
 if(ANDROID)
   target_sources(
     bare_kit
     PRIVATE
-      standalone/ipc.c
-      standalone/ipc.h
-      android/suspension.c
-      android/suspension.h
+      android/platform.c
   )
-
-  target_compile_definitions(
-    bare_kit
-    PUBLIC
-      BARE_KIT_ANDROID
-  )
-endif()
-
-if(LINUX)
+else()
   target_sources(
     bare_kit
     PRIVATE
-      standalone/ipc.c
-      standalone/ipc.h
-      linux/suspension.c
-      linux/suspension.h
-  )
-
-  target_compile_definitions(
-    bare_kit
-    PUBLIC
-      BARE_KIT_LINUX
+      platform.c
   )
 endif()
 
-if(WIN32)
+if(IOS)
   target_sources(
     bare_kit
     PRIVATE
-      standalone/ipc.c
-      standalone/ipc.h
-      win32/suspension.c
-      win32/suspension.h
+      ios/suspension.m
+  )
+
+  target_link_libraries(
+    bare_kit
+    PUBLIC
+      "-framework UIKit"
   )
 
   target_compile_definitions(
     bare_kit
-    PUBLIC
-      BARE_KIT_WINDOWS
+    PRIVATE
+      BARE_KIT_IOS
+  )
+else()
+  target_sources(
+    bare_kit
+    PRIVATE
+      suspension.c
   )
 endif()
 

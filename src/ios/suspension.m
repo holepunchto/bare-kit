@@ -1,11 +1,8 @@
-#if defined(BARE_KIT_IOS)
-#include <UIKit/UIKit.h>
-#include <stdatomic.h>
-#endif
+#import <UIKit/UIKit.h>
+#import <stdatomic.h>
 
-#import "suspension.h"
+#import "../suspension.h"
 
-#if defined(BARE_KIT_IOS)
 @interface BareSuspensionTask : NSObject {
 @public
   _Atomic UIBackgroundTaskIdentifier identifier;
@@ -14,24 +11,20 @@
 
 @implementation BareSuspensionTask
 @end
-#endif
 
 int
 bare_suspension_init(bare_suspension_t *suspension) {
-#if defined(BARE_KIT_IOS)
   BareSuspensionTask *task = [[BareSuspensionTask alloc] init];
 
   atomic_init(&task->identifier, UIBackgroundTaskInvalid);
 
   suspension->task = task;
-#endif
 
   return 0;
 }
 
 int
 bare_suspension_start(bare_suspension_t *suspension, int timeout) {
-#if defined(BARE_KIT_IOS)
   UIApplication *app = [UIApplication sharedApplication];
 
   if (app == nil) return timeout < 0 ? 30000 : timeout;
@@ -51,7 +44,7 @@ bare_suspension_start(bare_suspension_t *suspension, int timeout) {
 
   if (prev != UIBackgroundTaskInvalid) [app endBackgroundTask:prev];
 
-  NSTimeInterval remaining = UIApplication.sharedApplication.backgroundTimeRemaining;
+  NSTimeInterval remaining = app.backgroundTimeRemaining;
 
   if (remaining == DBL_MAX) remaining = 30.0;
 
@@ -60,14 +53,10 @@ bare_suspension_start(bare_suspension_t *suspension, int timeout) {
   if (timeout < 0 || timeout > remaining) return remaining;
 
   return timeout;
-#else
-  return timeout < 0 ? 30000 : timeout;
-#endif
 }
 
 int
 bare_suspension_end(bare_suspension_t *suspension) {
-#if defined(BARE_KIT_IOS)
   UIApplication *app = [UIApplication sharedApplication];
 
   if (app == nil) return 0;
@@ -79,14 +68,9 @@ bare_suspension_end(bare_suspension_t *suspension) {
   if (prev != UIBackgroundTaskInvalid) [app endBackgroundTask:prev];
 
   return 0;
-#else
-  return 0;
-#endif
 }
 
 void
 bare_suspension_destroy(bare_suspension_t *suspension) {
-#if defined(BARE_KIT_IOS)
   [(BareSuspensionTask *) suspension->task release];
-#endif
 }

@@ -7,21 +7,12 @@ extern "C" {
 
 typedef struct bare_suspension_s bare_suspension_t;
 
-#if defined(BARE_KIT_DARWIN) || defined(BARE_KIT_IOS)
-#include "apple/suspension.h"
+struct bare_suspension_s {
+#if defined(BARE_KIT_IOS)
+  // Retained, as an expiration handler may outlive the suspension.
+  void *task;
 #endif
-
-#if defined(BARE_KIT_ANDROID)
-#include "android/suspension.h"
-#endif
-
-#if defined(BARE_KIT_LINUX)
-#include "linux/suspension.h"
-#endif
-
-#if defined(BARE_KIT_WINDOWS)
-#include "win32/suspension.h"
-#endif
+};
 
 int
 bare_suspension_init(bare_suspension_t *suspension);

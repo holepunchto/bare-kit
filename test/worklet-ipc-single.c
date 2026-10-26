@@ -1,7 +1,5 @@
 #include <assert.h>
-#include <stdbool.h>
 #include <string.h>
-#include <uv.h>
 
 #include <bare-kit.h>
 

@@ -1,23 +1,31 @@
 #include <assert.h>
-#include <stdbool.h>
 #include <string.h>
 #include <uv.h>
 
 #include <bare-kit.h>
 
-static bool suspend_called = false;
-static bool resume_called = false;
+// The open ipc keeps the worklet alive until a suspension unrefs it, so each
+// suspension idles and each resumption refs it again.
+
+static int suspends = 0;
+static int idles = 0;
+static int resumes = 0;
 
 static void
 on_suspend(int linger, void *data) {
-  suspend_called = true;
-
   assert(linger == 10);
+
+  suspends++;
+}
+
+static void
+on_idle(void *data) {
+  idles++;
 }
 
 static void
 on_resume(void *data) {
-  resume_called = true;
+  resumes++;
 }
 
 int
@@ -31,31 +39,32 @@ main() {
   e = bare_worklet_on_suspend(worklet, on_suspend, NULL);
   assert(e == 0);
 
+  e = bare_worklet_on_idle(worklet, on_idle, NULL);
+  assert(e == 0);
+
   e = bare_worklet_on_resume(worklet, on_resume, NULL);
   assert(e == 0);
 
-  // Keep Bare.IPC open so suspend/resume exercise the queue's ref/unref.
   char *code = "Bare.IPC.on('data', () => {})";
 
   e = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(e == 0);
 
-  e = bare_worklet_suspend(worklet, 10);
-  assert(e == 0);
+  for (int i = 1; i <= 3; i++) {
+    if (i > 1) {
+      e = bare_worklet_resume(worklet);
+      assert(e == 0);
+    }
 
-  uv_sleep(100); // Let suspension flush
+    e = bare_worklet_suspend(worklet, 10);
+    assert(e == 0);
 
-  assert(suspend_called);
+    uv_sleep(100);
 
-  e = bare_worklet_resume(worklet);
-  assert(e == 0);
-
-  uv_sleep(100); // Let resumption flush
-
-  assert(resume_called);
-
-  e = bare_worklet_terminate(worklet);
-  assert(e == 0);
+    assert(suspends == i);
+    assert(resumes == i - 1);
+    assert(idles >= i);
+  }
 
   bare_worklet_destroy(worklet);
 

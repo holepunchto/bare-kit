@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <bare-kit.h>
+#include <stdatomic.h>
 #include <stddef.h>
 
 #include "queue.h"
@@ -27,8 +28,19 @@ struct bare_ipc_s {
   void *signal;
 };
 
+struct bare_ipc_poll_s {
+  bare_ipc_t *ipc;
+
+  _Atomic int events;
+  _Atomic bare_ipc_poll_cb cb;
+
+  void *data;
+};
+
 // Implemented per platform. `bare_ipc__signal` may run on the worklet thread, so
-// it may only touch state owned by the ipc.
+// it may only touch state owned by the ipc. `bare_ipc__set_poll` waits for a
+// running poll callback, unless called from it, so that a detached poll may be
+// freed.
 int
 bare_ipc__signal_init(bare_ipc_t *ipc);
 
@@ -38,28 +50,13 @@ bare_ipc__signal_destroy(bare_ipc_t *ipc);
 void
 bare_ipc__signal(bare_ipc_t *ipc);
 
+void
+bare_ipc__set_poll(bare_ipc_t *ipc, bare_ipc_poll_t *poll);
+
 // Calls the poll back with whichever of its events are ready, as a signal says
 // that the queue changed but not how. Platforms call it on each wake.
 void
 bare_ipc__dispatch(bare_ipc_t *ipc);
-
-#if defined(BARE_KIT_DARWIN) || defined(BARE_KIT_IOS)
-#include "apple/ipc.h"
-#endif
-
-// Polls run on a thread of their own rather than a host run loop, so that their
-// callbacks are called the same way on every platform.
-#if defined(BARE_KIT_ANDROID) || defined(BARE_KIT_LINUX) || defined(BARE_KIT_WINDOWS)
-#include "standalone/ipc.h"
-#endif
-
-// Implemented per platform, and called by `bare_ipc_poll_create()` and
-// `bare_ipc_poll_destroy()`, which own the memory of the poll.
-int
-bare_ipc__poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc);
-
-void
-bare_ipc__poll_destroy(bare_ipc_poll_t *poll);
 
 #ifdef __cplusplus
 }

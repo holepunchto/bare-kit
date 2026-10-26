@@ -1,8 +1,7 @@
-#import <assert.h>
 #import <dispatch/dispatch.h>
 #import <stdlib.h>
 
-#import "ipc.h"
+#import "../ipc.h"
 
 static const void *const bare_ipc_signal_queue = &bare_ipc_signal_queue;
 
@@ -10,14 +9,6 @@ typedef struct {
   dispatch_queue_t queue;
   dispatch_source_t source;
 } bare_ipc_signal_t;
-
-// Runs the block in order with the handlers, waiting for any running handler to
-// finish first, unless called from that handler.
-static void
-bare_ipc__sync(bare_ipc_signal_t *signal, dispatch_block_t block) {
-  if (dispatch_get_specific(bare_ipc_signal_queue) == signal) block();
-  else dispatch_sync(signal->queue, block);
-}
 
 int
 bare_ipc__signal_init(bare_ipc_t *ipc) {
@@ -88,54 +79,14 @@ bare_ipc__signal_destroy(bare_ipc_t *ipc) {
   ipc->signal = NULL;
 }
 
-int
-bare_ipc__poll_init(bare_ipc_poll_t *poll, bare_ipc_t *ipc) {
-  poll->ipc = ipc;
-  poll->data = NULL;
-
-  atomic_init(&poll->events, 0);
-  atomic_init(&poll->cb, NULL);
-
-  bare_ipc__sync((bare_ipc_signal_t *) ipc->signal, ^{
-    ipc->poll = poll;
-  });
-
-  return 0;
-}
-
 void
-bare_ipc__poll_destroy(bare_ipc_poll_t *poll) {
-  int err;
-  err = bare_ipc_poll_stop(poll);
-  assert(err == 0);
+bare_ipc__set_poll(bare_ipc_t *ipc, bare_ipc_poll_t *poll) {
+  bare_ipc_signal_t *signal = (bare_ipc_signal_t *) ipc->signal;
 
-  bare_ipc_t *ipc = poll->ipc;
+  dispatch_block_t block = ^{
+    ipc->poll = poll;
+  };
 
-  // So the caller may free the poll once this returns.
-  bare_ipc__sync((bare_ipc_signal_t *) ipc->signal, ^{
-    ipc->poll = NULL;
-  });
-}
-
-int
-bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
-  if (events == 0) return bare_ipc_poll_stop(poll);
-
-  poll->events = events;
-
-  atomic_store(&poll->cb, cb);
-
-  // Level-triggered: signal once in case the events are already ready.
-  bare_ipc__signal(poll->ipc);
-
-  return 0;
-}
-
-int
-bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
-  poll->events = 0;
-
-  atomic_store(&poll->cb, NULL);
-
-  return 0;
+  if (dispatch_get_specific(bare_ipc_signal_queue) == signal) block();
+  else dispatch_sync(signal->queue, block);
 }

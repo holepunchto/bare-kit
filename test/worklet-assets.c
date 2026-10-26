@@ -1,7 +1,4 @@
 #include <assert.h>
-#include <stdbool.h>
-#include <string.h>
-#include <uv.h>
 
 #include <bare-kit.h>
 
@@ -19,9 +16,6 @@ main() {
   assert(e == 0);
 
   e = bare_worklet_start(worklet, "test/fixtures/assets.bundle", NULL, 0, 0, NULL);
-  assert(e == 0);
-
-  e = bare_worklet_terminate(worklet);
   assert(e == 0);
 
   bare_worklet_destroy(worklet);

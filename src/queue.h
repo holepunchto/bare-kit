@@ -12,16 +12,14 @@ extern "C" {
 // A bidirectional in-process message queue between the worklet, which runs on a
 // libuv loop, and the host, which is a plain native thread. Each direction is an
 // independent bounded ring of owned byte messages guarded by a single mutex.
-// The worklet (uv) end is woken via a uv_async; the host end is woken via a
-// caller-provided signal callback, which is the only platform-specific concern.
+// The worklet (uv) end is woken via a uv_async and the host end via a callback.
 
 #define BARE_QUEUE_CAPACITY 1024 // Must be a power of two
 
 typedef struct bare_queue_s bare_queue_t;
 typedef struct bare_queue_port_s bare_queue_port_t;
 
-typedef void (*bare_queue_signal_cb)(bare_queue_port_t *port);
-typedef void (*bare_queue_recv_cb)(bare_queue_port_t *port);
+typedef void (*bare_queue_cb)(bare_queue_port_t *port);
 
 enum {
   bare_queue_ok = 0,
@@ -66,8 +64,8 @@ struct bare_queue_s {
 
   bool destroyed;
 
-  bare_queue_signal_cb on_signal_thread;
-  bare_queue_recv_cb on_recv_uv;
+  bare_queue_cb on_signal_thread;
+  bare_queue_cb on_recv_uv;
 
   bare_queue_port_t uv_port;
   bare_queue_port_t thread_port;
@@ -89,7 +87,7 @@ bare_queue_destroy(bare_queue_t *queue);
 // on each one read until `bare_queue_would_block` and retry any blocked write.
 // It also fires once during this call if the host has already queued data.
 bare_queue_port_t *
-bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_recv, void *data);
+bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_cb on_recv, void *data);
 
 // Opens the host (native thread) end. `on_signal` is called, possibly from the
 // worklet thread, under the same conditions as `on_recv` above, and the host
@@ -98,7 +96,7 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
 // open racing a worklet-thread signal can invoke it from two threads at once.
 // Returns NULL if the host end has already been opened.
 bare_queue_port_t *
-bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal, void *data);
+bare_queue_open_thread(bare_queue_t *queue, bare_queue_cb on_signal, void *data);
 
 // Copies `len` bytes to the peer. Returns `len`, `bare_queue_would_block` when
 // the ring is full, or `bare_queue_closed` once this end has ended or the peer
@@ -133,7 +131,7 @@ bare_queue_readable(bare_queue_port_t *port);
 bool
 bare_queue_writable(bare_queue_port_t *port);
 
-// Retires the worklet (uv) end by closing its wakeup handle. Must be called on
+// Retires the opened worklet (uv) end by closing its wakeup handle. Must be called on
 // the worklet thread, with the loop still to run so the close completes.
 void
 bare_queue_shutdown_uv(bare_queue_t *queue);

@@ -1,11 +1,17 @@
-#ifndef BARE_KIT_CONTEXT_H
-#define BARE_KIT_CONTEXT_H
+#ifndef BARE_KIT_PLATFORM_H
+#define BARE_KIT_PLATFORM_H
 
 #include <bare.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+void
+bare_kit__on_thread_enter(void);
+
+void
+bare_kit__on_thread_exit(void);
 
 /**
  * Publish the handles that only the embedder can produce for the addons of the
@@ -20,4 +26,4 @@ bare_kit__publish_context(bare_t *bare);
 }
 #endif
 
-#endif // BARE_KIT_CONTEXT_H
+#endif // BARE_KIT_PLATFORM_H

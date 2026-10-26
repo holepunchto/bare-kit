@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdbool.h>
 #include <string.h>
 #include <uv.h>
 
@@ -27,22 +26,18 @@ main() {
   char message[64];
   size_t received = 0;
 
-  for (int i = 0; i < 200 && received < 12; i++) {
-    char data[5];
-    int len = bare_ipc_read(ipc, data, sizeof(data));
-    assert(len > 0 || len == bare_ipc_would_block);
+  while (received < 12) {
+    int len = bare_ipc_read(ipc, message + received, 5);
 
     if (len == bare_ipc_would_block) {
       uv_sleep(10);
     } else {
-      assert(len <= 5);
+      assert(len > 0 && len <= 5);
 
-      memcpy(message + received, data, len);
       received += len;
     }
   }
 
-  assert(received == 12);
   assert(memcmp(message, "Hello world!", 12) == 0);
 
   bare_ipc_destroy(ipc);

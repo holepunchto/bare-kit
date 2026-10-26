@@ -83,12 +83,12 @@ bare_ipc__dispatch(bare_ipc_t *ipc) {
 
   if (poll == NULL) return;
 
-  bare_ipc_poll_cb cb = poll->cb;
+  bare_ipc_poll_cb cb = atomic_load(&poll->cb);
 
   if (cb == NULL) return;
 
   // A closed ipc reads EOF and fails writes, so it is ready for both.
-  int ready = poll->events;
+  int ready = atomic_load(&poll->events);
 
   uv_mutex_lock(&ipc->lock);
 
@@ -165,13 +165,13 @@ bare_ipc_poll_create(bare_ipc_t *ipc, bare_ipc_poll_t **result) {
 
   if (poll == NULL) return -1;
 
-  int err = bare_ipc__poll_init(poll, ipc);
+  poll->ipc = ipc;
+  poll->data = NULL;
 
-  if (err < 0) {
-    free(poll);
+  atomic_init(&poll->events, 0);
+  atomic_init(&poll->cb, NULL);
 
-    return err;
-  }
+  bare_ipc__set_poll(ipc, poll);
 
   *result = poll;
 
@@ -180,7 +180,9 @@ bare_ipc_poll_create(bare_ipc_t *ipc, bare_ipc_poll_t **result) {
 
 void
 bare_ipc_poll_destroy(bare_ipc_poll_t *poll) {
-  bare_ipc__poll_destroy(poll);
+  bare_ipc_poll_stop(poll);
+
+  bare_ipc__set_poll(poll->ipc, NULL);
 
   free(poll);
 }
@@ -198,4 +200,25 @@ bare_ipc_poll_set_data(bare_ipc_poll_t *poll, void *data) {
 bare_ipc_t *
 bare_ipc_poll_get_ipc(bare_ipc_poll_t *poll) {
   return poll->ipc;
+}
+
+int
+bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb) {
+  if (events == 0) return bare_ipc_poll_stop(poll);
+
+  atomic_store(&poll->events, events);
+  atomic_store(&poll->cb, cb);
+
+  // Level-triggered: signal once in case the events are already ready.
+  bare_ipc__signal(poll->ipc);
+
+  return 0;
+}
+
+int
+bare_ipc_poll_stop(bare_ipc_poll_t *poll) {
+  atomic_store(&poll->events, 0);
+  atomic_store(&poll->cb, NULL);
+
+  return 0;
 }

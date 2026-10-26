@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdbool.h>
 #include <string.h>
 #include <uv.h>
 
@@ -30,15 +29,11 @@ main() {
   char data[BARE_IPC_READ_BUFFER_SIZE];
   int len;
 
-  bool eof = false;
-  for (int i = 0; i < 200 && !eof; i++) {
-    len = bare_ipc_read(ipc, data, sizeof(data));
-    assert(len >= 0 || len == bare_ipc_would_block);
-    if (len == 0) eof = true;
-    else uv_sleep(10);
-  }
+  while ((len = bare_ipc_read(ipc, data, sizeof(data))) != 0) {
+    assert(len > 0 || len == bare_ipc_would_block);
 
-  assert(eof);
+    uv_sleep(10);
+  }
 
   e = bare_ipc_write(ipc, "late", 4);
   assert(e == bare_ipc_error);

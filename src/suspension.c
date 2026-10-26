@@ -1,4 +1,4 @@
-#include "../suspension.h"
+#include "suspension.h"
 
 int
 bare_suspension_init(bare_suspension_t *suspension) {
@@ -6,7 +6,7 @@ bare_suspension_init(bare_suspension_t *suspension) {
 }
 
 int
-bare_suspension_start(bare_suspension_t *result, int timeout) {
+bare_suspension_start(bare_suspension_t *suspension, int timeout) {
   return timeout < 0 ? 30000 : timeout;
 }
 

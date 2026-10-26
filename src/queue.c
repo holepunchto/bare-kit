@@ -124,7 +124,7 @@ bare_queue_create(void) {
 }
 
 bare_queue_port_t *
-bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_recv, void *data) {
+bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_cb on_recv, void *data) {
   int err;
 
   err = uv_async_init(loop, &queue->async, bare_queue__on_wakeup_uv);
@@ -151,7 +151,7 @@ bare_queue_open_uv(bare_queue_t *queue, uv_loop_t *loop, bare_queue_recv_cb on_r
 }
 
 bare_queue_port_t *
-bare_queue_open_thread(bare_queue_t *queue, bare_queue_signal_cb on_signal, void *data) {
+bare_queue_open_thread(bare_queue_t *queue, bare_queue_cb on_signal, void *data) {
   uv_mutex_lock(&queue->lock);
 
   if (queue->thread_state != bare_queue_state_idle) {
@@ -327,5 +327,5 @@ bare_queue_destroy(bare_queue_t *queue) {
 
 void
 bare_queue_shutdown_uv(bare_queue_t *queue) {
-  if (queue->uv_state != bare_queue_state_idle) uv_close((uv_handle_t *) &queue->async, NULL);
+  uv_close((uv_handle_t *) &queue->async, NULL);
 }

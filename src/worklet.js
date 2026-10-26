@@ -15,14 +15,6 @@ const { protocol } = module
 
 global.console = new Console(new SystemLog())
 
-const errors = {
-  IPC_CLOSED() {
-    const err = new Error('IPC stream closed')
-    err.code = 'IPC_CLOSED'
-    return err
-  }
-}
-
 // A signal from the queue means re-check both reads and a pending write.
 class IPCStream extends Duplex {
   constructor(native) {
@@ -63,7 +55,7 @@ class IPCStream extends Duplex {
   _send(chunk, cb) {
     const n = this._native.write(chunk)
 
-    if (n === null) cb(errors.IPC_CLOSED())
+    if (n === null) cb(IPC_CLOSED())
     else if (n < 0) this._pendingWrite = { chunk, cb }
     else if (n < chunk.byteLength) this._pendingWrite = { chunk: chunk.subarray(n), cb }
     else cb(null)
@@ -120,29 +112,9 @@ exports.openIPC = function openIPC(native) {
 }
 
 exports.start = async function start(filename, source, assets) {
-  if (assets !== null) {
-    let url
+  if (assets !== null) assets = fileURLToPath(toURL(assets))
 
-    if (startsWithWindowsDriveLetter(assets)) {
-      url = null
-    } else {
-      url = URL.parse(assets)
-    }
-
-    if (url === null) url = pathToFileURL(assets)
-
-    assets = fileURLToPath(url)
-  }
-
-  let url
-
-  if (startsWithWindowsDriveLetter(filename)) {
-    url = null
-  } else {
-    url = URL.parse(filename)
-  }
-
-  if (url === null) url = pathToFileURL(filename)
+  const url = toURL(filename)
 
   if (source === null) source = protocol.readSync(url)
   else source = Buffer.from(source)
@@ -178,4 +150,16 @@ exports.start = async function start(filename, source, assets) {
   }
 
   return Module.loadSync(url, source, { protocol })
+}
+
+function toURL(pathOrURL) {
+  if (startsWithWindowsDriveLetter(pathOrURL)) return pathToFileURL(pathOrURL)
+
+  return URL.parse(pathOrURL) || pathToFileURL(pathOrURL)
+}
+
+function IPC_CLOSED() {
+  const err = new Error('IPC stream closed')
+  err.code = 'IPC_CLOSED'
+  return err
 }

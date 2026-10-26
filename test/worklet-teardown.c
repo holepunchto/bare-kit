@@ -1,19 +1,20 @@
 #include <assert.h>
-#include <stdatomic.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
-#include <uv.h>
 
 #include <bare-kit.h>
 
-// Tearing down waits for destroyed worklets that are still tearing down, after
+// Destroying a running worklet still reports its exit, once, and the exit
+// callback may release the host's resources. Tearing down waits for it, after
 // which no worklet may start.
 
-static atomic_bool exited = false;
+static int exits = 0;
 
 static void
 on_worklet_exit(int code, void *data) {
-  atomic_store(&exited, true);
+  free(data);
+
+  exits++;
 }
 
 int
@@ -24,10 +25,10 @@ main() {
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);
 
-  e = bare_worklet_on_exit(worklet, on_worklet_exit, NULL);
+  e = bare_worklet_on_exit(worklet, on_worklet_exit, malloc(1));
   assert(e == 0);
 
-  char *code = "setTimeout(() => {}, 100)";
+  char *code = "setInterval(() => {}, 1000)";
 
   e = bare_worklet_start(worklet, "app.js", code, strlen(code), 0, NULL);
   assert(e == 0);
@@ -37,7 +38,7 @@ main() {
   e = bare_worklet_teardown();
   assert(e == 0);
 
-  assert(atomic_load(&exited));
+  assert(exits == 1);
 
   e = bare_worklet_create(NULL, &worklet);
   assert(e == 0);
