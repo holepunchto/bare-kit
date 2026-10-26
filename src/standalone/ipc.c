@@ -4,6 +4,7 @@
 #include <uv.h>
 
 #include "../ipc.h"
+#include "../platform.h"
 
 // Polls run on a thread of their own rather than a host run loop, so that their
 // callbacks are called the same way on every platform. `running` is held across
@@ -49,6 +50,8 @@ static void
 bare_ipc__signal_thread(void *data) {
   bare_ipc_signal_t *signal = (bare_ipc_signal_t *) data;
 
+  bare_kit__on_thread_enter();
+
   int err;
 
   err = uv_run(&signal->loop, UV_RUN_DEFAULT);
@@ -62,6 +65,8 @@ bare_ipc__signal_thread(void *data) {
 
     free(signal);
   }
+
+  bare_kit__on_thread_exit();
 }
 
 int

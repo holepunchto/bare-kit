@@ -182,8 +182,8 @@ bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len);
 
 /**
  * Create a poll of the ipc, which calls back when it becomes readable or
- * writable. Callbacks run on a thread owned by the ipc, and may stop or destroy
- * the poll or its ipc.
+ * writable. Callbacks run on a thread owned by the ipc, which on Android is
+ * attached to the JVM, and may stop or destroy the poll or its ipc.
  */
 int
 bare_ipc_poll_create(bare_ipc_t *ipc, bare_ipc_poll_t **result);
