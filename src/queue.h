@@ -124,7 +124,8 @@ bare_queue_close(bare_queue_port_t *port);
 
 // Non-consuming status for a poller. `readable` is true when a read would not
 // return `bare_queue_would_block` (data buffered, or EOF once the peer ended);
-// `writable` is true when a write would not (space free, or the peer closed).
+// `writable` is true when a write would not (space free, this end ended, or the
+// peer closed).
 bool
 bare_queue_readable(bare_queue_port_t *port);
 

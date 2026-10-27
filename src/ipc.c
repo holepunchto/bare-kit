@@ -67,6 +67,20 @@ bare_ipc_close(bare_ipc_t *ipc) {
 }
 
 void
+bare_ipc_end(bare_ipc_t *ipc) {
+  uv_mutex_lock(&ipc->lock);
+
+  if (ipc->port != NULL) {
+    bare_queue_end(ipc->port);
+
+    // Let a poll see that writes now fail.
+    bare_ipc__signal(ipc);
+  }
+
+  uv_mutex_unlock(&ipc->lock);
+}
+
+void
 bare_ipc_destroy(bare_ipc_t *ipc) {
   bare_ipc_close(ipc);
 

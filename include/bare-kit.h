@@ -184,6 +184,14 @@ void
 bare_ipc_close(bare_ipc_t *ipc);
 
 /**
+ * End the host end, a half-close after which `Bare.IPC` in the worklet reads
+ * end-of-stream once drained, while the host keeps reading. Writes fail
+ * afterwards. Ending twice, or after closing, is a no-op.
+ */
+void
+bare_ipc_end(bare_ipc_t *ipc);
+
+/**
  * Close and free the ipc. May be called before or after `bare_worklet_destroy()`,
  * and from a poll callback of the ipc itself.
  */

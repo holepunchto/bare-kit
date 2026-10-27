@@ -305,7 +305,7 @@ bare_queue_writable(bare_queue_port_t *port) {
 
   uv_mutex_lock(&queue->lock);
 
-  bool writable = !bare_queue__ring_full(bare_queue__outbox(port)) || bare_queue__peer_state(port) == bare_queue_state_closed;
+  bool writable = !bare_queue__ring_full(bare_queue__outbox(port)) || *bare_queue__state(port) >= bare_queue_state_ended || bare_queue__peer_state(port) == bare_queue_state_closed;
 
   uv_mutex_unlock(&queue->lock);
 

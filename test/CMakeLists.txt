@@ -9,6 +9,7 @@ list(APPEND tests
   worklet-ipc-destroy-in-callback
   worklet-ipc-exit
   worklet-ipc-half-close
+  worklet-ipc-host-end
   worklet-ipc-short-read
   worklet-ipc-single
   worklet-ipc-write-after-close
