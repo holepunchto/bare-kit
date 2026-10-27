@@ -1,15 +1,13 @@
 const path = require('bare-path')
 const fs = require('bare-fs')
 const crypto = require('bare-crypto')
-const { fileURLToPath, pathToFileURL } = require('bare-url')
+const { pathToFileURL } = require('bare-url')
 const URL = require('bare-url')
-const Bundle = require('bare-bundle')
 const Module = require('bare-module')
 const { startsWithWindowsDriveLetter } = require('bare-module-resolve')
 const SystemLog = require('bare-system-logger')
 const Console = require('bare-console')
 const { Duplex } = require('bare-stream')
-const unpack = require('bare-unpack')
 
 const { protocol } = module
 
@@ -111,45 +109,63 @@ exports.openIPC = function openIPC(native) {
   return () => ipc._onsignal()
 }
 
-exports.start = async function start(filename, source, assets) {
-  if (assets !== null) assets = fileURLToPath(toURL(assets))
+exports.start = function start(filename, source, resources, readResource) {
+  if (resources !== null && isRelative(filename)) {
+    if (readResource !== null) {
+      extract(resources, filename, readResource)
+
+      if (source === null) source = readResource(filename)
+    }
+
+    filename = path.join(resources, filename)
+  }
 
   const url = toURL(filename)
 
   if (source === null) source = protocol.readSync(url)
   else source = Buffer.from(source)
 
-  if (assets !== null && path.extname(url.href) === '.bundle') {
-    const bundle = Bundle.from(source)
+  return Module.loadSync(url, source, { protocol })
+}
 
-    if (bundle.id !== null && bundle.assets.length > 0) {
-      const id = crypto.createHash('blake2b256').update(bundle.id).digest('hex')
+// The listing is extracted last, so that its presence means that every
+// resource it lists has been.
+function extract(resources, filename, readResource) {
+  const name = filename.slice(0, filename.length - path.extname(filename).length)
 
-      const root = path.join(assets, id)
+  const listing = path.join(resources, name + '.assets')
 
-      const tmp = fs.existsSync(root) ? null : path.join(assets, 'tmp')
+  if (fs.existsSync(listing)) return
 
-      if (tmp !== null) {
-        fs.rmSync(tmp, { recursive: true, force: true })
-        fs.mkdirSync(tmp, { recursive: true })
-      }
+  const keys = readResource(name + '.assets')
 
-      source = await unpack(bundle, { files: false, assets: true }, (key) => {
-        if (tmp !== null) {
-          const target = path.join(tmp, key)
+  if (keys === null) return
 
-          fs.mkdirSync(path.dirname(target), { recursive: true })
-          fs.writeFileSync(target, bundle.read(key))
-        }
+  for (const key of Buffer.from(keys).toString().split('\n')) {
+    if (key === '') continue
 
-        return pathToFileURL(path.join(root, key)).href
-      })
+    const data = readResource(name + key)
 
-      if (tmp !== null) fs.renameSync(tmp, root)
-    }
+    if (data === null) throw new Error(`Resource '${name + key}' is listed but missing`)
+
+    write(path.join(resources, name + key), data)
   }
 
-  return Module.loadSync(url, source, { protocol })
+  write(listing, keys)
+}
+
+// Worklets may extract the same resources at once, so each file is moved into
+// place whole.
+function write(target, data) {
+  const tmp = target + '.' + crypto.randomBytes(8).toString('hex')
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.writeFileSync(tmp, Buffer.from(data))
+  fs.renameSync(tmp, target)
+}
+
+function isRelative(filename) {
+  return !path.isAbsolute(filename) && URL.parse(filename) === null
 }
 
 function toURL(pathOrURL) {

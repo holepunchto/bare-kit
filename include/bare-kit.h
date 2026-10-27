@@ -48,15 +48,6 @@ struct bare_worklet_options_s {
   size_t memory_limit;
 
   /**
-   * The directory in which assets should be stored. The worklet requires both
-   * read and write access to the directory. By default, assets may not be
-   * referenced and doing so will result in a runtime error.
-   *
-   * @since 0
-   */
-  const char *assets;
-
-  /**
    * Options that only apply on Android, and are ignored on other platforms.
    *
    * @since 0
@@ -148,6 +139,14 @@ bare_worklet_set_data(bare_worklet_t *worklet, void *data);
  * `Bare.argv`. If `source` is `NULL`, the contents of `filename` will instead
  * be read at runtime. The arguments need only remain valid until this function
  * returns.
+ *
+ * A relative `filename` names a resource of the application. On Apple
+ * platforms, it resolves against the resources of the application bundle,
+ * which extensions share with their application. On Android, it resolves
+ * against the code cache directory of the application context, which must then
+ * be given. The resources listed in `<name>.assets`, one `/<path>` per line,
+ * are extracted there from `<name>/<path>` in the APK before `<name>.bundle`
+ * first runs, and a `NULL` source is read from the APK.
  */
 int
 bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *source, size_t len, int argc, const char *argv[]);

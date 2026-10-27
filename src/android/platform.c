@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "../platform.h"
+#include "jvm.h"
 
 static JavaVM *_Atomic bare_kit__jvm = NULL;
 
@@ -179,4 +180,18 @@ bare_kit__publish_context(bare_t *bare, const bare_worklet_options_t *options) {
     err = bare_context_set(bare, "bare.android.context.v1", (*env)->NewGlobalRef(env, (jobject) options->android.context), bare_kit__on_context_destroy);
     assert(err == 0);
   }
+}
+
+JNIEnv *
+bare_kit__get_env(void) {
+  int err;
+
+  JavaVM *vm = bare_kit__jvm;
+  assert(vm != NULL);
+
+  JNIEnv *env;
+  err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
+  assert(err == JNI_OK);
+
+  return env;
 }

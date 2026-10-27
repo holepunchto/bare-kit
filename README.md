@@ -70,9 +70,19 @@ main() {
 
 The worklet echoes what the host writes and then ends its side of the IPC. The host prints the echo, closes its own side once it reads the end of the stream, and waits for the worklet to exit.
 
-If `source` is `NULL`, the contents of `filename` are instead read at runtime. A `.bundle` file with assets has them unpacked into the directory given by the `assets` option before it runs.
+If `source` is `NULL`, the contents of `filename` are instead read at runtime.
 
 The API is documented in [`include/bare-kit.h`](include/bare-kit.h).
+
+## Resources
+
+A relative `filename` names a resource of the application, so a bundle can reference assets that ship with the application. On Apple platforms, it resolves against the resources of the application bundle, which extensions share with their application. On Android, it resolves against the code cache directory, and the resources listed in `<name>.assets`, one `/<path>` per line, are extracted there from the APK before `<name>.bundle` first runs:
+
+```
+bare-stow.bundle
+bare-stow.assets
+bare-stow/node_modules/a/asset.txt
+```
 
 ## Lifecycle
 

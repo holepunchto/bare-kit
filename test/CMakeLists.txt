@@ -2,7 +2,6 @@ list(APPEND tests
   queue
   queue-threads
   queue-signal-lock
-  worklet-assets
   worklet-exit-code
   worklet-ipc
   worklet-ipc-after-destroy
@@ -16,11 +15,6 @@ list(APPEND tests
   worklet-suspend-resume
   worklet-teardown
   worklet-terminate-before-start
-)
-
-execute_process(
-  COMMAND node fixtures/generate.js
-  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
 )
 
 foreach(test IN LISTS tests)

@@ -17,7 +17,6 @@
   },
   "homepage": "https://github.com/holepunchto/bare-kit#readme",
   "dependencies": {
-    "bare-bundle": "^1.4.0",
     "bare-console": "^6.0.0",
     "bare-crypto": "^1.2.8",
     "bare-fs": "^4.0.1",
@@ -27,7 +26,6 @@
     "bare-path": "^3.0.0",
     "bare-stream": "^2.13.4",
     "bare-system-logger": "^1.0.1",
-    "bare-unpack": "^1.0.2",
     "bare-url": "^2.0.1"
   },
   "devDependencies": {

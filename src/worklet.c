@@ -10,6 +10,7 @@
 #include <uv.h>
 
 #include "platform.h"
+#include "resources.h"
 #include "suspension.h"
 #include "worklet.bundle.h"
 #include "worklet.h"
@@ -100,8 +101,6 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
   if (options) {
     worklet->options.memory_limit = options->memory_limit;
 
-    if (options->assets) worklet->options.assets = strdup(options->assets);
-
     bare_kit__retain_context(&worklet->options, options);
   }
 
@@ -127,8 +126,6 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
     bare_queue_close(&worklet->queue->uv_port);
     bare_queue_destroy(worklet->queue);
   }
-
-  free((char *) worklet->options.assets);
 
   bare_kit__release_context(&worklet->options);
 
@@ -604,7 +601,7 @@ bare_worklet__on_thread(void *opaque) {
   err = js_get_named_property(env, exports, "start", &start);
   assert(err == 0);
 
-  js_value_t *args[3];
+  js_value_t *args[4];
 
   err = js_create_string_utf8(env, (const utf8_t *) worklet->filename, -1, &args[0]);
   assert(err == 0);
@@ -620,17 +617,11 @@ bare_worklet__on_thread(void *opaque) {
     assert(err == 0);
   }
 
-  if (worklet->options.assets) {
-    err = js_create_string_utf8(env, (const utf8_t *) worklet->options.assets, -1, &args[2]);
-    assert(err == 0);
-  } else {
-    err = js_get_null(env, &args[2]);
-    assert(err == 0);
-  }
+  bare_kit__create_resources(env, &worklet->options, &args[2], &args[3]);
 
   uv_barrier_wait(&worklet->ready);
 
-  js_call_function(env, module, start, 3, args, NULL);
+  js_call_function(env, module, start, 4, args, NULL);
 
   err = js_close_handle_scope(env, scope);
   assert(err == 0);

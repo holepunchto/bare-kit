@@ -25,6 +25,7 @@ target_sources(
     platform.h
     queue.h
     queue.c
+    resources.h
     suspension.h
     worklet.c
     worklet.bundle.h
@@ -43,6 +44,13 @@ if(APPLE)
     bare_kit
     PRIVATE
       apple/ipc.m
+      apple/resources.c
+  )
+
+  target_link_libraries(
+    bare_kit
+    PUBLIC
+      "-framework CoreFoundation"
   )
 else()
   target_sources(
@@ -56,13 +64,29 @@ if(ANDROID)
   target_sources(
     bare_kit
     PRIVATE
+      android/jvm.h
       android/platform.c
+      android/resources.c
+  )
+
+  target_link_libraries(
+    bare_kit
+    PUBLIC
+      android
   )
 else()
   target_sources(
     bare_kit
     PRIVATE
       platform.c
+  )
+endif()
+
+if(NOT APPLE AND NOT ANDROID)
+  target_sources(
+    bare_kit
+    PRIVATE
+      resources.c
   )
 endif()
 
