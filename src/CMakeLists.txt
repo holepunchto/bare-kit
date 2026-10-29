@@ -27,6 +27,7 @@ target_sources(
     queue.c
     resources.h
     suspension.h
+    symbols.h
     worklet.c
     worklet.bundle.h
     worklet.h
@@ -124,6 +125,26 @@ target_link_libraries(
     rlimit_static
 )
 
+if(LINUX)
+  target_sources(
+    bare_kit
+    PRIVATE
+      linux/symbols.c
+  )
+
+  target_link_libraries(
+    bare_kit
+    PUBLIC
+      ${CMAKE_DL_LIBS}
+  )
+else()
+  target_sources(
+    bare_kit
+    PRIVATE
+      symbols.c
+  )
+endif()
+
 link_bare_modules(bare_kit WORKING_DIRECTORY ..)
 
 add_library(bare_kit_shared SHARED)
@@ -154,7 +175,7 @@ target_link_libraries(
     bare_kit
 )
 
-if(LINUX OR ANDROID)
+if(ANDROID)
   target_link_options(
     bare_kit_shared
     PRIVATE

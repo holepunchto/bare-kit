@@ -12,6 +12,7 @@
 #include "platform.h"
 #include "resources.h"
 #include "suspension.h"
+#include "symbols.h"
 #include "worklet.bundle.h"
 #include "worklet.h"
 
@@ -71,6 +72,8 @@ bare_worklet__on_init(void) {
 
   err = rlimit_set(rlimit_open_files, rlimit_infer);
   assert(err == 0);
+
+  bare_kit__expose_symbols();
 }
 
 int
