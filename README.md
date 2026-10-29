@@ -104,6 +104,15 @@ Poll callbacks run on a thread owned by the IPC rather than the thread that star
 
 `bare_worklet_suspend()`, `bare_worklet_resume()`, and `bare_worklet_wakeup()` forward the lifecycle of the host application to the worklet, which observes them as the `suspend`, `resume`, and `wakeup` events of `Bare`. A suspension may linger for a number of milliseconds before the worklet goes idle. On iOS, the worklet holds a background task for as long as it lingers.
 
+## Addons
+
+The native addons of a worklet resolve the symbols of Bare from the host process. This works as is when the host links or loads the shared library. Otherwise:
+
+- A host that links Bare Kit statically into an executable must export its symbols, such as with `ENABLE_EXPORTS` and, on Windows, `WINDOWS_EXPORT_ALL_SYMBOLS` in CMake.
+- A host that links Bare Kit statically into a shared library must keep its symbols exported. On Android, it must also link with `-z global`.
+
+Addons may bind to the wrong symbols if the process already exports libuv, V8, or Node-API, as Node.js and Electron do, or holds more than one copy of Bare Kit.
+
 ## Error handling
 
 A worklet runs as a thread inside the host process, so it follows Bare's default handling of uncaught errors: an uncaught exception or unhandled promise rejection in the worklet is printed and the process is aborted. Because the worklet shares the process of the host, this takes the host down with it. This is by design.

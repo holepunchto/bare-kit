@@ -65,13 +65,33 @@ target_link_libraries(
     bare_kit_shared
 )
 
-add_executable(test_worklet-addon-dynamic worklet-addon-dynamic.c)
+# Links Bare Kit statically into a shared library of its own, like a language
+# binding would.
+add_library(test_embedder SHARED)
 
-target_include_directories(
-  test_worklet-addon-dynamic
+if(WIN32)
+  target_sources(
+    test_embedder
+    PRIVATE
+      ../src/win32/bare-kit.def
+  )
+endif()
+
+target_link_libraries(
+  test_embedder
   PRIVATE
-    ../include
+    bare_kit
 )
+
+if(ANDROID)
+  target_link_options(
+    test_embedder
+    PRIVATE
+      "-Wl,-z,global"
+  )
+endif()
+
+add_executable(test_worklet-addon-dynamic worklet-addon-dynamic.c)
 
 target_compile_definitions(
   test_worklet-addon-dynamic
@@ -79,17 +99,35 @@ target_compile_definitions(
     BARE_KIT="$<TARGET_FILE:bare_kit_shared>"
 )
 
-if(NOT WIN32)
-  target_link_libraries(
-    test_worklet-addon-dynamic
-    PRIVATE
-      ${CMAKE_DL_LIBS}
-  )
-endif()
-
 add_dependencies(test_worklet-addon-dynamic bare_kit_shared)
 
-foreach(test IN ITEMS worklet-addon-static worklet-addon-shared worklet-addon-dynamic)
+add_executable(test_worklet-addon-embedded worklet-addon-dynamic.c)
+
+target_compile_definitions(
+  test_worklet-addon-embedded
+  PRIVATE
+    BARE_KIT="$<TARGET_FILE:test_embedder>"
+)
+
+add_dependencies(test_worklet-addon-embedded test_embedder)
+
+foreach(test IN ITEMS worklet-addon-dynamic worklet-addon-embedded)
+  target_include_directories(
+    test_${test}
+    PRIVATE
+      ../include
+  )
+
+  if(NOT WIN32)
+    target_link_libraries(
+      test_${test}
+      PRIVATE
+        ${CMAKE_DL_LIBS}
+    )
+  endif()
+endforeach()
+
+foreach(test IN ITEMS worklet-addon-static worklet-addon-shared worklet-addon-dynamic worklet-addon-embedded)
   target_compile_definitions(
     test_${test}
     PRIVATE
