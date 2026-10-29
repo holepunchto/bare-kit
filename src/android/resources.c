@@ -88,7 +88,7 @@ bare_kit__create_resources(js_env_t *env, const bare_worklet_options_t *options,
   err = js_get_null(env, read);
   assert(err == 0);
 
-  jobject context = (jobject) options->android.context;
+  jobject context = (jobject) options->platform.android.context;
 
   if (context == NULL) return;
 

@@ -48,27 +48,38 @@ struct bare_worklet_options_s {
   size_t memory_limit;
 
   /**
-   * Options that only apply on Android, and are ignored on other platforms.
+   * Options that are specific to a platform. Only the member of the platform
+   * that the worklet runs on is read. The size of the union is fixed by
+   * `reserved`, so that fields added to the end of the options keep their
+   * offsets as the members of the union grow.
    *
    * @since 0
    */
-  struct {
+  union {
     /**
-     * The Java virtual machine, as a `JavaVM *`, which is published to the
-     * addons of the worklet under `bare.android.jvm.v1`. By default, the virtual
-     * machine that loaded Bare Kit through `JNI_OnLoad()` is used, so it must be
-     * given if Bare Kit is loaded by other means. There is only one per process.
+     * Options that apply on Android.
      */
-    void *jvm;
+    struct {
+      /**
+       * The Java virtual machine, as a `JavaVM *`, which is published to the
+       * addons of the worklet under `bare.android.jvm.v1`. By default, the
+       * virtual machine that loaded Bare Kit through `JNI_OnLoad()` is used, so
+       * it must be given if Bare Kit is loaded by other means. There is only one
+       * per process.
+       */
+      void *jvm;
 
-    /**
-     * The application context, as a JNI reference to an `android.content.Context`,
-     * which is published to the addons of the worklet under
-     * `bare.android.context.v1`. The worklet takes a global reference of its
-     * own, so the reference need only be valid for the call.
-     */
-    void *context;
-  } android;
+      /**
+       * The application context, as a JNI reference to an
+       * `android.content.Context`, which is published to the addons of the
+       * worklet under `bare.android.context.v1`. The worklet takes a global
+       * reference of its own, so the reference need only be valid for the call.
+       */
+      void *context;
+    } android;
+
+    void *reserved[8];
+  } platform;
 };
 
 /**
