@@ -116,7 +116,7 @@ bare_kit__retain_context(bare_worklet_options_t *result, const bare_worklet_opti
   err = (*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6);
   assert(err == JNI_OK);
 
-  result->android.context = (*env)->NewGlobalRef(env, (jobject) options->platform.android.context);
+  result->platform.android.context = (*env)->NewGlobalRef(env, (jobject) options->platform.android.context);
 }
 
 // The worklet may be destroyed from a thread that isn't attached to the JVM,
