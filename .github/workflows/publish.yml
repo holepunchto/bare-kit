@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     name: Publish
