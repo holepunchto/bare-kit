@@ -64,8 +64,8 @@ struct bare_worklet_options_s {
        * The Java virtual machine, as a `JavaVM *`, which is published to the
        * addons of the worklet under `bare.android.jvm.v1`. By default, the
        * virtual machine that loaded Bare Kit through `JNI_OnLoad()` is used, so
-       * it must be given if Bare Kit is loaded by other means. There is only one
-       * per process.
+       * it must be given if Bare Kit is loaded by other means. There is only
+       * one per process.
        */
       void *jvm;
 
@@ -114,19 +114,33 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
 void
 bare_worklet_destroy(bare_worklet_t *worklet);
 
+// Lifecycle callbacks, called on the worklet thread. They must be configured
+// before starting the worklet.
+
 /**
- * Lifecycle callbacks, called on the worklet thread. They must be configured
- * before starting the worklet.
+ * Called when the worklet suspends, with the number of milliseconds that it
+ * lingers for before going idle.
  */
 int
 bare_worklet_on_suspend(bare_worklet_t *worklet, bare_worklet_suspend_cb cb, void *data);
 
+/**
+ * Called when a suspended worklet wakes up, with the number of milliseconds
+ * that it has to perform background work before going idle again.
+ */
 int
 bare_worklet_on_wakeup(bare_worklet_t *worklet, bare_worklet_wakeup_cb cb, void *data);
 
+/**
+ * Called when a suspended worklet goes idle, after which it does no work until
+ * it is resumed or woken up.
+ */
 int
 bare_worklet_on_idle(bare_worklet_t *worklet, bare_worklet_idle_cb cb, void *data);
 
+/**
+ * Called when a suspended worklet resumes.
+ */
 int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_worklet_resume_cb cb, void *data);
 
@@ -139,9 +153,17 @@ bare_worklet_on_resume(bare_worklet_t *worklet, bare_worklet_resume_cb cb, void 
 int
 bare_worklet_on_exit(bare_worklet_t *worklet, bare_worklet_exit_cb cb, void *data);
 
+/**
+ * Get the data that was associated with the worklet by
+ * `bare_worklet_set_data()`.
+ */
 void *
 bare_worklet_get_data(bare_worklet_t *worklet);
 
+/**
+ * Associate `data` with the worklet, for the host to retrieve with
+ * `bare_worklet_get_data()`. The worklet does not use it.
+ */
 void
 bare_worklet_set_data(bare_worklet_t *worklet, void *data);
 
@@ -162,19 +184,38 @@ bare_worklet_set_data(bare_worklet_t *worklet, void *data);
 int
 bare_worklet_start(bare_worklet_t *worklet, const char *filename, const void *source, size_t len, int argc, const char *argv[]);
 
+// Suspending, resuming, waking up, or terminating a worklet is safe from any
+// thread, and is a no-op if the worklet has not started or has torn down.
+
 /**
- * Suspending, resuming, waking up, or terminating a worklet that has not
- * started or has torn down is a no-op.
+ * Suspend the worklet, which lingers for `linger` milliseconds before going
+ * idle. A negative `linger` lingers for 30 seconds. On iOS, the worklet holds a
+ * background task for as long as it lingers, so `linger` is capped by the
+ * background time remaining to the application, which a negative `linger`
+ * lingers for instead.
  */
 int
 bare_worklet_suspend(bare_worklet_t *worklet, int linger);
 
+/**
+ * Resume the worklet. If it has not yet gone idle, the suspension is
+ * cancelled.
+ */
 int
 bare_worklet_resume(bare_worklet_t *worklet);
 
+/**
+ * Wake up a suspended worklet and give it `deadline` milliseconds to perform
+ * background work before going idle again. A negative `deadline`, and the cap
+ * on iOS, are handled as for the `linger` of `bare_worklet_suspend()`.
+ */
 int
 bare_worklet_wakeup(bare_worklet_t *worklet, int deadline);
 
+/**
+ * Terminate the worklet as soon as possible. The exit callback is called once
+ * it has torn down.
+ */
 int
 bare_worklet_terminate(bare_worklet_t *worklet);
 
@@ -231,25 +272,45 @@ bare_ipc_write(bare_ipc_t *ipc, const void *data, size_t len);
 int
 bare_ipc_poll_create(bare_ipc_t *ipc, bare_ipc_poll_t **result);
 
+/**
+ * Stop and free the poll. If its callback is running on another thread, this
+ * waits for the callback to return. May be called from the callback itself.
+ */
 void
 bare_ipc_poll_destroy(bare_ipc_poll_t *poll);
 
+/**
+ * Get the data that was associated with the poll by
+ * `bare_ipc_poll_set_data()`.
+ */
 void *
 bare_ipc_poll_get_data(bare_ipc_poll_t *poll);
 
+/**
+ * Associate `data` with the poll, for the host to retrieve with
+ * `bare_ipc_poll_get_data()`, such as from the callback.
+ */
 void
 bare_ipc_poll_set_data(bare_ipc_poll_t *poll, void *data);
 
+/**
+ * Get the ipc that the poll was created for.
+ */
 bare_ipc_t *
 bare_ipc_poll_get_ipc(bare_ipc_poll_t *poll);
 
 /**
- * Start polling for `events`. Polls are level-triggered, so the callback is
- * called again for as long as the events remain ready.
+ * Start polling for `events`, replacing the events and callback of a poll that
+ * is already started. Polls are level-triggered, so the callback is called
+ * again for as long as the events remain ready.
  */
 int
 bare_ipc_poll_start(bare_ipc_poll_t *poll, int events, bare_ipc_poll_cb cb);
 
+/**
+ * Stop polling, after which the callback is no longer called. Starting a poll
+ * with no `events` stops it too.
+ */
 int
 bare_ipc_poll_stop(bare_ipc_poll_t *poll);
 
