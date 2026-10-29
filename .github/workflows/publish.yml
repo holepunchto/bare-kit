@@ -4,12 +4,10 @@ on:
     tags:
       - v*
 permissions:
-  contents: read
+  contents: write
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     name: Publish
     steps:
       - uses: holepunchto/actions/checkout@v1
