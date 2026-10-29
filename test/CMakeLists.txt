@@ -38,3 +38,76 @@ foreach(test IN LISTS tests)
     TIMEOUT 120
   )
 endforeach()
+
+add_subdirectory(fixtures/addon)
+
+add_executable(test_worklet-addon-static worklet-addon.c)
+
+# Exported so that an addon resolves the symbols of Bare from the executable.
+set_target_properties(
+  test_worklet-addon-static
+  PROPERTIES
+  ENABLE_EXPORTS ON
+  WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
+
+target_link_libraries(
+  test_worklet-addon-static
+  PRIVATE
+    bare_kit
+)
+
+add_executable(test_worklet-addon-shared worklet-addon.c)
+
+target_link_libraries(
+  test_worklet-addon-shared
+  PRIVATE
+    bare_kit_shared
+)
+
+add_executable(test_worklet-addon-dynamic worklet-addon-dynamic.c)
+
+target_include_directories(
+  test_worklet-addon-dynamic
+  PRIVATE
+    ../include
+)
+
+target_compile_definitions(
+  test_worklet-addon-dynamic
+  PRIVATE
+    BARE_KIT="$<TARGET_FILE:bare_kit_shared>"
+)
+
+if(NOT WIN32)
+  target_link_libraries(
+    test_worklet-addon-dynamic
+    PRIVATE
+      ${CMAKE_DL_LIBS}
+  )
+endif()
+
+add_dependencies(test_worklet-addon-dynamic bare_kit_shared)
+
+foreach(test IN ITEMS worklet-addon-static worklet-addon-shared worklet-addon-dynamic)
+  target_compile_definitions(
+    test_${test}
+    PRIVATE
+      ADDON="$<IF:$<BOOL:${WIN32}>,file:///,file://>$<TARGET_FILE:${addon}_module>"
+  )
+
+  add_dependencies(test_${test} ${addon}_module)
+
+  add_test(
+    NAME ${test}
+    COMMAND test_${test}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  )
+
+  set_tests_properties(
+    ${test}
+    PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:bare_kit_shared>"
+  )
+endforeach()

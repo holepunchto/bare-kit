@@ -30,7 +30,8 @@ main() {
 
     // Host writes, then the worklet opens.
     bare_queue_port_t *producer = bare_queue_open_thread(q, on_signal, NULL);
-    assert(bare_queue_write(producer, "early", 5) == 5);
+    err = bare_queue_write(producer, "early", 5);
+    assert(err == 5);
 
     uv_received = 0;
     bare_queue_open_uv(q, loop, on_recv_uv, NULL);
@@ -51,7 +52,8 @@ main() {
 
     // Worklet writes, then the host opens: it is signalled during open.
     bare_queue_port_t *producer = bare_queue_open_uv(q, loop, on_recv_uv, NULL);
-    assert(bare_queue_write(producer, "early", 5) == 5);
+    err = bare_queue_write(producer, "early", 5);
+    assert(err == 5);
 
     int before = signaled;
     bare_queue_port_t *consumer = bare_queue_open_thread(q, on_signal, NULL);
@@ -74,12 +76,15 @@ main() {
     assert(!bare_queue_readable(u) && bare_queue_writable(u));
     assert(!bare_queue_readable(t) && bare_queue_writable(t));
 
-    assert(bare_queue_write(t, "x", 1) == 1);
+    err = bare_queue_write(t, "x", 1);
+
+    assert(err == 1);
     assert(bare_queue_readable(u));
 
     bare_queue_close(t);
     assert(bare_queue_writable(u)); // peer closed, so a write fails rather than blocks
-    assert(bare_queue_write(u, "y", 1) == bare_queue_closed);
+    err = bare_queue_write(u, "y", 1);
+    assert(err == bare_queue_closed);
     assert(bare_queue_readable(u)); // buffered data, then EOF
 
     bare_queue_shutdown_uv(q);
@@ -102,12 +107,16 @@ main() {
     assert(signaled == before + 1);
 
     assert(bare_queue_readable(t));
-    assert(bare_queue_read(t, &data, &len) == bare_queue_ok && len == 0);
-    assert(bare_queue_write(u, "more", 4) == bare_queue_closed);
+    err = bare_queue_read(t, &data, &len);
+    assert(err == bare_queue_ok && len == 0);
+    err = bare_queue_write(u, "more", 4);
+    assert(err == bare_queue_closed);
 
     assert(bare_queue_writable(t));
-    assert(bare_queue_write(t, "late", 4) == 4);
-    assert(bare_queue_read(u, &data, &len) == bare_queue_ok);
+    err = bare_queue_write(t, "late", 4);
+    assert(err == 4);
+    err = bare_queue_read(u, &data, &len);
+    assert(err == bare_queue_ok);
     assert(len == 4 && memcmp(data, "late", 4) == 0);
     free(data);
 
@@ -125,7 +134,8 @@ main() {
 
     bare_queue_port_t *t = bare_queue_open_thread(q, on_signal, NULL);
     assert(t != NULL);
-    assert(bare_queue_open_thread(q, on_signal, NULL) == NULL);
+    bare_queue_port_t *other = bare_queue_open_thread(q, on_signal, NULL);
+    assert(other == NULL);
 
     bare_queue_destroy(q);
     bare_queue_close(t);
@@ -145,8 +155,10 @@ main() {
 
     void *data;
     size_t len;
-    assert(bare_queue_read(t, &data, &len) == bare_queue_ok && len == 0);
-    assert(bare_queue_write(t, "late", 4) == bare_queue_closed);
+    err = bare_queue_read(t, &data, &len);
+    assert(err == bare_queue_ok && len == 0);
+    err = bare_queue_write(t, "late", 4);
+    assert(err == bare_queue_closed);
 
     bare_queue_close(t);
   }
@@ -160,41 +172,54 @@ main() {
   size_t len;
 
   // Empty reads block on both ends.
-  assert(bare_queue_read(uv, &data, &len) == bare_queue_would_block);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_would_block);
+  err = bare_queue_read(uv, &data, &len);
+  assert(err == bare_queue_would_block);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_would_block);
 
   // Host -> worklet.
-  assert(bare_queue_write(thread, "ping", 4) == 4);
-  assert(bare_queue_read(uv, &data, &len) == bare_queue_ok);
+  err = bare_queue_write(thread, "ping", 4);
+  assert(err == 4);
+  err = bare_queue_read(uv, &data, &len);
+  assert(err == bare_queue_ok);
   assert(len == 4 && memcmp(data, "ping", 4) == 0);
   free(data);
-  assert(bare_queue_read(uv, &data, &len) == bare_queue_would_block);
+  err = bare_queue_read(uv, &data, &len);
+  assert(err == bare_queue_would_block);
 
   // Worklet -> host, and the host is signalled.
   int before = signaled;
-  assert(bare_queue_write(uv, "pong", 4) == 4);
+  err = bare_queue_write(uv, "pong", 4);
+  assert(err == 4);
   assert(signaled == before + 1);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_ok);
   assert(len == 4 && memcmp(data, "pong", 4) == 0);
   free(data);
 
   // Wakes are coalesced: only a write into an empty ring signals.
   before = signaled;
-  assert(bare_queue_write(uv, "a", 1) == 1);
-  assert(bare_queue_write(uv, "b", 1) == 1);
+  err = bare_queue_write(uv, "a", 1);
+  assert(err == 1);
+  err = bare_queue_write(uv, "b", 1);
+  assert(err == 1);
   assert(signaled == before + 1);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok && len == 1);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_ok && len == 1);
   free(data);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok && len == 1);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_ok && len == 1);
   free(data);
 
   // A host write wakes the worklet loop.
   uv_received = 0;
-  assert(bare_queue_write(thread, "z", 1) == 1);
+  err = bare_queue_write(thread, "z", 1);
+  assert(err == 1);
   err = uv_run(loop, UV_RUN_NOWAIT);
   assert(err >= 0);
   assert(uv_received == 1);
-  assert(bare_queue_read(uv, &data, &len) == bare_queue_ok && len == 1);
+  err = bare_queue_read(uv, &data, &len);
+  assert(err == bare_queue_ok && len == 1);
   free(data);
 
   // Backpressure: fill the ring, then the next write blocks.
@@ -202,11 +227,13 @@ main() {
   while (bare_queue_write(uv, "x", 1) == 1)
     n++;
   assert(n == BARE_QUEUE_CAPACITY - 1);
-  assert(bare_queue_write(uv, "x", 1) == bare_queue_would_block);
+  err = bare_queue_write(uv, "x", 1);
+  assert(err == bare_queue_would_block);
 
   // Draining the full ring wakes the worklet so it can retry the blocked write.
   uv_received = 0;
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok && len == 1);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_ok && len == 1);
   free(data);
   n--;
   err = uv_run(loop, UV_RUN_NOWAIT);
@@ -220,16 +247,21 @@ main() {
   assert(n == 0);
 
   // Zero-length writes never enqueue, so they cannot be read as EOF.
-  assert(bare_queue_write(uv, "", 0) == 0);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_would_block);
+  err = bare_queue_write(uv, "", 0);
+  assert(err == 0);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_would_block);
 
   // Closing one end surfaces EOF on the other, and further writes are rejected.
   bare_queue_close(uv);
-  assert(bare_queue_read(thread, &data, &len) == bare_queue_ok && len == 0);
-  assert(bare_queue_write(thread, "late", 4) == bare_queue_closed);
+  err = bare_queue_read(thread, &data, &len);
+  assert(err == bare_queue_ok && len == 0);
+  err = bare_queue_write(thread, "late", 4);
+  assert(err == bare_queue_closed);
 
   bare_queue_close(thread);
-  assert(bare_queue_read(uv, &data, &len) == bare_queue_ok && len == 0);
+  err = bare_queue_read(uv, &data, &len);
+  assert(err == bare_queue_ok && len == 0);
 
   bare_queue_shutdown_uv(queue);
 

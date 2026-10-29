@@ -14,7 +14,8 @@ static void
 on_worklet_exit(int code, void *data) {
   char buffer[BARE_IPC_READ_BUFFER_SIZE];
 
-  assert(bare_ipc_read((bare_ipc_t *) data, buffer, sizeof(buffer)) == 0);
+  int len = bare_ipc_read((bare_ipc_t *) data, buffer, sizeof(buffer));
+  assert(len == 0);
 
   exit_code = code;
 

@@ -154,11 +154,11 @@ target_link_libraries(
     bare_kit
 )
 
-if(ANDROID)
+if(LINUX OR ANDROID)
   target_link_options(
     bare_kit_shared
     PRIVATE
-      "-Wl,-z,global"
+      "-Wl,-z,global" # Resolve addons against the library when loaded locally
   )
 endif()
 
