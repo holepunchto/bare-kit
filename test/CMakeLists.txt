@@ -69,18 +69,11 @@ target_link_libraries(
 # binding would.
 add_library(test_embedder SHARED)
 
-if(WIN32)
-  target_sources(
-    test_embedder
-    PRIVATE
-      ../src/win32/bare-kit.def
-  )
-endif()
-
 target_link_libraries(
   test_embedder
   PRIVATE
     bare_kit
+    bare_kit_exports
 )
 
 if(ANDROID)
@@ -126,6 +119,42 @@ foreach(test IN ITEMS worklet-addon-dynamic worklet-addon-embedded)
     )
   endif()
 endforeach()
+
+if(APPLE OR LINUX)
+  add_executable(test_worklet-global-scope worklet-global-scope.c)
+
+  target_include_directories(
+    test_worklet-global-scope
+    PRIVATE
+      ../include
+  )
+
+  target_compile_definitions(
+    test_worklet-global-scope
+    PRIVATE
+      BARE_KIT="$<TARGET_FILE:bare_kit_shared>"
+  )
+
+  target_link_libraries(
+    test_worklet-global-scope
+    PRIVATE
+      ${CMAKE_DL_LIBS}
+  )
+
+  add_dependencies(test_worklet-global-scope bare_kit_shared)
+
+  add_test(
+    NAME worklet-global-scope
+    COMMAND test_worklet-global-scope
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  )
+
+  set_tests_properties(
+    worklet-global-scope
+    PROPERTIES
+    TIMEOUT 120
+  )
+endif()
 
 foreach(test IN ITEMS worklet-addon-static worklet-addon-shared worklet-addon-dynamic worklet-addon-embedded)
   target_compile_definitions(

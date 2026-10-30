@@ -1,6 +1,5 @@
 const path = require('bare-path')
 const fs = require('bare-fs')
-const crypto = require('bare-crypto')
 const { pathToFileURL } = require('bare-url')
 const URL = require('bare-url')
 const Module = require('bare-module')
@@ -157,7 +156,7 @@ function extract(resources, filename, readResource) {
 // Worklets may extract the same resources at once, so each file is moved into
 // place whole.
 function write(target, data) {
-  const tmp = target + '.' + crypto.randomBytes(8).toString('hex')
+  const tmp = target + '.' + Math.random().toString(16).slice(2)
 
   fs.mkdirSync(path.dirname(target), { recursive: true })
   fs.writeFileSync(tmp, Buffer.from(data))

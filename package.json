@@ -18,7 +18,6 @@
   "homepage": "https://github.com/holepunchto/bare-kit#readme",
   "dependencies": {
     "bare-console": "^6.0.0",
-    "bare-crypto": "^1.2.8",
     "bare-fs": "^4.0.1",
     "bare-logger": "^2.0.0",
     "bare-module": "^7.5.0",
