@@ -127,8 +127,6 @@ Bare.on('uncaughtException', (err) => {
 })
 ```
 
-See [`uncaughtException`](https://github.com/holepunchto/bare#bareonuncaughtexception-err) and [`unhandledRejection`](https://github.com/holepunchto/bare#bareonunhandledrejection-reason-promise) for the underlying behavior.
-
 ## License
 
 Apache-2.0
