@@ -1,0 +1,8 @@
+# https://clang.llvm.org/docs/LeakSanitizer.html#suppressions
+
+# The pages the Objective-C runtime keeps for the autorelease pools of a thread.
+leak:objc_autoreleasePoolPush
+
+# The continuations libdispatch caches per thread once released.
+leak:_dispatch_continuation_alloc_from_heap
+leak:_dispatch_continuation_pop
