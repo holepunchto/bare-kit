@@ -158,6 +158,7 @@ link_bare_modules(
     bare-module
     bare-module-lexer
     bare-path
+    bare-sleep
     bare-structured-clone
     bare-system-logger
     bare-timers
