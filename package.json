@@ -32,7 +32,7 @@
     "cmake-bare-bundle": "^3.1.0",
     "cmake-fetch": "^1.5.5",
     "cmake-napi": "^1.4.0",
-    "cmake-prelude": "^0.1.6",
+    "cmake-prelude": "^0.1.7",
     "cmake-test": "^0.1.7",
     "lunte": "^1.6.0",
     "prettier": "^3.3.3",
