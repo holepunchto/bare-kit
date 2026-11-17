@@ -108,8 +108,8 @@ Poll callbacks run on a thread owned by the IPC rather than the thread that star
 
 The native addons of a worklet resolve the symbols of Bare from the host process. This works as is when the host links or loads the shared library. Otherwise:
 
-- A host that links Bare Kit statically into an executable must export its symbols, such as with `ENABLE_EXPORTS` and, on Windows, `WINDOWS_EXPORT_ALL_SYMBOLS` in CMake.
-- A host that links Bare Kit statically into a shared library must keep its symbols exported. On Android, it must also link with `-z global`.
+- A host that links Bare Kit statically must link the whole archive, so that the builtin native addons are kept, and export its symbols. In CMake, link `$<LINK_LIBRARY:WHOLE_ARCHIVE,bare_kit::static>` and `bare_kit::exports`.
+- A host that links Bare Kit statically into a shared library must, on Android, also link with `-z global`.
 
 Addons may bind to the wrong symbols if the process already exports libuv, V8, or Node-API, as Node.js and Electron do, or holds more than one copy of Bare Kit.
 
