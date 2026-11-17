@@ -20,6 +20,7 @@ add_bare_bundle(
   ENTRY src/worklet.js
   OUT src/worklet.bundle.h
   BUILTINS src/builtins.json
+  COMPRESSED
 )
 
 set(sources
