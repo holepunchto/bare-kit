@@ -1,9 +1,3 @@
-add_bare_module(addon INSTALL OFF)
-
-target_sources(
-  ${addon}
-  PRIVATE
-    binding.c
-)
+add_bare_module(addon SOURCES binding.c INSTALL OFF)
 
 set(addon ${addon} PARENT_SCOPE)

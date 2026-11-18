@@ -8,10 +8,9 @@ extern "C" {
 typedef struct bare_suspension_s bare_suspension_t;
 
 struct bare_suspension_s {
-#if defined(BARE_KIT_IOS)
-  // Retained, as an expiration handler may outlive the suspension.
+  // The background task on iOS, retained as an expiration handler may outlive
+  // the suspension. Unused on other platforms.
   void *task;
-#endif
 };
 
 int
