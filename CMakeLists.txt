@@ -13,7 +13,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.38.0" SOURCE_DIR bare)
+fetch_package("github:holepunchto/bare@1.38.0")
 
 add_bare_bundle(
   bare_kit_bundle
@@ -107,7 +107,7 @@ add_library_targets(
   EXPORT OFF
 )
 
-link_bare_modules(bare_kit::<TYPE> FROM src/builtins.json EXCLUDE_FROM "${bare}/src/builtins.json")
+link_bare_modules(bare_kit::<TYPE> FROM src/builtins.json EXCLUDE_FROM bare::static)
 
 target_link_libraries(
   bare_kit_exports
