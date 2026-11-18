@@ -107,14 +107,6 @@ add_library_targets(
   EXPORT OFF
 )
 
-if(IOS)
-  target_compile_definitions(
-    bare_kit
-    PRIVATE
-      BARE_KIT_IOS
-  )
-endif()
-
 link_bare_modules(bare_kit::<TYPE> FROM src/builtins.json EXCLUDE_FROM "${bare}/src/builtins.json")
 
 target_link_libraries(
