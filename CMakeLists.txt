@@ -7,7 +7,7 @@ find_package(cmake-napi REQUIRED PATHS node_modules/cmake-napi)
 find_package(cmake-prelude REQUIRED PATHS node_modules/cmake-prelude)
 find_package(cmake-test REQUIRED PATHS node_modules/cmake-test)
 
-project(bare_kit LANGUAGES C CXX VERSION 3.2.0)
+project(bare_kit LANGUAGES C CXX VERSION 3.2.1)
 
 if(APPLE)
   enable_language(OBJC)
