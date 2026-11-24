@@ -128,8 +128,19 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
 BARE_KIT_EXPORT void
 bare_worklet_destroy(bare_worklet_t *worklet);
 
-// Lifecycle callbacks, called on the worklet thread. They must be configured
-// before starting the worklet.
+/**
+ * Destroy the worklet like `bare_worklet_destroy()`, but first clear all of its
+ * callbacks, so none is called afterwards, not even the exit callback. Waits
+ * for a callback that is running on another thread to return, but otherwise
+ * never blocks. For hosts that may go away before the worklet has torn down.
+ */
+BARE_KIT_EXPORT void
+bare_worklet_abandon(bare_worklet_t *worklet);
+
+// Lifecycle callbacks, called on the worklet thread. They may be replaced or
+// cleared with `NULL` at any time until the worklet is destroyed, including from
+// a callback. Once a setter returns, the callback it replaced is no longer
+// called, and a call that was running has returned.
 
 /**
  * Called when the worklet suspends, with the number of milliseconds that it
@@ -161,8 +172,8 @@ bare_worklet_on_resume(bare_worklet_t *worklet, bare_worklet_resume_cb cb, void 
 /**
  * Called exactly once on the worklet thread with the exit code of the worklet
  * once it has torn down, whether it exited on its own, was terminated, or was
- * destroyed, so `data` must be kept until then. An ipc of the worklet has
- * reached end-of-stream by then.
+ * destroyed, so `data` must be kept until then unless the callback is cleared
+ * first. An ipc of the worklet has reached end-of-stream by then.
  */
 BARE_KIT_EXPORT int
 bare_worklet_on_exit(bare_worklet_t *worklet, bare_worklet_exit_cb cb, void *data);

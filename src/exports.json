@@ -3,6 +3,7 @@
   "bare_worklet_teardown",
   "bare_worklet_create",
   "bare_worklet_destroy",
+  "bare_worklet_abandon",
   "bare_worklet_on_suspend",
   "bare_worklet_on_wakeup",
   "bare_worklet_on_idle",
