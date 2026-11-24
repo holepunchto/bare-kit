@@ -92,6 +92,8 @@ Once the worklet has exited and torn down, the exit callback is called exactly o
 
 `bare_worklet_destroy()` never blocks. It terminates the worklet if it is still running and hands it over to tear itself down, and it may be called before or after destroying its IPC.
 
+A host that may go away before the worklet has torn down, such as a language runtime that frees its callbacks on shutdown, calls `bare_worklet_abandon()` instead. It destroys the worklet the same way, but first clears every callback, so none is called afterwards, not even the exit callback. It only waits for a callback that is already running on another thread to return.
+
 The worklets of a process share a single JavaScript platform, which can only be created once. A host that is done with Bare Kit for good calls `bare_worklet_teardown()` once its worklets have been terminated or destroyed: it waits for any worklet still tearing down and then destroys the platform, after which no worklet may start. A host that runs worklets for as long as it lives need not call it.
 
 ## IPC

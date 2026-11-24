@@ -9,6 +9,8 @@ add_test_executables(
 )
 
 add_test_executables(
+  worklet-abandon.c
+  worklet-clear-callback.c
   worklet-exit-code.c
   worklet-ipc.c
   worklet-ipc-after-destroy.c

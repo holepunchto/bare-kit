@@ -31,6 +31,10 @@ struct bare_worklet_state_s {
   bool resuming;
 
   struct {
+    // Held across each call so that a callback, once replaced, is never called
+    // again. Recursive so that a callback can replace callbacks itself.
+    uv_mutex_t lock;
+
     bare_worklet_suspend_cb suspend;
     void *suspend_data;
 
@@ -98,6 +102,9 @@ bare_worklet_create(const bare_worklet_options_t *options, bare_worklet_t **resu
   err = uv_mutex_init(&state->lock);
   assert(err == 0);
 
+  err = uv_mutex_init_recursive(&state->callbacks.lock);
+  assert(err == 0);
+
   worklet->state = state;
   worklet->queue = queue;
 
@@ -123,6 +130,7 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
     // Never started, so the worklet's share of the queue is still ours. Closing
     // its end lets an open ipc see EOF.
     uv_mutex_destroy(&worklet->state->lock);
+    uv_mutex_destroy(&worklet->state->callbacks.lock);
 
     free(worklet->state);
 
@@ -135,42 +143,79 @@ bare_worklet_destroy(bare_worklet_t *worklet) {
   free(worklet);
 }
 
+void
+bare_worklet_abandon(bare_worklet_t *worklet) {
+  bare_worklet_state_t *state = worklet->state;
+
+  uv_mutex_lock(&state->callbacks.lock);
+
+  state->callbacks.suspend = NULL;
+  state->callbacks.wakeup = NULL;
+  state->callbacks.idle = NULL;
+  state->callbacks.resume = NULL;
+  state->callbacks.exit = NULL;
+
+  uv_mutex_unlock(&state->callbacks.lock);
+
+  bare_worklet_destroy(worklet);
+}
+
 int
 bare_worklet_on_suspend(bare_worklet_t *worklet, bare_worklet_suspend_cb cb, void *data) {
+  uv_mutex_lock(&worklet->state->callbacks.lock);
+
   worklet->state->callbacks.suspend = cb;
   worklet->state->callbacks.suspend_data = data;
+
+  uv_mutex_unlock(&worklet->state->callbacks.lock);
 
   return 0;
 }
 
 int
 bare_worklet_on_wakeup(bare_worklet_t *worklet, bare_worklet_wakeup_cb cb, void *data) {
+  uv_mutex_lock(&worklet->state->callbacks.lock);
+
   worklet->state->callbacks.wakeup = cb;
   worklet->state->callbacks.wakeup_data = data;
+
+  uv_mutex_unlock(&worklet->state->callbacks.lock);
 
   return 0;
 }
 
 int
 bare_worklet_on_idle(bare_worklet_t *worklet, bare_worklet_idle_cb cb, void *data) {
+  uv_mutex_lock(&worklet->state->callbacks.lock);
+
   worklet->state->callbacks.idle = cb;
   worklet->state->callbacks.idle_data = data;
+
+  uv_mutex_unlock(&worklet->state->callbacks.lock);
 
   return 0;
 }
 
 int
 bare_worklet_on_resume(bare_worklet_t *worklet, bare_worklet_resume_cb cb, void *data) {
+  uv_mutex_lock(&worklet->state->callbacks.lock);
+
   worklet->state->callbacks.resume = cb;
   worklet->state->callbacks.resume_data = data;
+
+  uv_mutex_unlock(&worklet->state->callbacks.lock);
 
   return 0;
 }
 
 int
 bare_worklet_on_exit(bare_worklet_t *worklet, bare_worklet_exit_cb cb, void *data) {
+  uv_mutex_lock(&worklet->state->callbacks.lock);
+
   worklet->state->callbacks.exit = cb;
   worklet->state->callbacks.exit_data = data;
+
+  uv_mutex_unlock(&worklet->state->callbacks.lock);
 
   return 0;
 }
@@ -303,7 +348,11 @@ bare_worklet__on_suspend(bare_t *bare, int linger, void *data) {
 
   if (state->finished) return;
 
+  uv_mutex_lock(&state->callbacks.lock);
+
   if (state->callbacks.suspend) state->callbacks.suspend(linger, state->callbacks.suspend_data);
+
+  uv_mutex_unlock(&state->callbacks.lock);
 }
 
 static void
@@ -312,7 +361,11 @@ bare_worklet__on_wakeup(bare_t *bare, int deadline, void *data) {
 
   if (state->finished) return;
 
+  uv_mutex_lock(&state->callbacks.lock);
+
   if (state->callbacks.wakeup) state->callbacks.wakeup(deadline, state->callbacks.wakeup_data);
+
+  uv_mutex_unlock(&state->callbacks.lock);
 }
 
 static void
@@ -334,7 +387,11 @@ bare_worklet__on_idle(bare_t *bare, void *data) {
 
   if (state->finished) return;
 
+  uv_mutex_lock(&state->callbacks.lock);
+
   if (state->callbacks.idle) state->callbacks.idle(state->callbacks.idle_data);
+
+  uv_mutex_unlock(&state->callbacks.lock);
 }
 
 static void
@@ -349,7 +406,11 @@ bare_worklet__on_resume(bare_t *bare, void *data) {
 
   if (state->finished) return;
 
+  uv_mutex_lock(&state->callbacks.lock);
+
   if (state->callbacks.resume) state->callbacks.resume(state->callbacks.resume_data);
+
+  uv_mutex_unlock(&state->callbacks.lock);
 }
 
 static void
@@ -663,7 +724,11 @@ bare_worklet__on_thread(void *opaque) {
 
   bare_suspension_destroy(&state->suspension);
 
+  uv_mutex_lock(&state->callbacks.lock);
+
   if (state->callbacks.exit) state->callbacks.exit(exit_code, state->callbacks.exit_data);
+
+  uv_mutex_unlock(&state->callbacks.lock);
 
   bare_worklet__on_stopped();
 
@@ -677,6 +742,7 @@ bare_worklet__on_thread(void *opaque) {
   bare_kit__on_thread_exit();
 
   uv_mutex_destroy(&state->lock);
+  uv_mutex_destroy(&state->callbacks.lock);
 
   free(state);
 }
