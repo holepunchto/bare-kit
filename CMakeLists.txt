@@ -13,7 +13,7 @@ if(APPLE)
   enable_language(OBJC)
 endif()
 
-fetch_package("github:holepunchto/bare@1.38.0")
+fetch_package("github:holepunchto/bare@1.39.0")
 
 add_bare_bundle(
   bare_kit_bundle
